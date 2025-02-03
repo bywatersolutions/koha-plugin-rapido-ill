@@ -114,7 +114,7 @@ jobs:
         done
         echo "KTD: ready!"
         docker cp $GITHUB_REPO/. koha-koha-1:/var/lib/koha/kohadev/plugins
-        docker exec koha-koha-1 bash -c 'prove /var/lib/koha/kohadev/plugins/t'
+        docker exec koha-koha-1 bash -c 'PERL5LIB=$PERL5LIB:/var/lib/koha/kohadev/plugins/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib/:/var/lib/koha/kohadev/plugins prove /var/lib/koha/kohadev/plugins/t'
         
     - name: Post test cleanup
       run: |
