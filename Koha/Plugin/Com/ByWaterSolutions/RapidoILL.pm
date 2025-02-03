@@ -881,6 +881,34 @@ sub get_ua {
     return $self->{_oauth2}->{$central_server};
 }
 
+=head3 get_client
+
+This method retrieves a user agent to contact a central server.
+
+=cut
+
+sub get_client {
+    my ( $self, $central_server ) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'central_server' missing")
+        unless $central_server;
+
+    require RapidoILL::Client;
+
+    my $configuration = $self->configuration->{$central_server};
+
+    unless ( $self->{client}->{$central_server} ) {
+        $self->{client}->{$central_server} = RapidoILL::Client->new(
+            {
+                central_server => $central_server,
+                plugin         => $self,
+            }
+        );
+    }
+
+    return $self->{client}->{$central_server};
+}
+
 =head3 get_normalizer
 
 =cut
@@ -1115,16 +1143,7 @@ sub get_agencies_list {
     RapidoILL::Exception::MissingParameter->throw( param => 'central_server' )
         unless $central_server;
 
-    my $response;
-
-    try {
-        $response = $self->get_ua($central_server)->get_request( { endpoint => "/view/broker/locals" } );
-    } catch {
-        my $e = $_ // "";
-        RapidoILL::Exception::UnhandledException->throw("Unhandled exception in 'get_agencies_list': $e");
-    };
-
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return $self->get_client($central_server)->locals();
 }
 
 =head3 sync_agencies
