@@ -38,15 +38,12 @@ use Koha::Libraries;
 use Koha::Patron::Categories;
 use Koha::Patrons;
 
+require RapidoILL::Exceptions;
+
 BEGIN {
     my $path = Module::Metadata->find_module_by_name(__PACKAGE__);
     $path =~ s!\.pm$!/lib!;
     unshift @INC, $path;
-
-    require RapidoILL::Backend;
-    require RapidoILL::Exceptions;
-    require RapidoILL::OAuth2;
-    require RapidoILL::StringNormalizer;
 }
 
 our $VERSION = "0.0.3";
@@ -261,6 +258,8 @@ Required method utilized by I<Koha::ILL::Request> load_backend
 sub new_ill_backend {
     my ( $self, $params ) = @_;
 
+    require RapidoILL::Backend;
+
     my $args = {
         config => $params->{config},
         logger => $params->{logger},
@@ -419,7 +418,7 @@ with an item, so a hold is placed for it. It returns the generated I<Koha::Item>
 =cut
 
 sub add_virtual_record_and_item {
-    my ($args) = @_;
+    my ($self, $args) = @_;
 
     my $barcode     = $args->{barcode};
     my $call_number = $args->{call_number};
@@ -453,7 +452,7 @@ sub add_virtual_record_and_item {
         my $default_normalizers = $config->{default_barcode_normalizers} // [];
 
         if ( scalar @{$default_normalizers} ) {
-            my $normalizer = RapidoILL::StringNormalizer->new($default_normalizers);
+            my $normalizer = $self->get_normalizer($default_normalizers);
             $barcode = $normalizer->process($barcode);
         }
     }
@@ -864,6 +863,8 @@ sub get_ua {
     RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'central_server' missing")
         unless $central_server;
 
+    require RapidoILL::OAuth2;
+
     my $configuration = $self->configuration->{$central_server};
 
     unless ( $self->{_oauth2}->{$central_server} ) {
@@ -878,6 +879,16 @@ sub get_ua {
     }
 
     return $self->{_oauth2}->{$central_server};
+}
+
+=head3 get_normalizer
+
+=cut
+
+sub get_normalizer {
+    my ($self, $args) = @_;
+    require RapidoILL::StringNormalizer;
+    return RapidoILL::StringNormalizer->new($args);
 }
 
 =head3 debug_mode

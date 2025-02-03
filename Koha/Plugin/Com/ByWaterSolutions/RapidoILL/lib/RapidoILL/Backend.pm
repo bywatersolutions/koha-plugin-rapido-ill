@@ -34,8 +34,6 @@ use Koha::Patrons;
 
 use RapidoILL::Exceptions;
 
-#use Koha::Plugin::Com::Theke::INNReach::Utils qw(add_virtual_record_and_item);
-
 #use INNReach::Commands::BorrowingSite;
 
 =head1 NAME
@@ -726,7 +724,7 @@ sub receive_unshipped {
                     }
 
                     # Create the MARC record and item
-                    $item = add_virtual_record_and_item(
+                    $item = $self->{plugin}->add_virtual_record_and_item(
                         {
                             req         => $req,
                             config      => $config,
