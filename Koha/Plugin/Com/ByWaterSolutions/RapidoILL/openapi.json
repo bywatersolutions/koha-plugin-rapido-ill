@@ -1,0 +1,217 @@
+{
+  "/circulation/verifypatron": {
+    "post": {
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#verifypatron",
+      "operationId": "rapidoILLVerifypatron",
+      "description": "Endpoint used by Central to verify patron status on the local server",
+      "tags": [
+        "patrons"
+      ],
+      "parameters": [
+        {
+          "description": "Patron verification data",
+          "in": "body",
+          "name": "body",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "visiblePatronId": {
+                "type": "string",
+                "description": "Internal identifier for the patron"
+              },
+              "patronAgencyCode": {
+                "type": "string",
+                "description": "Patron agency code"
+              },
+              "patronName": {
+                "type": "string",
+                "description": "Maximum 128 characters"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "produces": [
+        "application/json"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful patron verification",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "requestAllowed": {
+                "type": "boolean"
+              },
+              "patronInfo": {
+                "type": "object",
+                "properties": {
+                  "patronId": {
+                    "type": "string",
+                    "description": "Permanent unique patron ID"
+                  },
+                  "patronAgencyCode": {
+                    "type": "string",
+                    "description": "5 character code"
+                  },
+                  "centralPatronType": {
+                    "type": "integer",
+                    "description": "0-255"
+                  },
+                  "patronExpireDate": {
+                    "type": "integer",
+                    "description": "Epoch UNIX time stamp"
+                  },
+                  "localLoans": {
+                    "type": "integer",
+                    "description": "Number of local (within library) loans"
+                  },
+                  "nonLocalLoans": {
+                    "type": "integer",
+                    "description": "Number of non-local (INN-Reach, ILL, etc.) loans"
+                  },
+                  "patronName": {
+                    "type": "string",
+                    "description": "Maximum 128 characters"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Bad request"
+        },
+        "403": {
+          "description": "Forbidden"
+        },
+        "404": {
+          "description": "Resource not found"
+        },
+        "409": {
+          "description": "Conflicting request"
+        },
+        "500": {
+          "description": "Internal server error"
+        },
+        "501": {
+          "description": "Internal server error"
+        }
+      },
+      "x-koha-authorization": {
+        "permissions": {
+          "borrowers": "1"
+        }
+      }
+    }
+  },
+  "/koha/checkin/{barcode}": {
+    "post": {
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#local_checkin",
+      "operationId": "rapidoILLKohaCheckin",
+      "description": "Endpoint used by the plugin to trigger actions related to the checkin of the item",
+      "tags": [
+        "circulation"
+      ],
+      "parameters": [
+        {
+          "name": "barcode",
+          "in": "path",
+          "description": "Scanned barcode",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "produces": [
+        "application/json"
+      ],
+      "responses": {
+        "200": {
+          "description": "The ILL backend got notified"
+        },
+        "400": {
+          "description": "Bad request"
+        },
+        "403": {
+          "description": "Forbidden"
+        },
+        "404": {
+          "description": "Resource not found"
+        },
+        "409": {
+          "description": "Conflicting request"
+        },
+        "500": {
+          "description": "Internal server error"
+        },
+        "501": {
+          "description": "Internal server error"
+        }
+      },
+      "x-koha-authorization": {
+        "permissions": {
+          "circulate": "1"
+        }
+      }
+    }
+  },
+  "/koha/ill_requests/{ill_request_id}/print_slips/{print_slip_id}": {
+    "get": {
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#get_print_slip",
+      "operationId": "rapidoILLPrintSlip",
+      "description": "Endpoint used by the plugin to render the slip print page",
+      "tags": [
+        "circulation"
+      ],
+      "parameters": [
+        {
+          "name": "ill_request_id",
+          "in": "path",
+          "description": "The required ILL request identifier",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "print_slip_id",
+          "in": "path",
+          "description": "The required letter code",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "produces": [
+        "text/html"
+      ],
+      "responses": {
+        "200": {
+          "description": "The print slip HTML"
+        },
+        "400": {
+          "description": "Bad request"
+        },
+        "403": {
+          "description": "Forbidden"
+        },
+        "404": {
+          "description": "Resource not found"
+        },
+        "409": {
+          "description": "Conflicting request"
+        },
+        "500": {
+          "description": "Internal server error"
+        },
+        "501": {
+          "description": "Internal server error"
+        }
+      },
+      "x-koha-authorization": {
+        "permissions": {
+          "circulate": "1"
+        }
+      }
+    }
+  }
+}

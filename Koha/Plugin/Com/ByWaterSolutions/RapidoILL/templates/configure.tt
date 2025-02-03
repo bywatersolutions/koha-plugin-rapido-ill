@@ -1,0 +1,102 @@
+[% USE raw %]
+[% USE Asset %]
+
+[% PROCESS 'intra_html_helpers.inc' %]
+[% PROCESS rapido_docs_header incdocs_bc_items = [ { name => "Configuration", url => "#", active = 1 } ] %]
+
+  <style>
+    .CodeMirror {
+      border: 2px solid #eee;
+      height: auto;
+    }
+  </style>
+  <script type="text/javascript">
+
+      $(document).ready(function(){
+        $("#refresh").on("click",function(e){
+            e.preventDefault;
+            $('#api_key').val(gen_api_key(32));
+        });
+      });
+
+      function gen_api_key(size) {
+        var output = "";
+        var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+        for (var i = 0; i < size; i++)
+          output += chars.charAt(Math.floor(Math.random() * chars.length));
+
+        return output;
+      }
+  </script>
+
+[% Asset.js( "lib/codemirror/codemirror.min.js" ) | $raw %]
+[% Asset.css("lib/codemirror/codemirror.min.css") | $raw %]
+[% Asset.css("lib/codemirror/lint.min.css") | $raw %]
+
+<div class="main container-fluid">
+    <div class="row">
+        <div class="col-md-10 order-md-2 order-sm-1">
+            <h1>Rapido ILL configuration</h1>
+
+    [% IF errors %]
+        [% FOREACH error IN errors %]
+            <div class="dialog error">
+                [% SWITCH error.code %]
+                [% CASE 'ILLModule_disabled' %]<span>The <strong>mandatory</strong> system preference <a href="/cgi-bin/koha/admin/preferences.pl?op=search&searchfield=ILLModule">ILLModule<a> is disabled.</span>
+                [% CASE 'CirculateILL_enabled' %]<span>The system preference <strong>CirculateILL</strong> is enabled, but it is incompatible with this plugin.</span>
+                [% CASE 'missing_entry' %]<span>[<strong>[% error.central_server | html %]</strong>] Missing configuration entry for <strong>[% error.value | html %]</strong></span>
+                [% CASE 'undefined_partners_library_id' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>partners_library_id</strong> '[% error.value | html %]' is not defined on the system. Please define it <a href="/cgi-bin/koha/admin/branches.pl?op=add_form">here</a></span>
+                [% CASE 'undefined_partners_category' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>partners_category</strong> '[% error.value | html %]' is not defined on the system. Please define it <a href="/cgi-bin/koha/admin/categories.pl?op=add_form">here</a></span>
+                [% CASE 'library_missing_description' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>library_to_location</strong> mapping for '[% error.library | html %]' is missing the <strong>description</strong>.</span>
+                [% CASE 'library_missing_location' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>library_to_location</strong> mapping for '[% error.library | html %]' is missing the <strong>location</strong> code.</span>
+                [% END %]
+            </div>
+        [% END %]
+    [% END %]
+
+    <br/>
+
+      <form method="post">
+        <input type="hidden" name="class"  value="[% CLASS %]"/>
+        <input type="hidden" name="method" value="configure"/>
+        <input type="hidden" name="step"   value="configure"/>
+        <input type="hidden" name="save"   value="1"/>
+        <input type="hidden" name="op"     value="cud-save"/>
+        [% INCLUDE 'csrf-token.inc' %]
+        <div class="input-group">
+          <span class="input-group-addon" id="configuration_label">Configuration</span>
+          <textarea rows="200"
+                    columns="200"
+                    class="form-control"
+                    aria-describedby="configuration_label"
+                    name="configuration"
+                    id="configuration">[%- configuration -%]</textarea>
+        </div>
+        <br/>
+        <button type="submit" value="Save" class="btn btn-default" type="button">Save</button>
+      </form>
+  </div>
+  <div class="yui-b">
+    <div id="navmenu">&nbsp;</div>
+  </div>
+
+    [% Asset.js( "lib/codemirror/yaml.min.js" ) | $raw %]
+    [% Asset.js( "lib/codemirror/lint.min.js" ) | $raw %]
+    [% Asset.js( "lib/linters/js-yaml.min.js" ) | $raw %]
+    [% Asset.js( "lib/codemirror/yaml-lint.min.js" ) | $raw %]
+
+    <script>
+        $( document ).ready( function () {
+            var editor = CodeMirror.fromTextArea( document.getElementById( "configuration" ), {
+                lineNumbers: true,
+                mode: 'text/x-yaml',
+                lineWrapping: false,
+                gutters: ["CodeMirror-lint-markers"],
+                lint: true
+            });
+            editor.setSize(1000, 300);
+        });
+    </script>
+
+[% INCLUDE 'intranet-bottom.inc' %]

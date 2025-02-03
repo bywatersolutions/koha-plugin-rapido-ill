@@ -1,0 +1,1366 @@
+package Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# This program comes with ABSOLUTELY NO WARRANTY;
+
+use Modern::Perl;
+
+use base qw(Koha::Plugins::Base);
+
+use DDP;
+use Encode;
+use List::MoreUtils qw(any);
+use Module::Metadata;
+use Mojo::JSON qw(decode_json encode_json);
+use Try::Tiny;
+use YAML::XS;
+
+use C4::Context;
+use C4::Circulation qw(AddIssue AddReturn);
+use C4::Reserves    qw(AddReserve);
+
+use Koha::Biblios;
+use Koha::Database;
+use Koha::Items;
+use Koha::Libraries;
+use Koha::Patron::Categories;
+use Koha::Patrons;
+
+BEGIN {
+    my $path = Module::Metadata->find_module_by_name(__PACKAGE__);
+    $path =~ s!\.pm$!/lib!;
+    unshift @INC, $path;
+
+    require RapidoILL::Backend;
+    require RapidoILL::Exceptions;
+    require RapidoILL::OAuth2;
+    require RapidoILL::StringNormalizer;
+}
+
+our $VERSION = "0.0.0";
+
+our $metadata = {
+    name            => 'Rapido ILL',
+    author          => 'ByWater Solutions',
+    date_authored   => '2025-01-29',
+    date_updated    => "1970-01-01",
+    minimum_version => '24.05',
+    maximum_version => undef,
+    version         => $VERSION,
+    description     => 'Rapido ILL integration plugin',
+    namespace       => 'rapidoill',
+};
+
+=head1 Koha::Plugin::Com::ByWaterSolutions::RapidoILL
+
+Rapido ILL integration plugin
+
+=head2 Plugin methods
+
+=head3 new
+
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+
+Constructor method for the plugin.
+
+=cut
+
+sub new {
+    my ( $class, $args ) = @_;
+
+    $args->{'metadata'} = $metadata;
+    $args->{'metadata'}->{'class'} = $class;
+
+    my $self = $class->SUPER::new($args);
+
+    return $self;
+}
+
+=head3 configure
+
+Plugin configuration method
+
+=cut
+
+sub configure {
+    my ( $self, $args ) = @_;
+    my $cgi = $self->{'cgi'};
+
+    my $template = $self->get_template( { file => 'templates/configure.tt' } );
+
+    if ( scalar $cgi->param('op') eq 'cud-save' ) {
+
+        $self->store_data(
+            {
+                configuration => scalar $cgi->param('configuration'),
+            }
+        );
+    }
+
+    my $errors = $self->check_configuration;
+
+    $template->param(
+        errors        => $errors,
+        configuration => $self->retrieve_data('configuration'),
+    );
+
+    $self->output_html( $template->output() );
+}
+
+=head3 configuration
+
+Accessor for the de-serialized plugin configuration
+
+=cut
+
+=head3 configuration
+
+Accessor for the de-serialized plugin configuration
+
+=cut
+
+sub configuration {
+    my ( $self, $args ) = @_;
+
+    if ( !$self->{_configuration} || $args->{recreate} ) {
+        my $configuration;
+        eval { $configuration = YAML::XS::Load( Encode::encode_utf8( $self->retrieve_data('configuration') ) ); };
+        die($@) if $@;
+
+        foreach my $centralServer ( keys %{$configuration} ) {
+
+            # Reverse the library_to_location key
+            my $library_to_location = $configuration->{$centralServer}->{library_to_location};
+            if ($library_to_location) {
+                $configuration->{$centralServer}->{location_to_library} = {
+                    map { $library_to_location->{$_}->{location} => $_ }
+                        keys %{$library_to_location}
+                };
+            }
+
+            # Reverse the local_to_central_patron_type key
+            my $local_to_central_patron_type = $configuration->{$centralServer}->{local_to_central_patron_type};
+            if ($local_to_central_patron_type) {
+                my %central_to_local_patron_type = reverse %{$local_to_central_patron_type};
+                $configuration->{$centralServer}->{central_to_local_patron_type} = \%central_to_local_patron_type;
+            }
+
+            $configuration->{$centralServer}->{debt_blocks_holds}        //= 1;
+            $configuration->{$centralServer}->{max_debt_blocks_holds}    //= 100;
+            $configuration->{$centralServer}->{expiration_blocks_holds}  //= 1;
+            $configuration->{$centralServer}->{restriction_blocks_holds} //= 1;
+        }
+
+        $self->{_configuration} = $configuration;
+    }
+
+    return $self->{_configuration};
+}
+
+=head3 install
+
+Install method. Takes care of table creation and initialization if required
+
+=cut
+
+sub install {
+    my ( $self, $args ) = @_;
+
+    my $dbh = C4::Context->dbh;
+
+    my $task_queue = $self->get_qualified_table_name('task_queue');
+
+    unless ( $self->_table_exists($task_queue) ) {
+        $dbh->do(
+            qq{
+            CREATE TABLE $task_queue (
+                `id`           INT(11) NOT NULL AUTO_INCREMENT,
+                `object_type`  ENUM('biblio', 'item', 'circulation', 'holds') NOT NULL DEFAULT 'biblio',
+                `object_id`    INT(11) NOT NULL DEFAULT 0,
+                `payload`      TEXT DEFAULT NULL,
+                `action`       ENUM('create','modify','delete','renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL DEFAULT 'modify',
+                `status`       ENUM('queued','retry','success','error','skipped') NOT NULL DEFAULT 'queued',
+                `attempts`     INT(11) NOT NULL DEFAULT 0,
+                `last_error`   VARCHAR(191) DEFAULT NULL,
+                `timestamp`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `central_server` VARCHAR(10) NOT NULL,
+                `run_after`    TIMESTAMP NULL DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                KEY `status` (`status`),
+                KEY `central_server` (`central_server`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        }
+        );
+    }
+
+    my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
+
+    unless ( $self->_table_exists($agency_to_patron) ) {
+        $dbh->do(
+            qq{
+            CREATE TABLE $agency_to_patron (
+                `central_server` VARCHAR(191) NOT NULL,
+                `local_server`   VARCHAR(191) NULL DEFAULT NULL,
+                `agency_id`      VARCHAR(191) NOT NULL,
+                `patron_id`      INT(11) NOT NULL,
+                `timestamp`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`central_server`,`agency_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        }
+        );
+    }
+
+    return 1;
+}
+
+=head3 upgrade
+
+Takes care of upgrading whatever is needed (table structure, new tables, information on those)
+
+=cut
+
+sub upgrade {
+    my ( $self, $args ) = @_;
+
+    # my $dbh = C4::Context->dbh;
+
+    return 1;
+}
+
+=head3 ill_backend
+
+    print $plugin->ill_backend();
+
+Returns a string representing the backend name.
+
+=cut
+
+sub ill_backend {
+    my ( $class, $args ) = @_;
+    return 'RapidoILL';
+}
+
+=head3 new_ill_backend
+
+Required method utilized by I<Koha::ILL::Request> load_backend
+
+=cut
+
+sub new_ill_backend {
+    my ( $self, $params ) = @_;
+
+    my $args = {
+        config => $params->{config},
+        logger => $params->{logger},
+        plugin => $self,
+    };
+
+    my $templates_path = $self->template_include_paths();
+
+    # FIXME: Adapt or remove if required on this backend
+    $args->{templates} = {
+        'INCDOCS_MIGRATE_IN'     => $templates_path . '/incdocs_migrate_in.tt',
+        'INCDOCS_STATUS_CHECK'   => $templates_path . '/incdocs_status_check.tt',
+        'INCDOCS_REQUEST_PLACED' => $templates_path . '/incdocs_request_placed.tt'
+    };
+
+    return RapidoILL::Backend->new($args);
+}
+
+=head3 _table_exists (helper)
+
+Method to check if a table exists in Koha.
+
+FIXME: Should be made available to plugins in core
+
+=cut
+
+sub _table_exists {
+    my ( $self, $table ) = @_;
+    eval {
+        C4::Context->dbh->{PrintError} = 0;
+        C4::Context->dbh->{RaiseError} = 1;
+        C4::Context->dbh->do(qq{SELECT * FROM $table WHERE 1 = 0 });
+    };
+    return 1 unless $@;
+    return 0;
+}
+
+=head3 schedule_task
+
+    $plugin->schedule_task(
+        {
+            action         => $action,
+            central_server => $central_server,
+            object_type    => $object_type,
+            object_id      => $object->id
+        }
+    );
+
+Method for adding tasks to the queue
+
+=cut
+
+sub schedule_task {
+    my ( $self, $params ) = @_;
+
+    my @mandatory_params = qw(action central_server object_type object_id);
+    foreach my $param (@mandatory_params) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless exists $params->{$param};
+    }
+
+    my $action         = $params->{action};
+    my $central_server = $params->{central_server};
+    my $object_type    = $params->{object_type};
+    my $object_id      = $params->{object_id};
+    my $payload        = $params->{payload};
+
+    $payload = ""
+        unless $payload;
+
+    my $task_queue = $self->get_qualified_table_name('task_queue');
+
+    C4::Context->dbh->do(
+        qq{
+        INSERT INTO $task_queue
+            (  central_server,     object_type,   object_id,   action,   status,  attempts,  payload )
+        VALUES
+            ( '$central_server', '$object_type', $object_id, '$action', 'queued',        0, '$payload' );
+    }
+    );
+
+    return $self;
+}
+
+=head3 api_routes
+
+Method that returns the API routes to be merged into Koha's
+
+=cut
+
+sub api_routes {
+    my ( $self, $args ) = @_;
+
+    my $spec_str = $self->mbf_read('openapi.json');
+    my $spec     = decode_json($spec_str);
+
+    return $spec;
+}
+
+=head3 api_namespace
+
+Method that returns the namespace for the plugin API to be put on
+
+=cut
+
+sub api_namespace {
+    my ($self) = @_;
+
+    return 'rapidoill';
+}
+
+=head3 template_include_paths
+
+Plugin hook used to register paths to find templates
+
+=cut
+
+sub template_include_paths {
+    my ($self) = @_;
+
+    return [
+        $self->mbf_path('templates'),
+    ];
+}
+
+=head3 cronjob_nightly
+
+Plugin hook for running nightly tasks
+
+=cut
+
+sub cronjob_nightly {
+    my ($self) = @_;
+
+    foreach my $central_server ( @{ $self->central_servers } ) {
+        $self->sync_agencies($central_server);
+    }
+}
+
+=head2 Business methods
+
+=head3 add_virtual_record_and_item
+
+    my $item = add_virtual_record_and_item(
+        {
+            barcode      => $barcode,
+            call_number  => $call_number,
+            central_code => $central_code,
+            req          => $req,
+        }
+    );
+
+This method is used for adding a virtual (hidden for end-users) MARC record
+with an item, so a hold is placed for it. It returns the generated I<Koha::Item> object.
+
+=cut
+
+sub add_virtual_record_and_item {
+    my ($args) = @_;
+
+    my $barcode     = $args->{barcode};
+    my $call_number = $args->{call_number};
+    my $config      = $args->{config};
+    my $req         = $args->{req};
+
+    # values from configuration
+    my $marc_flavour              = C4::Context->preference('marcflavour');      # FIXME: do we need this?
+    my $framework_code            = $config->{default_marc_framework} || 'FA';
+    my $ccode                     = $config->{default_item_ccode};
+    my $location                  = $config->{default_location};
+    my $notforloan                = $config->{default_notforloan} // -1;
+    my $checkin_note              = $config->{default_checkin_note} || 'Additional processing required (ILL)';
+    my $no_barcode_central_itypes = $config->{no_barcode_central_itypes} // [];
+
+    my $materials;
+
+    if ( $config->{materials_specified} ) {
+        $materials =
+            ( defined $config->{default_materials_specified} )
+            ? $config->{default_materials_specified}
+            : 'Additional processing required (ILL)';
+    }
+
+    my $attributes      = $req->extended_attributes;
+    my $centralItemType = $attributes->search( { type => 'centralItemType' } )->next->value;
+
+    if ( any { $centralItemType eq $_ } @{$no_barcode_central_itypes} ) {
+        $barcode = undef;
+    } else {
+        my $default_normalizers = $config->{default_barcode_normalizers} // [];
+
+        if ( scalar @{$default_normalizers} ) {
+            my $normalizer = RapidoILL::StringNormalizer->new($default_normalizers);
+            $barcode = $normalizer->process($barcode);
+        }
+    }
+
+    # determine the right item types
+    my $item_type;
+    if ( exists $config->{central_to_local_itype} ) {
+        $item_type =
+            ( exists $config->{central_to_local_itype}->{$centralItemType}
+                and $config->{central_to_local_itype}->{$centralItemType} )
+            ? $config->{central_to_local_itype}->{$centralItemType}
+            : $config->{default_item_type};
+    } else {
+        $item_type = $config->{default_item_type};
+    }
+
+    unless ($item_type) {
+        RapidoILL::Exception::MissingConfigEntry->throw( entry => 'default_item_type' );
+    }
+
+    my $author_attr = $attributes->search( { type => 'author' } )->next;
+    my $author      = ($author_attr) ? $author_attr->value : '';
+    my $title_attr  = $attributes->search( { type => 'title' } )->next;
+    my $title       = ($title_attr) ? $title_attr->value : '';
+
+    RapidoILL::Exception::BadConfig->throw( entry => 'marcflavour', value => $marc_flavour )
+        unless $marc_flavour eq 'MARC21';
+
+    my $record = MARC::Record->new();
+    $record->leader('     nac a22     1u 4500');
+    $record->insert_fields_ordered(
+        MARC::Field->new( '100', '1', '0', 'a' => $author ),
+        MARC::Field->new( '245', '1', '0', 'a' => $title ),
+        MARC::Field->new(
+            '942', '1', '0',
+            'n' => 1,
+            'c' => $item_type
+        )
+    );
+
+    my $item;
+    my $schema = Koha::Database->new->schema;
+    $schema->txn_do(
+        sub {
+            my ( $biblio_id, $biblioitemnumber ) = AddBiblio( $record, $framework_code );
+
+            my $item_data = {
+                barcode             => $barcode,
+                biblioitemnumber    => $biblioitemnumber,
+                biblionumber        => $biblio_id,
+                ccode               => $ccode,
+                holdingbranch       => $req->branchcode,
+                homebranch          => $req->branchcode,
+                itemcallnumber      => $call_number,
+                itemnotes_nonpublic => $checkin_note,
+                itype               => $item_type,
+                location            => $location,
+                materials           => $materials,
+                notforloan          => $notforloan,
+            };
+
+            $item = Koha::Item->new($item_data)->store;
+        }
+    );
+
+    return $item;
+}
+
+=head3 generate_patron_for_agency
+
+    my $patron = $plugin->generate_patron_for_agency(
+        {
+            central_server => $central_server,
+            local_server   => $local_server,
+            agency_id      => $agency_id,
+            description    => $description
+        }
+    );
+
+Generates a patron representing a library in the consortia that might make
+material requests (borrowing site). It is used on the circulation workflow to
+place a hold on the requested items.
+
+=cut
+
+sub generate_patron_for_agency {
+    my ( $self, $args ) = @_;
+
+    my @mandatory_params = qw(central_server local_server description agency_id);
+    foreach my $param (@mandatory_params) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless exists $args->{$param};
+    }
+
+    my $central_server = $args->{central_server};
+    my $local_server   = $args->{local_server};
+    my $description    = $args->{description};
+    my $agency_id      = $args->{agency_id};
+
+    my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
+
+    my $library_id    = $self->configuration->{$central_server}->{partners_library_id};
+    my $category_code = $self->configuration->{$central_server}->{partners_category};
+
+    my $patron;
+
+    Koha::Database->schema->txn_do(
+        sub {
+            my $cardnumber = $self->gen_cardnumber(
+                {
+                    central_server => $central_server,
+                    local_server   => $local_server,
+                    description    => $description,
+                    agency_id      => $agency_id
+                }
+            );
+            $patron = Koha::Patron->new(
+                {
+                    branchcode   => $library_id,
+                    categorycode => $category_code,
+                    surname      => $self->gen_patron_description(
+                        {
+                            central_server => $central_server,
+                            local_server   => $local_server,
+                            description    => $description,
+                            agency_id      => $agency_id
+                        }
+                    ),
+                    cardnumber => $cardnumber,
+                    userid     => $cardnumber
+                }
+            )->store;
+
+            my $patron_id = $patron->borrowernumber;
+
+            my $dbh = C4::Context->dbh;
+            my $sth = $dbh->prepare(
+                qq{
+            INSERT INTO $agency_to_patron
+              ( central_server, local_server, agency_id, patron_id )
+            VALUES
+              ( '$central_server', '$local_server', '$agency_id', '$patron_id' );
+        }
+            );
+
+            $sth->execute();
+        }
+    );
+
+    return $patron;
+}
+
+=head3 update_patron_for_agency
+
+    my $patron = $plugin->update_patron_for_agency(
+        {
+            central_server => $central_server,
+            local_server   => $local_server,
+            agency_id      => $agency_id,
+            description    => $description
+        }
+    );
+
+Updates a patron representing a library in the consortia that might make
+material requests (borrowing site). It is used by cronjobs to keep things up
+to date if there are changes on the central server info.
+
+See: scripts/sync_agencies.pl
+
+=cut
+
+sub update_patron_for_agency {
+    my ( $self, $args ) = @_;
+
+    my $central_server = $args->{central_server};
+    my $local_server   = $args->{local_server};
+    my $description    = $args->{description};
+    my $agency_id      = $args->{agency_id};
+
+    my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
+
+    my $library_id    = $self->configuration->{$central_server}->{partners_library_id};
+    my $category_code = C4::Context->config("interlibrary_loans")->{partner_code};
+
+    my $patron;
+
+    Koha::Database->schema->txn_do(
+        sub {
+
+            my $patron_id = $self->get_patron_id_from_agency(
+                {
+                    central_server => $central_server,
+                    agency_id      => $agency_id
+                }
+            );
+
+            $patron = Koha::Patrons->find($patron_id);
+            my $cardnumber = $self->gen_cardnumber(
+                {
+                    central_server => $central_server,
+                    local_server   => $local_server,
+                    description    => $description,
+                    agency_id      => $agency_id
+                }
+            );
+            $patron->set(
+                {
+                    surname => $self->gen_patron_description(
+                        {
+                            central_server => $central_server,
+                            local_server   => $local_server,
+                            description    => $description,
+                            agency_id      => $agency_id
+                        }
+                    ),
+                    cardnumber => $cardnumber,
+                    userid     => $cardnumber,
+                }
+            )->store;
+        }
+    );
+
+    return $patron;
+}
+
+=head3 get_patron_id_from_agency
+
+    my $patron_id = $plugin->get_patron_id_from_agency(
+        {
+            central_server => $central_server,
+            agency_id      => $agency_id
+        }
+    );
+
+Given an agency_id (which usually comes in the patronAgencyCode attribute on the itemhold request)
+and a central_server code, it returns Koha's patron id so the hold request can be correctly assigned.
+
+=cut
+
+sub get_patron_id_from_agency {
+    my ( $self, $args ) = @_;
+
+    my $central_server = $args->{central_server};
+    my $agency_id      = $args->{agency_id};
+
+    my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
+    my $dbh              = C4::Context->dbh;
+    my $sth              = $dbh->prepare(
+        qq{
+        SELECT patron_id
+        FROM   $agency_to_patron
+        WHERE  agency_id='$agency_id' AND central_server='$central_server'
+    }
+    );
+
+    $sth->execute();
+    my $result = $sth->fetchrow_hashref;
+
+    unless ($result) {
+        return;
+    }
+
+    return $result->{patron_id};
+}
+
+=head3 gen_patron_description
+
+    my $patron_description = $plugin->gen_patron_description(
+        {
+            central_server => $central_server,
+            local_server   => $local_server,
+            description    => $description,
+            agency_id      => $agency_id
+        }
+    );
+
+This method encapsulates patron description generation based on the provided information.
+The idea is that any change on this regard should happen on a single place.
+
+=cut
+
+sub gen_patron_description {
+    my ( $self, $args ) = @_;
+
+    my $central_server = $args->{central_server};
+    my $local_server   = $args->{local_server};
+    my $description    = $args->{description};
+    my $agency_id      = $args->{agency_id};
+
+    return "$description ($agency_id)";
+}
+
+=head3 gen_cardnumber
+
+    my $cardnumber = $plugin->gen_cardnumber(
+        {
+            central_server => $central_server,
+            local_server   => $local_server,
+            description    => $description,
+            agency_id      => $agency_id
+        }
+    );
+
+This method encapsulates patron description generation based on the provided information.
+The idea is that any change on this regard should happen on a single place.
+
+=cut
+
+sub gen_cardnumber {
+    my ( $self, $args ) = @_;
+
+    my $central_server = $args->{central_server};
+    my $local_server   = $args->{local_server};
+    my $description    = $args->{description};
+    my $agency_id      = $args->{agency_id};
+
+    return 'ILL_' . $central_server . '_' . $agency_id;
+}
+
+=head3 central_servers
+
+    my $central_servers = $self->central_servers;
+
+=cut
+
+sub central_servers {
+    my ($self) = @_;
+
+    my $configuration   = $self->configuration;
+    my @central_servers = keys %{$configuration};
+
+    return \@central_servers;
+}
+
+=head3 get_ill_request_from_biblio_id
+
+This method retrieves the ILL request using a biblio_id.
+
+=cut
+
+sub get_ill_request_from_biblio_id {
+    my ( $self, $args ) = @_;
+
+    my $biblio_id = $args->{biblio_id};
+
+    unless ($biblio_id) {
+        RapidoILL::Exception::UnknownBiblioId->throw( biblio_id => $biblio_id );
+    }
+
+    my $reqs = Koha::ILL::Requests->search( { biblio_id => $biblio_id } );
+
+    if ( $reqs->count > 1 ) {
+        $self->rapido_warn("More than one ILL request for biblio_id ($biblio_id). Beware!");
+    }
+
+    return unless $reqs->count > 0;
+
+    my $req = $reqs->next;
+
+    return $req;
+}
+
+=head3 get_ill_request
+
+This method retrieves the ILL request using the I<trackingId> and
+I<centralCode> attributes.
+
+=cut
+
+sub get_ill_request {
+    my ( $self, $args ) = @_;
+
+    my $trackingId  = $args->{trackingId};
+    my $centralCode = $args->{centralCode};
+
+    # Get/validate the request
+    my $dbh = C4::Context->dbh;
+    my $sth = $dbh->prepare(
+        qq{
+        SELECT * FROM illrequestattributes AS ra_a
+        INNER JOIN    illrequestattributes AS ra_b
+        ON ra_a.illrequest_id=ra_b.illrequest_id AND
+          (ra_a.type='trackingId'  AND ra_a.value='$trackingId') AND
+          (ra_b.type='centralCode' AND ra_b.value='$centralCode');
+    }
+    );
+
+    $sth->execute();
+    my $result = $sth->fetchrow_hashref;
+
+    my $req;
+
+    $req = Koha::ILL::Requests->find( $result->{illrequest_id} )
+        if $result->{illrequest_id};
+
+    return $req;
+}
+
+=head3 get_ua
+
+This method retrieves a user agent to contact a central server.
+
+=cut
+
+sub get_ua {
+    my ( $self, $central_server ) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'central_server' missing")
+        unless $central_server;
+
+    my $configuration = $self->configuration->{$central_server};
+
+    unless ( $self->{_oauth2}->{$central_server} ) {
+        $self->{_oauth2}->{$central_server} = RapidoILL::OAuth2->new(
+            {
+                client_id      => $configuration->{client_id},
+                client_secret  => $configuration->{client_secret},
+                base_url       => $configuration->{base_url},
+                debug_requests => $configuration->{debug_requests},
+            }
+        );
+    }
+
+    return $self->{_oauth2}->{$central_server};
+}
+
+=head3 debug_mode
+
+    if ( $self->debug_mode($central_server) ) { ... }
+
+This method tells if debug mode is enabled/configured for the specified I<$central_server>.
+
+Defaults to B<0> if not specified in the configuration YAML.
+
+=cut
+
+sub debug_mode {
+    my ( $self, $central_server ) = @_;
+
+    return $self->configuration->{$central_server}->{debug_mode} ? 1 : 0;
+}
+
+=head3 get_req_central_server
+
+This method returns the central server code a Koha::ILL::Request is linked to.
+
+=cut
+
+sub get_req_central_server {
+    my ( $self, $req ) = @_;
+
+    my $attr = $req->extended_attributes->find( { type => 'centralCode' } );
+
+    return $attr->value
+        if $attr;
+
+    return;
+}
+
+=head2 Wrappers for Koha functions
+
+This methods deal with changes to the ABI of the underlying methods
+across different Koha versions.
+
+=head3 add_issue
+
+    my $checkout = $plugin->add_issue(
+        {
+            patron  => $patron,
+            barcode => $barcode
+        }
+    );
+
+Wrapper for I<C4::Circulation::AddIssue>.
+
+Parameters:
+
+=over
+
+=item B<patron>: a I<Koha::Patron> object.
+
+=item B<barcode>: a I<string> containing an item barcode.
+
+=back
+
+=cut
+
+sub add_issue {
+    my ( $self, $params ) = @_;
+
+    my @mandatory_params = qw(barcode patron);
+    foreach my $param (@mandatory_params) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless exists $params->{$param};
+    }
+
+    return AddIssue( $params->{patron}, $params->{barcode} );
+}
+
+=head3 add_return
+
+    $plugin->add_return( { barcode => $barcode } );
+
+Wrapper for I<C4::Circulation::AddReturn>. The return value is the
+same as C4::Circulation::AddReturn.
+
+Parameters:
+
+=over
+
+=item B<barcode>: a I<string> containing an item barcode.
+
+=back
+
+=cut
+
+sub add_return {
+    my ( $self, $params ) = @_;
+
+    my @mandatory_params = qw(barcode);
+    foreach my $param (@mandatory_params) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless exists $params->{$param};
+    }
+
+    return AddReturn( $params->{barcode} );
+}
+
+=head3 add_hold
+
+    my $hold_id = $plugin->add_hold(
+        {
+            library_id => $library_id,
+            patron_id  => $patron_id,
+            biblio_id  => $biblio_id,
+            notes      => $notes,
+            item_id    => $item_id,
+        }
+    );
+
+Wrapper for I<C4::Reserves::AddReserve>.
+
+Parameters: all AddReserve parameters
+
+=cut
+
+sub add_hold {
+    my ( $self, $params ) = @_;
+
+    my @mandatory_params = qw(library_id patron_id biblio_id item_id);
+    foreach my $param (@mandatory_params) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless exists $params->{$param};
+    }
+
+    return AddReserve(
+        {
+            branchcode       => $params->{library_id},
+            borrowernumber   => $params->{patron_id},
+            biblionumber     => $params->{biblio_id},
+            priority         => 1,
+            reservation_date => undef,
+            expiration_date  => undef,
+            notes            => $params->{notes} // 'Placed by ILL',
+            title            => '',
+            itemnumber       => $params->{item_id},
+            found            => undef,
+            itemtype         => undef
+        }
+    );
+}
+
+=head3 check_configuration
+
+    my $errors = $self->check_configuration;
+
+Returns a reference to a list of errors found in configuration.
+
+=cut
+
+sub check_configuration {
+    my ($self) = @_;
+
+    my @errors;
+
+    push @errors, { code => 'ILLModule_disabled' }
+        unless C4::Context->preference('ILLModule');
+
+    push @errors, { code => 'CirculateILL_enabled' }
+        if C4::Context->preference('CirculateILL');
+
+    my $configuration   = $self->configuration;
+    my @central_servers = keys %{$configuration};
+
+    foreach my $central_server (@central_servers) {
+
+        # partners_library_id
+        if ( !exists $configuration->{$central_server}->{partners_library_id} ) {
+            push @errors,
+                {
+                code           => 'missing_entry',
+                value          => 'partners_library_id',
+                central_server => $central_server
+                };
+        } else {
+            push @errors,
+                {
+                code  => 'undefined_partners_library_id',
+                value => $configuration->{$central_server}->{partners_library_id}, central_server => $central_server
+                }
+                unless Koha::Libraries->find( $configuration->{$central_server}->{partners_library_id} );
+        }
+
+        # partners_category
+        if ( !exists $configuration->{$central_server}->{partners_category} ) {
+            push @errors,
+                {
+                code           => 'missing_entry',
+                value          => 'partners_category',
+                central_server => $central_server
+                };
+        } else {
+            push @errors,
+                {
+                code  => 'undefined_partners_category',
+                value => $configuration->{$central_server}->{partners_category}, central_server => $central_server
+                }
+                unless Koha::Patron::Categories->find( $configuration->{$central_server}->{partners_category} );
+        }
+    }
+
+    return \@errors;
+}
+
+=head3 get_agencies_list
+
+    my $res = $plugin->get_agencies_list( $central_server );
+
+Sends a request for defined agencies to a central server. It performs a:
+
+    GET /view/broker/locals
+
+=cut
+
+sub get_agencies_list {
+    my ( $self, $central_server ) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw( param => 'central_server' )
+        unless $central_server;
+
+    my $response;
+
+    try {
+        $response = $self->get_ua($central_server)->get_request( { endpoint => "/view/broker/locals" } );
+    } catch {
+        my $e = $_ // "";
+        RapidoILL::Exception::UnhandledException->throw("Unhandled exception in 'get_agencies_list': $e");
+    };
+
+    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+}
+
+=head3 sync_agencies
+
+    my $result = $self->sync_agencies;
+
+Syncs server agencies with the current patron's database. Returns a hashref
+with the following structure:
+
+    {
+        localCode_1 => {
+            agencyCode_1 => {
+                description    => "The agency name",
+                current_status => no_entry|entry_exists|invalid_entry,
+                status         => created|updated
+            },
+            ...
+        },
+        ...
+    }
+
+=cut
+
+sub sync_agencies {
+    my ( $self, $central_server ) = @_;
+
+    my $response = $self->get_agencies_list($central_server);
+
+    my $result = {};
+
+    foreach my $server ( @{$response} ) {
+        my $local_server = $server->{localCode};
+        my $agency_list  = $server->{agencyList};
+
+        foreach my $agency ( @{$agency_list} ) {
+
+            my $agency_id   = $agency->{agencyCode};
+            my $description = $agency->{description};
+
+            $result->{$local_server}->{$agency_id}->{description} = $description;
+
+            my $patron_id = $self->get_patron_id_from_agency(
+                {
+                    central_server => $central_server,
+                    agency_id      => $agency_id,
+                }
+            );
+
+            my $patron;
+
+            $result->{$local_server}->{$agency_id}->{current_status} = 'no_entry';
+
+            if ($patron_id) {
+                $result->{$local_server}->{$agency_id}->{current_status} = 'entry_exists';
+                $patron = Koha::Patrons->find($patron_id);
+            }
+
+            if ( $patron_id && !$patron ) {
+
+                # cleanup needed!
+                $self->rapido_warn(
+                    "There is a 'agency_to_patron' entry for '$agency_id', but the patron is not present on the DB!");
+                my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
+
+                my $sth = C4::Context->dbh->prepare(
+                    qq{
+                    DELETE FROM $agency_to_patron
+                    WHERE patron_id='$patron_id';
+                }
+                );
+
+                $sth->execute();
+                $result->{$local_server}->{$agency_id}->{current_status} = 'invalid_entry';
+            }
+
+            if ($patron) {
+
+                # Update description
+                $self->update_patron_for_agency(
+                    {
+                        agency_id      => $agency_id,
+                        description    => $description,
+                        local_server   => $local_server,
+                        central_server => $central_server
+                    }
+                );
+                $result->{$local_server}->{$agency_id}->{status} = 'updated';
+            } else {
+
+                # Create it
+                $self->generate_patron_for_agency(
+                    {
+                        agency_id      => $agency_id,
+                        description    => $description,
+                        local_server   => $local_server,
+                        central_server => $central_server
+                    }
+                );
+                $result->{$local_server}->{$agency_id}->{status} = 'created';
+            }
+        }
+    }
+
+    return $result;
+}
+
+=head3 get_ill_request_from_attribute
+
+    my $req = $plugin->get_ill_request_from_attribute(
+        {
+            type  => $type,
+            value => $value
+        }
+    );
+
+Retrieve an ILL request using some attribute.
+
+=cut
+
+sub get_ill_request_from_attribute {
+    my ( $self, $args ) = @_;
+
+    my @mandatory_params = qw(type value);
+    foreach my $param (@mandatory_params) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless exists $args->{$param};
+    }
+
+    my $type  = $args->{type};
+    my $value = $args->{value};
+
+    my $requests_rs = Koha::ILL::Requests->search(
+        {
+            'illrequestattributes.type'  => $type,
+            'illrequestattributes.value' => $value,
+            'me.backend'                 => $self->ill_backend(),
+        },
+        { join => ['illrequestattributes'] }
+    );
+
+    my $count = $requests_rs->count;
+
+    $self->rapido_warn("more than one result searching requests with type='$type' value='$value'")
+        if $count > 1;
+
+    return $requests_rs->next
+        if $count > 0;
+}
+
+=head3 get_ill_requests_from_attribute
+
+    my $reqs = $plugin->get_ill_requests_from_attribute(
+        {
+            type  => $type,
+            value => $value
+        }
+    );
+
+Retrieve all ILL requests for the I<RapidoILL> backend with extended attributes
+matching the passed parameters.
+
+=cut
+
+sub get_ill_requests_from_attribute {
+    my ( $self, $args ) = @_;
+
+    my @mandatory_params = qw(type value);
+    foreach my $param (@mandatory_params) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless exists $args->{$param};
+    }
+
+    my $type  = $args->{type};
+    my $value = $args->{value};
+
+    return Koha::ILL::Requests->search(
+        {
+            'illrequestattributes.type'  => $type,
+            'illrequestattributes.value' => $value,
+            'me.backend'                 => $self->ill_backend(),
+        },
+        { join => ['illrequestattributes'] }
+    );
+}
+
+=head3 add_or_update_attributes
+
+    $plugin->add_or_update_attributes(
+        {
+            request    => $request,
+            attributes => {
+                $type_1 => $value_1,
+                $type_2 => $value_2,
+                ...
+            },
+        }
+    );
+
+Takes care of updating or adding attributes if they don't already exist.
+
+=cut
+
+sub add_or_update_attributes {
+    my ( $self, $params ) = @_;
+
+    my $request    = $params->{request};
+    my $attributes = $params->{attributes};
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            while ( my ( $type, $value ) = each %{$attributes} ) {
+
+                my $attr = $request->extended_attributes->find( { type => $type } );
+
+                if ($attr) {    # update
+                    warn "ERROR: Attempt to set 'undef' for attribute of type '$type'"
+                        unless defined $value;
+
+                    if ( $attr->value ne $value ) {
+                        $attr->update( { value => $value, } );
+                    }
+                } else {        # new
+                    $attr = Koha::ILL::Request::Attribute->new(
+                        {
+                            illrequest_id => $request->id,
+                            type          => $type,
+                            value         => $value,
+                        }
+                    )->store;
+                }
+            }
+        }
+    );
+
+    return;
+}
+
+=head3 rapido_warn
+
+Helper method for logging warnings for the RapidoILL plugin homogeneously.
+
+=cut
+
+sub rapido_warn {
+    my ( $self, $warning ) = @_;
+
+    warn "rapidoill_plugin_warn: $warning";
+}
+
+1;
