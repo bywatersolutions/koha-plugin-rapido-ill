@@ -1,0 +1,31 @@
+{
+    "name": "koha-plugin-rapido-ill",
+    "version": "0.0.0",
+    "description": "Rapido ILL connector plugin for Koha",
+    "devDependencies": {
+        "gulp": "^4.0.2",
+        "gulp-cli": "^2.3.0",
+        "gulp-run": "^1.7.1"
+    },
+    "scripts": {
+        "preversion": "sed -i -e \"s/^our \\$VERSION = .*/our \\$VERSION = \\\"$npm_new_version\\\";/\" Koha/Plugin/Com/ByWaterSolutions/RapidoILL.pm; git add -u",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "kpz": "echo -n ${npm_package_name}-v${npm_package_version}.kpz",
+        "name": "echo -n ${npm_package_name}"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bywatersolutions/koha-plugin-rapido-ill.git"
+    },
+    "author": "Tomás Cohen Arazi <tomascohen@theke.io>",
+    "license": "GPL-3.0",
+    "bugs": {
+        "url": "https://github.com/bywatersolutions/koha-plugin-rapido-ill/issues"
+    },
+    "homepage": "https://github.com/bywatersolutions/koha-plugin-rapido-ill",
+    "dependencies": {
+        "datetime": "0.0.3",
+        "jsonfile": "^5.0.0",
+        "node-datetime": "^2.0.0"
+    }
+}
