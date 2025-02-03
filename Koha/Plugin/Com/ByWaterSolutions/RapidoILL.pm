@@ -49,7 +49,7 @@ BEGIN {
     require RapidoILL::StringNormalizer;
 }
 
-our $VERSION = "0.0.2";
+our $VERSION = "0.0.3";
 
 our $metadata = {
     name            => 'Rapido ILL',
