@@ -55,42 +55,40 @@ jobs:
         cd ..
         git clone --branch ${{ steps.koha-version.outputs.current-branch-name }} --single-branch --depth 1 https://github.com/Koha-Community/Koha.git kohaclone
       
-    - name: Export additional variables needed by koha-testing-docker
-      run: |
-        cd ..
-        pwd
-        ls -alh
-        IFS='/' read -r -a parts <<< "$GITHUB_REPOSITORY"
-        export GITHUB_REPO="${parts[1]}"
-        export ROOT_DIR="$(pwd)"
-        export LOCAL_USER_ID="$(id -u)" # Needed for koha-testing-docker
-        export SYNC_REPO="$ROOT_DIR/kohaclone"
-        export KOHA_INTRANET_URL="http://127.0.0.1:8081"
-        export KOHA_MARC_FLAVOUR="marc21"
-        echo "GITHUB_REPO=$GITHUB_REPO" >> $GITHUB_ENV
-        echo "ROOT_DIR=$ROOT_DIR" >> $GITHUB_ENV
-        echo "LOCAL_USER_ID=$LOCAL_USER_ID" >> $GITHUB_ENV
-        echo "SYNC_REPO=$SYNC_REPO" >> $GITHUB_ENV
-        echo "KOHA_INTRANET_URL=$KOHA_INTRANET_URL" >> $GITHUB_ENV
-        echo "KOHA_MARC_FLAVOUR=$KOHA_MARC_FLAVOUR" >> $GITHUB_ENV
-        echo "RUN_TESTS_AND_EXIT=no" >> $GITHUB_ENV
-        echo "KOHA_IMAGE=main" >> $GITHUB_ENV
-        echo "GITHUB REPO: $GITHUB_REPO"
-        echo "ROOT DIR: $ROOT_DIR"
-        echo "SYNC_REPO: $SYNC_REPO"
-        ls -alh $SYNC_REPO
+    # - name: Export additional variables needed by koha-testing-docker
+    #   run: |
+    #     cd ..
+    #     pwd
+    #     ls -alh
+    #     IFS='/' read -r -a parts <<< "$GITHUB_REPOSITORY"
+    #     export GITHUB_REPO="${parts[1]}"
+    #     export ROOT_DIR="$(pwd)"
+    #     export LOCAL_USER_ID="$(id -u)" # Needed for koha-testing-docker
+    #     export SYNC_REPO="$ROOT_DIR/kohaclone"
+    #     export KOHA_INTRANET_URL="http://127.0.0.1:8081"
+    #     export KOHA_MARC_FLAVOUR="marc21"
+    #     echo "GITHUB_REPO=$GITHUB_REPO" >> $GITHUB_ENV
+    #     echo "ROOT_DIR=$ROOT_DIR" >> $GITHUB_ENV
+    #     echo "LOCAL_USER_ID=$LOCAL_USER_ID" >> $GITHUB_ENV
+    #     echo "SYNC_REPO=$SYNC_REPO" >> $GITHUB_ENV
+    #     echo "KOHA_INTRANET_URL=$KOHA_INTRANET_URL" >> $GITHUB_ENV
+    #     echo "KOHA_MARC_FLAVOUR=$KOHA_MARC_FLAVOUR" >> $GITHUB_ENV
+    #     echo "RUN_TESTS_AND_EXIT=no" >> $GITHUB_ENV
+    #     echo "KOHA_IMAGE=main" >> $GITHUB_ENV
+    #     echo "GITHUB REPO: $GITHUB_REPO"
+    #     echo "ROOT DIR: $ROOT_DIR"
+    #     echo "SYNC_REPO: $SYNC_REPO"
+    #     ls -alh $SYNC_REPO
 
-    - name: Set up koha-testing-docker
-      run: |
-        sudo sysctl -w vm.max_map_count=262144
-        wget -O docker-compose.yml https://gitlab.com/koha-community/koha-testing-docker/raw/main/docker-compose.yml
-        mkdir -p env
-        wget -O env/defaults.env https://gitlab.com/koha-community/koha-testing-docker/raw/main/env/defaults.env
-        cp env/defaults.env .env
-        docker compose pull
-#    - name: Setup Debug Session
-#      uses: csexton/debugger-action@master
-
+    # - name: Set up koha-testing-docker
+    #   run: |
+    #     sudo sysctl -w vm.max_map_count=262144
+    #     wget -O docker-compose.yml https://gitlab.com/koha-community/koha-testing-docker/raw/main/docker-compose.yml
+    #     mkdir -p env
+    #     wget -O env/defaults.env https://gitlab.com/koha-community/koha-testing-docker/raw/main/env/defaults.env
+    #     cp env/defaults.env .env
+    #     docker compose pull
+    #
     # - name: Run tests
     #   run: |
     #     pwd
@@ -115,15 +113,15 @@ jobs:
     #     echo "KTD: ready!"
     #     docker cp $GITHUB_REPO/. koha-koha-1:/var/lib/koha/kohadev/plugins
     #     docker exec koha-koha-1 bash -c 'PERL5LIB=$PERL5LIB:/var/lib/koha/kohadev/plugins/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib/:/var/lib/koha/kohadev/plugins prove /var/lib/koha/kohadev/plugins/t'
-        
-    - name: Post test cleanup
-      run: |
-        docker compose down
-        docker rm -f $(docker ps -a -f "name=koha-" -q)
-        docker volume prune -f
-        docker image  prune -f
-        rm docker-compose.yml
-        rm -rf env .env
+
+    # - name: Post test cleanup
+    #   run: |
+    #     docker compose down
+    #     docker rm -f $(docker ps -a -f "name=koha-" -q)
+    #     docker volume prune -f
+    #     docker image  prune -f
+    #     rm docker-compose.yml
+    #     rm -rf env .env
 
   release:
     name: Build & Release
