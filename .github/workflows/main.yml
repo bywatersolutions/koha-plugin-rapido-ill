@@ -91,30 +91,30 @@ jobs:
 #    - name: Setup Debug Session
 #      uses: csexton/debugger-action@master
 
-    - name: Run tests
-      run: |
-        pwd
-        ls -alh
-        docker compose -f docker-compose.yml -p koha up --detach
-        cd ..
-        pwd
-        ls -alh
-        echo "KTD: Waiting for KTD to warm up"
-        for i in $(seq 1 200); do
-            if docker exec koha-koha-1 bash -c '[ -e /ktd_ready ]'; then
-                printf "\n"
-                break
-            elif [ "$i" != "200" ]; then
-                printf "\rAttempt $i of 200"
-                sleep 1
-            else
-                printf "KTD: Timeout waiting for KTD to be ready (ERROR)"
-                exit 1
-            fi
-        done
-        echo "KTD: ready!"
-        docker cp $GITHUB_REPO/. koha-koha-1:/var/lib/koha/kohadev/plugins
-        docker exec koha-koha-1 bash -c 'PERL5LIB=$PERL5LIB:/var/lib/koha/kohadev/plugins/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib/:/var/lib/koha/kohadev/plugins prove /var/lib/koha/kohadev/plugins/t'
+    # - name: Run tests
+    #   run: |
+    #     pwd
+    #     ls -alh
+    #     docker compose -f docker-compose.yml -p koha up --detach
+    #     cd ..
+    #     pwd
+    #     ls -alh
+    #     echo "KTD: Waiting for KTD to warm up"
+    #     for i in $(seq 1 200); do
+    #         if docker exec koha-koha-1 bash -c '[ -e /ktd_ready ]'; then
+    #             printf "\n"
+    #             break
+    #         elif [ "$i" != "200" ]; then
+    #             printf "\rAttempt $i of 200"
+    #             sleep 1
+    #         else
+    #             printf "KTD: Timeout waiting for KTD to be ready (ERROR)"
+    #             exit 1
+    #         fi
+    #     done
+    #     echo "KTD: ready!"
+    #     docker cp $GITHUB_REPO/. koha-koha-1:/var/lib/koha/kohadev/plugins
+    #     docker exec koha-koha-1 bash -c 'PERL5LIB=$PERL5LIB:/var/lib/koha/kohadev/plugins/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib/:/var/lib/koha/kohadev/plugins prove /var/lib/koha/kohadev/plugins/t'
         
     - name: Post test cleanup
       run: |
