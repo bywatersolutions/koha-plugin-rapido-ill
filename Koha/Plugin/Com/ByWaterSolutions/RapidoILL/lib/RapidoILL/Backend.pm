@@ -105,6 +105,11 @@ sub name {
     return "RapidoILL";
 }
 
+sub bundle_path {
+    my ($self) = @_;
+    return $self->{plugin}->bundle_path . "/templates/";
+}
+
 =head3 metadata
 
 Return a hashref containing canonical values from the key/value

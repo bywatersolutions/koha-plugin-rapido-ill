@@ -49,7 +49,7 @@ BEGIN {
 our $VERSION = "0.0.4";
 
 our $metadata = {
-    name            => 'Rapido ILL',
+    name            => 'RapidoILL',
     author          => 'ByWater Solutions',
     date_authored   => '2025-01-29',
     date_updated    => "1970-01-01",
