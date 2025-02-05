@@ -105,6 +105,15 @@ sub name {
     return "RapidoILL";
 }
 
+=head3 bundle_path
+
+    my $path = $backend->bundle_path();
+
+Returns the backend's defined template path.
+FIXME: Review when consensus is reached on https://bugs.koha-community.org/bugzilla3/show_bug.cgi?id=39031
+
+=cut
+
 sub bundle_path {
     my ($self) = @_;
     return $self->{plugin}->bundle_path . "/templates/";
