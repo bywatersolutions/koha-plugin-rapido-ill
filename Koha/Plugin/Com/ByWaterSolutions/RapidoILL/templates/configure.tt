@@ -43,11 +43,11 @@
         [% FOREACH error IN errors %]
             <div class="dialog error">
                 [% SWITCH error.code %]
-                [% CASE 'ILLModule_disabled' %]<span>The <strong>mandatory</strong> system preference <a href="/cgi-bin/koha/admin/preferences.pl?op=search&searchfield=ILLModule">ILLModule<a> is disabled.</span>
-                [% CASE 'CirculateILL_enabled' %]<span>The system preference <strong>CirculateILL</strong> is enabled, but it is incompatible with this plugin.</span>
+                [% CASE 'ILLModule_disabled' %]<span>The <strong>mandatory</strong> system preference <a href="/cgi-bin/koha/admin/preferences.pl?op=search&searchfield=ILLModule" target="_blank">ILLModule<a> is disabled.</span>
+                [% CASE 'CirculateILL_enabled' %]<span>The system preference <a href="/cgi-bin/koha/admin/preferences.pl?op=search&searchfield=CirculateILL" target="_blank">CirculateILL</a> is enabled, but it is incompatible with this plugin.</span>
                 [% CASE 'missing_entry' %]<span>[<strong>[% error.central_server | html %]</strong>] Missing configuration entry for <strong>[% error.value | html %]</strong></span>
-                [% CASE 'undefined_partners_library_id' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>partners_library_id</strong> '[% error.value | html %]' is not defined on the system. Please define it <a href="/cgi-bin/koha/admin/branches.pl?op=add_form">here</a></span>
-                [% CASE 'undefined_partners_category' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>partners_category</strong> '[% error.value | html %]' is not defined on the system. Please define it <a href="/cgi-bin/koha/admin/categories.pl?op=add_form">here</a></span>
+                [% CASE 'undefined_partners_library_id' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>partners_library_id</strong> '[% error.value | html %]' is not defined on the system. Please define it <a href="/cgi-bin/koha/admin/branches.pl?op=add_form" target="_blank">here</a></span>
+                [% CASE 'undefined_partners_category' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>partners_category</strong> '[% error.value | html %]' is not defined on the system. Please define it <a href="/cgi-bin/koha/admin/categories.pl?op=add_form" target="_blank">here</a></span>
                 [% CASE 'library_missing_description' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>library_to_location</strong> mapping for '[% error.library | html %]' is missing the <strong>description</strong>.</span>
                 [% CASE 'library_missing_location' %]<span>[<strong>[% error.central_server | html %]</strong>] The configured <strong>library_to_location</strong> mapping for '[% error.library | html %]' is missing the <strong>location</strong> code.</span>
                 [% END %]
