@@ -342,7 +342,7 @@ All filtering options are not mandatory.
 =cut
 
 sub circulation_requests {
-    my ( $self, $args ) = @_;
+    my ( $self, $params ) = @_;
 
     $self->validate_params( { params => $params, required => qw(startTime endTime), } );
 
