@@ -18,7 +18,7 @@ package RapidoILL::Client;
 use Modern::Perl;
 
 use Encode;
-use JSON qw( decode_json );
+use JSON      qw( decode_json );
 use Try::Tiny qw(catch try);
 
 use RapidoILL::Exceptions;
@@ -111,7 +111,7 @@ sub locals {
 sub lender_cancel {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => qw(circId localBibId patronName), } );
+    $self->validate_params( { params => $params, required => [qw(circId localBibId patronName)], } );
 
     my $response;
 
@@ -153,14 +153,16 @@ sub lender_visiting_patron_checkout {
     $self->validate_params(
         {
             params   => $params,
-            required => qw(
-                patronId
-                patronAgencyCode
-                centralPatronType
-                uuid
-                patronName
-                items
-            ),
+            required => [
+                qw(
+                    patronId
+                    patronAgencyCode
+                    centralPatronType
+                    uuid
+                    patronName
+                    items
+                )
+            ],
         }
     );
 
@@ -202,7 +204,7 @@ sub lender_visiting_patron_checkout {
 sub lender_checkin {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => qw(circId), } );
+    $self->validate_params( { params => $params, required => [qw(circId)], } );
 
     my $response;
 
@@ -236,7 +238,7 @@ sub lender_checkin {
 sub lender_shipped {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => qw(callNumber circId itemBarcode), } );
+    $self->validate_params( { params => $params, required => [qw(callNumber circId itemBarcode)], } );
 
     my $response;
 
@@ -274,7 +276,7 @@ sub lender_shipped {
 sub borrower_item_received {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => qw(circId), } );
+    $self->validate_params( { params => $params, required => [qw(circId)], } );
 
     my $response;
 
@@ -306,7 +308,7 @@ sub borrower_item_received {
 sub borrower_item_returned {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => qw(circId), } );
+    $self->validate_params( { params => $params, required => [qw(circId)], } );
 
     my $response;
 
@@ -342,9 +344,9 @@ All filtering options are not mandatory.
 =cut
 
 sub circulation_requests {
-    my ( $self, $params ) = @_;
+    my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => qw(startTime endTime), } );
+    $self->validate_params( { params => $params, required => [qw(startTime endTime)], } );
 
     my $response;
 
