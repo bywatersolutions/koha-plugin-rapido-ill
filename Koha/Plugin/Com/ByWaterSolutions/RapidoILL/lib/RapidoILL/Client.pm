@@ -324,6 +324,44 @@ sub borrower_item_returned {
     return decode_json( encode( 'UTF-8', $response->decoded_content ) );
 }
 
+=head2 General client methods
+
+=head3 circulation_requests
+
+    $client->circulation_requests(
+        {
+          [ state      => ['ACTIVE','COMPLETED','INACTIVE','CREATED','CANCELED'],
+            content    => 'concise'|'verbose',
+            timeTarget => 'lastUpdated'|'dateCreated',
+            startTime  => $epoch,
+            endTime    => $epoch, ]
+    );
+
+All filtering options are not mandatory.
+
+=cut
+
+sub circulation_requests {
+    my ( $self, $args ) = @_;
+
+    $self->validate_params( { params => $params, required => qw(startTime endTime), } );
+
+    my $response;
+
+    if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
+        $response = $self->{ua}->post_request(
+            {
+                endpoint => '/view/broker/circ/circrequests',
+            }
+        );
+
+        RapidoILL::Exception::RequestFailed->throw( method => 'circulation_requests', response => $response )
+            unless $response->is_success;
+    }
+
+    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+}
+
 =head2 Internal methods
 
 =head3 validate_params
