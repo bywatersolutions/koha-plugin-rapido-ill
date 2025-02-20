@@ -351,9 +351,17 @@ sub circulation_requests {
     my $response;
 
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        $response = $self->{ua}->post_request(
+
+        $response = $self->{ua}->get_request(
             {
                 endpoint => '/view/broker/circ/circrequests',
+                query    => {
+                    startTime => $params->{startTime},
+                    endTime   => $params->{endTime},
+                    ( $params->{state}      ? ( state      => $params->{state} )      : () ),
+                    ( $params->{content}    ? ( content    => $params->{content} )    : () ),
+                    ( $params->{timeTarget} ? ( timeTarget => $params->{timeTarget} ) : () ),
+                }
             }
         );
 

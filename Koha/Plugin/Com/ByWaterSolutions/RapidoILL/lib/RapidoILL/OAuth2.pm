@@ -27,6 +27,7 @@ use HTTP::Request::Common qw(DELETE GET POST PUT);
 use JSON                  qw(decode_json encode_json);
 use LWP::UserAgent;
 use MIME::Base64 qw( decode_base64url encode_base64url );
+use URI          ();
 
 use RapidoILL::Exceptions;
 
@@ -155,8 +156,15 @@ Generic request for GET
 sub get_request {
     my ( $self, $args ) = @_;
 
+    my $query = "";
+    if ( $args->{query} ) {
+        my $uri = URI->new();
+        $uri->query_form( %{ $args->{query} } );
+        $query = $uri;
+    }
+p($query);
     my $request = GET(
-        $self->{base_url} . $args->{endpoint},
+        $self->{base_url} . $args->{endpoint} . $query,
         'Authorization' => "Bearer " . $self->get_token,
         'Accept'        => "application/json",
         'Content-Type'  => "application/json"
