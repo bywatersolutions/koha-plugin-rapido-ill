@@ -332,14 +332,16 @@ sub borrower_item_returned {
 
     $client->circulation_requests(
         {
+            startTime  => $epoch,
+            endTime    => $epoch,
           [ state      => ['ACTIVE','COMPLETED','INACTIVE','CREATED','CANCELED'],
             content    => 'concise'|'verbose',
-            timeTarget => 'lastUpdated'|'dateCreated',
-            startTime  => $epoch,
-            endTime    => $epoch, ]
+            timeTarget => 'lastUpdated'|'dateCreated', ]
+        },
+      [ { skip_api_request => 0 | 1 } ]
     );
 
-All filtering options are not mandatory.
+I<startTime> and I<endTime> are the only mandatory parameter.
 
 =cut
 
