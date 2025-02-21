@@ -151,7 +151,6 @@ sub put_request {
 
     my $response = $client->get_request(
         {
-            base_url => "https://www.bywatersolutions.com",
             endpoint => "/some/endpoint",
           [ query    => {
                 param_1 => "123",
@@ -163,7 +162,7 @@ sub put_request {
 
 Generic request for GET.
 
-Both $<base_url> and I<endpoint> parameters are mandatory. I<query> should
+The I<endpoint> parameter is mandatory. I<query> should
 be a hashref where keys are the query parameters pointing to desired values.
 If the value is an arrayref, then the query parameter will get repeated
 for each of the contained values.
@@ -176,15 +175,13 @@ B<https://www.bywatersolutions.com/some/endpoint?param_1="123"&param_2="ASD"&par
 sub get_request {
     my ( $self, $args ) = @_;
 
-    my $query = "";
+    my $uri = URI->new( $self->{base_url} . ( $args->{endpoint} // "" ) );
     if ( $args->{query} ) {
-        my $uri = URI->new();
         $uri->query_form( %{ $args->{query} } );
-        $query = $uri;
     }
 
     my $request = GET(
-        $self->{base_url} . $args->{endpoint} . $query,
+        $uri,
         'Authorization' => "Bearer " . $self->get_token,
         'Accept'        => "application/json",
         'Content-Type'  => "application/json"
