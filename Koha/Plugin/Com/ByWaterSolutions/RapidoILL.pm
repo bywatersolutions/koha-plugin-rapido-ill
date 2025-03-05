@@ -450,7 +450,7 @@ with an item, so a hold is placed for it. It returns the generated I<Koha::Item>
 =cut
 
 sub add_virtual_record_and_item {
-    my ($self, $args) = @_;
+    my ( $self, $args ) = @_;
 
     my $barcode     = $args->{barcode};
     my $call_number = $args->{call_number};
@@ -573,16 +573,19 @@ place a hold on the requested items.
 sub generate_patron_for_agency {
     my ( $self, $args ) = @_;
 
-    my @mandatory_params = qw(central_server local_server description agency_id);
+    my @mandatory_params =
+        qw(central_server local_server description agency_id requires_passcode visiting_checkout_allowed);
     foreach my $param (@mandatory_params) {
         RapidoILL::Exception::MissingParameter->throw( param => $param )
             unless exists $args->{$param};
     }
 
-    my $central_server = $args->{central_server};
-    my $local_server   = $args->{local_server};
-    my $description    = $args->{description};
-    my $agency_id      = $args->{agency_id};
+    my $central_server            = $args->{central_server};
+    my $local_server              = $args->{local_server};
+    my $description               = $args->{description};
+    my $agency_id                 = $args->{agency_id};
+    my $requires_passcode         = $args->{requires_passcode};
+    my $visiting_checkout_allowed = $args->{visiting_checkout_allowed};
 
     my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
 
@@ -624,9 +627,9 @@ sub generate_patron_for_agency {
             my $sth = $dbh->prepare(
                 qq{
             INSERT INTO $agency_to_patron
-              ( central_server, local_server, agency_id, patron_id )
+              ( central_server, local_server, agency_id, patron_id, description, requires_passcode, visiting_checkout_allowed )
             VALUES
-              ( '$central_server', '$local_server', '$agency_id', '$patron_id' );
+              ( '$central_server', '$local_server', '$agency_id', '$patron_id', '$description', '$requires_passcode', '$visiting_checkout_allowed' );
         }
             );
 
@@ -659,10 +662,19 @@ See: scripts/sync_agencies.pl
 sub update_patron_for_agency {
     my ( $self, $args ) = @_;
 
-    my $central_server = $args->{central_server};
-    my $local_server   = $args->{local_server};
-    my $description    = $args->{description};
-    my $agency_id      = $args->{agency_id};
+    my @mandatory_params =
+        qw(central_server local_server description agency_id requires_passcode visiting_checkout_allowed);
+    foreach my $param (@mandatory_params) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless exists $args->{$param};
+    }
+
+    my $central_server            = $args->{central_server};
+    my $local_server              = $args->{local_server};
+    my $description               = $args->{description};
+    my $agency_id                 = $args->{agency_id};
+    my $requires_passcode         = $args->{requires_passcode};
+    my $visiting_checkout_allowed = $args->{visiting_checkout_allowed};
 
     my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
 
@@ -704,6 +716,23 @@ sub update_patron_for_agency {
                     userid     => $cardnumber,
                 }
             )->store;
+
+            my $dbh = C4::Context->dbh;
+            my $sth = $dbh->prepare(
+                qq{
+            UPDATE $agency_to_patron
+            SET
+              description='$description',
+              requires_passcode='$requires_passcode',
+              visiting_checkout_allowed='$visiting_checkout_allowed'
+            WHERE
+                  central_server='$central_server'
+              AND local_server='$local_server'
+              AND agency_id='$agency_id'
+              }
+            );
+
+            $sth->execute();
         }
     );
 
@@ -946,7 +975,7 @@ sub get_client {
 =cut
 
 sub get_normalizer {
-    my ($self, $args) = @_;
+    my ( $self, $args ) = @_;
     require RapidoILL::StringNormalizer;
     return RapidoILL::StringNormalizer->new($args);
 }
@@ -1212,8 +1241,10 @@ sub sync_agencies {
 
         foreach my $agency ( @{$agency_list} ) {
 
-            my $agency_id   = $agency->{agencyCode};
-            my $description = $agency->{description};
+            my $agency_id                 = $agency->{agencyCode};
+            my $description               = $agency->{description};
+            my $requires_passcode         = $agency->{requiresPasscode}        ? 1 : 0;
+            my $visiting_checkout_allowed = $agency->{visitingCheckoutAllowed} ? 1 : 0;
 
             $result->{$local_server}->{$agency_id}->{description} = $description;
 
@@ -1256,10 +1287,12 @@ sub sync_agencies {
                 # Update description
                 $self->update_patron_for_agency(
                     {
-                        agency_id      => $agency_id,
-                        description    => $description,
-                        local_server   => $local_server,
-                        central_server => $central_server
+                        agency_id                 => $agency_id,
+                        description               => $description,
+                        local_server              => $local_server,
+                        central_server            => $central_server,
+                        requires_passcode         => $requires_passcode,
+                        visiting_checkout_allowed => $visiting_checkout_allowed,
                     }
                 );
                 $result->{$local_server}->{$agency_id}->{status} = 'updated';
@@ -1268,10 +1301,12 @@ sub sync_agencies {
                 # Create it
                 $self->generate_patron_for_agency(
                     {
-                        agency_id      => $agency_id,
-                        description    => $description,
-                        local_server   => $local_server,
-                        central_server => $central_server
+                        agency_id                 => $agency_id,
+                        description               => $description,
+                        local_server              => $local_server,
+                        central_server            => $central_server,
+                        requires_passcode         => $requires_passcode,
+                        visiting_checkout_allowed => $visiting_checkout_allowed,
                     }
                 );
                 $result->{$local_server}->{$agency_id}->{status} = 'created';
