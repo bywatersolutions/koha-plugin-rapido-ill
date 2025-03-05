@@ -208,11 +208,14 @@ sub install {
         $dbh->do(
             qq{
             CREATE TABLE $agency_to_patron (
-                `central_server` VARCHAR(191) NOT NULL,
-                `local_server`   VARCHAR(191) NULL DEFAULT NULL,
-                `agency_id`      VARCHAR(191) NOT NULL,
-                `patron_id`      INT(11) NOT NULL,
-                `timestamp`      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `central_server`            VARCHAR(191) NOT NULL,
+                `local_server`              VARCHAR(191) NULL DEFAULT NULL,
+                `agency_id`                 VARCHAR(191) NOT NULL,
+                `patron_id`                 INT(11) NOT NULL,
+                `description`               VARCHAR(191) NOT NULL,
+                `requires_passcode`         TINYINT(1) NOT NULL DEFAULT 0,
+                `visiting_checkout_allowed` TINYINT(1) NOT NULL DEFAULT 0,
+                `timestamp`                 TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (`central_server`,`agency_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         }
@@ -231,7 +234,36 @@ Takes care of upgrading whatever is needed (table structure, new tables, informa
 sub upgrade {
     my ( $self, $args ) = @_;
 
-    # my $dbh = C4::Context->dbh;
+    my $dbh = C4::Context->dbh;
+
+    my $new_version = "0.0.8";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
+
+        if ( $self->_table_exists($agency_to_patron) ) {
+            $dbh->do(
+                qq{
+                ALTER TABLE $agency_to_patron
+                    ADD COLUMN `visiting_checkout_allowed` TINYINT(1) NOT NULL DEFAULT 0 AFTER `patron_id`;
+            }
+            );
+            $dbh->do(
+                qq{
+                ALTER TABLE $agency_to_patron
+                    ADD COLUMN `requires_passcode` TINYINT(1) NOT NULL DEFAULT 0 AFTER `patron_id`;
+            }
+            );
+            $dbh->do(
+                qq{
+                ALTER TABLE $agency_to_patron
+                    ADD COLUMN `description` VARCHAR(191) NOT NULL AFTER `patron_id`;
+            }
+            );
+        }
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
 
     return 1;
 }
