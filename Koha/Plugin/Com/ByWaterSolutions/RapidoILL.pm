@@ -97,7 +97,7 @@ sub configure {
 
     my $template = $self->get_template( { file => 'templates/configure.tt' } );
 
-    if ( scalar $cgi->param('op') eq 'cud-save' ) {
+    if ( scalar $cgi->param('op') && scalar $cgi->param('op') eq 'cud-save' ) {
 
         $self->store_data(
             {
