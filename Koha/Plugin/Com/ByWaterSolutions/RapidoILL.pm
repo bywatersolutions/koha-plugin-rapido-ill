@@ -862,23 +862,6 @@ sub gen_cardnumber {
     return 'ILL_' . $pod . '_' . $agency_id;
 }
 
-=head3 central_servers
-
-    my $central_servers = $self->central_servers;
-
-FIXME: Remove in favour of pods
-
-=cut
-
-sub central_servers {
-    my ($self) = @_;
-
-    my $configuration   = $self->configuration;
-    my @central_servers = keys %{$configuration};
-
-    return \@central_servers;
-}
-
 =head3 pods
 
     my $pods = $self->pods;
@@ -1204,16 +1187,16 @@ sub check_configuration {
         if ( !exists $configuration->{$pod_code}->{partners_library_id} ) {
             push @errors,
                 {
-                code           => 'missing_entry',
-                value          => 'partners_library_id',
-                central_server => $pod_code,
+                code  => 'missing_entry',
+                value => 'partners_library_id',
+                pod   => $pod_code,
                 };
         } else {
             push @errors,
                 {
-                code           => 'undefined_partners_library_id',
-                value          => $configuration->{$pod_code}->{partners_library_id},
-                central_server => $pod_code
+                code  => 'undefined_partners_library_id',
+                value => $configuration->{$pod_code}->{partners_library_id},
+                pod   => $pod_code
                 }
                 unless Koha::Libraries->find( $configuration->{$pod_code}->{partners_library_id} );
         }
@@ -1222,16 +1205,16 @@ sub check_configuration {
         if ( !exists $configuration->{$pod_code}->{partners_category} ) {
             push @errors,
                 {
-                code           => 'missing_entry',
-                value          => 'partners_category',
-                central_server => $pod_code,
+                code  => 'missing_entry',
+                value => 'partners_category',
+                pod   => $pod_code,
                 };
         } else {
             push @errors,
                 {
-                code           => 'undefined_partners_category',
-                value          => $configuration->{$pod_code}->{partners_category},
-                central_server => $pod_code,
+                code  => 'undefined_partners_category',
+                value => $configuration->{$pod_code}->{partners_category},
+                pod   => $pod_code,
                 }
                 unless Koha::Patron::Categories->find( $configuration->{$pod_code}->{partners_category} );
         }

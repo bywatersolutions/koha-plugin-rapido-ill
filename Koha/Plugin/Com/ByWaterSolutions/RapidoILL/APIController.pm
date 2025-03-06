@@ -56,10 +56,10 @@ sub verifypatron {
         my $patron_agency_code = $body->{patronAgencyCode};
         my $patronName         = $body->{patronName};
 
-        # FIXME: Pick the first one until there's a way to determine the central server
+        # FIXME: Pick the first one until there's a way to determine the pod
         #        the request belongs to.
-        my $central_server = $plugin->central_servers->[0];
-        my $configuration  = $plugin->configuration->{$central_server};
+        my $pod           = $plugin->pods->[0];
+        my $configuration = $plugin->configuration->{$pod};
 
         unless (defined $patron_id
             and defined $patron_agency_code
@@ -92,7 +92,7 @@ sub verifypatron {
         }
 
         my $expiration_date = dt_from_string( $patron->dateexpiry );
-        my $agency_code     = $configuration->{$central_server}->{library_to_location}->{ $patron->branchcode }
+        my $agency_code     = $configuration->{$pod}->{library_to_location}->{ $patron->branchcode }
             // $configuration->{default_patron_agency};
         my $central_patron_type =
             ( exists $configuration->{local_to_central_patron_type}->{ $patron->categorycode } )

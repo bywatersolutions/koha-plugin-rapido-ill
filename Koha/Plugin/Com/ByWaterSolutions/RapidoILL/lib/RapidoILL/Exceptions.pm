@@ -43,10 +43,10 @@ use Exception::Class (
         description => 'Request status inconsistent with the requested action',
         fields      => [ 'expected', 'got' ]
     },
-    'RapidoILL::Exception::InvalidCentralserver' => {
+    'RapidoILL::Exception::InvalidPod' => {
         isa         => 'RapidoILL::Exception',
-        description => 'Passed central server is invalid',
-        fields      => ['central_server']
+        description => 'Passed pod is invalid',
+        fields      => ['pod']
     },
     'RapidoILL::Exception::InvalidStringNormalizer' => {
         isa         => 'RapidoILL::Exception',
