@@ -222,6 +222,41 @@ sub install {
         );
     }
 
+    my $circulate_requests = $self->get_qualified_table_name('circulate_requests');
+
+    unless ( $self->_table_exists($circulate_requests) ) {
+        $dbh->do(
+            qq{
+            CREATE TABLE $circulate_requests (
+                `circulate_request_id`      INT(11) NOT NULL AUTO_INCREMENT,
+                `pod`                       VARCHAR(191) NOT NULL,
+                `author`                    LONGTEXT DEFAULT NULL,
+                `borrowerCode`              VARCHAR(191) NOT NULL,
+                `callNumber`           "PA6807.A1",
+                `circId`               "ddss",
+                `circStatus`           "CREATED",
+                `dateCreated`          1741257159,
+                `dueDateTime`          undef,
+                `itemAgencyCode`       11723,
+                `itemBarcode`          "",
+                `itemId`               "",
+                `lastCircState`        "ITEM_HOLD",
+                `lastUpdated`          1741257182,
+                `lenderCode`           11723,
+                `needBefore`           undef,
+                `patronAgencyCode`     11747,
+                `patronId`             "",
+                `patronName`           "",
+                `pickupLocation`       "",
+                `puaLocalServerCode`   "",
+                `title`                "Virgil /"
+                `timestamp`                 TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`circulate_request_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        }
+        );
+    }
+
     return 1;
 }
 
