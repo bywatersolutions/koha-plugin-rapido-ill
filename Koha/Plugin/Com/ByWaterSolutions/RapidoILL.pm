@@ -222,6 +222,42 @@ sub install {
         );
     }
 
+    my $circulate_requests = $self->get_qualified_table_name('circulate_requests');
+
+    unless ( $self->_table_exists($circulate_requests) ) {
+        $dbh->do(
+            qq{
+            CREATE TABLE $circulate_requests (
+                `circulate_request_id` INT(11) NOT NULL AUTO_INCREMENT,
+                `pod`                  VARCHAR(191) NOT NULL,
+                `author`               LONGTEXT DEFAULT NULL,
+                `borrowerCode`         VARCHAR(191) NOT NULL,
+                `callNumber`           VARCHAR(191) NOT NULL,
+                `circId`               VARCHAR(191) NOT NULL,
+                `circStatus`           VARCHAR(191) NULL DEFAULT NULL,
+                `itemAgencyCode`       VARCHAR(191) NULL DEFAULT NULL,
+                `itemBarcode`          VARCHAR(191) NULL DEFAULT NULL,
+                `itemId`               VARCHAR(191) NULL DEFAULT NULL,
+                `lastCircState`        VARCHAR(191) NOT NULL DEFAULT "",
+                `lenderCode`           VARCHAR(191) NULL DEFAULT NULL,
+                `patronAgencyCode`     VARCHAR(191) NULL DEFAULT NULL,
+                `patronId`             VARCHAR(191) NULL DEFAULT NULL,
+                `patronName`           VARCHAR(191) NULL DEFAULT NULL,
+                `pickupLocation`       VARCHAR(191) NULL DEFAULT NULL,
+                `puaLocalServerCode`   VARCHAR(191) NULL DEFAULT NULL,
+                `title`                LONGTEXT DEFAULT NULL,
+                `dateCreated`          INT UNSIGNED NOT NULL,
+                `dueDateTime`          INT UNSIGNED NULL,
+                `lastUpdated`          INT UNSIGNED NULL DEFAULT NULL,
+                `needBefore`           INT UNSIGNED NULL DEFAULT NULL,
+                `timestamp`            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`circulate_request_id`),
+                KEY `circId` (`circId`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        }
+        );
+    }
+
     return 1;
 }
 
@@ -236,8 +272,9 @@ sub upgrade {
 
     my $dbh = C4::Context->dbh;
 
-    my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
-    my $task_queue       = $self->get_qualified_table_name('task_queue');
+    my $agency_to_patron   = $self->get_qualified_table_name('agency_to_patron');
+    my $task_queue         = $self->get_qualified_table_name('task_queue');
+    my $circulate_requests = $self->get_qualified_table_name('circulate_requests');
 
     my $new_version = "0.0.8";
     if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
@@ -295,6 +332,47 @@ sub upgrade {
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
+
+    $new_version = "0.0.11";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        unless ( $self->_table_exists($circulate_requests) ) {
+            $dbh->do(
+                qq{
+                CREATE TABLE $circulate_requests (
+                    `circulate_request_id` INT(11) NOT NULL AUTO_INCREMENT,
+                    `pod`                  VARCHAR(191) NOT NULL,
+                    `author`               LONGTEXT DEFAULT NULL,
+                    `borrowerCode`         VARCHAR(191) NOT NULL,
+                    `callNumber`           VARCHAR(191) NOT NULL,
+                    `circId`               VARCHAR(191) NOT NULL,
+                    `circStatus`           VARCHAR(191) NULL DEFAULT NULL,
+                    `itemAgencyCode`       VARCHAR(191) NULL DEFAULT NULL,
+                    `itemBarcode`          VARCHAR(191) NULL DEFAULT NULL,
+                    `itemId`               VARCHAR(191) NULL DEFAULT NULL,
+                    `lastCircState`        VARCHAR(191) NOT NULL DEFAULT "",
+                    `lenderCode`           VARCHAR(191) NULL DEFAULT NULL,
+                    `patronAgencyCode`     VARCHAR(191) NULL DEFAULT NULL,
+                    `patronId`             VARCHAR(191) NULL DEFAULT NULL,
+                    `patronName`           VARCHAR(191) NULL DEFAULT NULL,
+                    `pickupLocation`       VARCHAR(191) NULL DEFAULT NULL,
+                    `puaLocalServerCode`   VARCHAR(191) NULL DEFAULT NULL,
+                    `title`                LONGTEXT DEFAULT NULL,
+                    `dateCreated`          INT UNSIGNED NOT NULL,
+                    `dueDateTime`          INT UNSIGNED NULL,
+                    `lastUpdated`          INT UNSIGNED NULL DEFAULT NULL,
+                    `needBefore`           INT UNSIGNED NULL DEFAULT NULL,
+                    `timestamp`            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`circulate_request_id`),
+                    KEY `circId` (`circId`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            }
+            );
+        }
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
 
     return 1;
 }
