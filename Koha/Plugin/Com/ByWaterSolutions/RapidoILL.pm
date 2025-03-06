@@ -192,11 +192,11 @@ sub install {
                 `attempts`     INT(11) NOT NULL DEFAULT 0,
                 `last_error`   VARCHAR(191) DEFAULT NULL,
                 `timestamp`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                `central_server` VARCHAR(10) NOT NULL,
+                `pod`          VARCHAR(10) NOT NULL,
                 `run_after`    TIMESTAMP NULL DEFAULT NULL,
                 PRIMARY KEY (`id`),
                 KEY `status` (`status`),
-                KEY `central_server` (`central_server`)
+                KEY `pod` (`pod`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         }
         );
@@ -208,7 +208,7 @@ sub install {
         $dbh->do(
             qq{
             CREATE TABLE $agency_to_patron (
-                `central_server`            VARCHAR(191) NOT NULL,
+                `pod`                       VARCHAR(191) NOT NULL,
                 `local_server`              VARCHAR(191) NULL DEFAULT NULL,
                 `agency_id`                 VARCHAR(191) NOT NULL,
                 `patron_id`                 INT(11) NOT NULL,
@@ -216,7 +216,7 @@ sub install {
                 `requires_passcode`         TINYINT(1) NOT NULL DEFAULT 0,
                 `visiting_checkout_allowed` TINYINT(1) NOT NULL DEFAULT 0,
                 `timestamp`                 TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (`central_server`,`agency_id`)
+                PRIMARY KEY (`pod`,`agency_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         }
         );
@@ -236,10 +236,11 @@ sub upgrade {
 
     my $dbh = C4::Context->dbh;
 
+    my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
+    my $task_queue       = $self->get_qualified_table_name('task_queue');
+
     my $new_version = "0.0.8";
     if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
-
-        my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
 
         if ( $self->_table_exists($agency_to_patron) ) {
             $dbh->do(
@@ -258,6 +259,36 @@ sub upgrade {
                 qq{
                 ALTER TABLE $agency_to_patron
                     ADD COLUMN `description` VARCHAR(191) NOT NULL AFTER `patron_id`;
+            }
+            );
+        }
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "0.0.9";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        if ( $self->_table_exists($agency_to_patron) ) {
+            $dbh->do(
+                qq{
+                ALTER TABLE $agency_to_patron
+                    RENAME COLUMN `central_server` TO `pod`;
+            }
+            );
+        }
+        if ( $self->_table_exists($task_queue) ) {
+            $dbh->do(
+                qq{
+                ALTER TABLE $task_queue
+                    RENAME COLUMN `central_server` TO `pod`;
+            }
+            );
+
+            $dbh->do(
+                qq{
+                ALTER TABLE $task_queue DROP KEY `central_server`;
+                ALTER TABLE $task_queue ADD KEY `pod` (`pod`);
             }
             );
         }
@@ -333,10 +364,10 @@ sub _table_exists {
 
     $plugin->schedule_task(
         {
-            action         => $action,
-            central_server => $central_server,
-            object_type    => $object_type,
-            object_id      => $object->id
+            action      => $action,
+            pod         => $pod,
+            object_type => $object_type,
+            object_id   => $object->id
         }
     );
 
@@ -347,17 +378,17 @@ Method for adding tasks to the queue
 sub schedule_task {
     my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(action central_server object_type object_id);
+    my @mandatory_params = qw(action pod object_type object_id);
     foreach my $param (@mandatory_params) {
         RapidoILL::Exception::MissingParameter->throw( param => $param )
             unless exists $params->{$param};
     }
 
-    my $action         = $params->{action};
-    my $central_server = $params->{central_server};
-    my $object_type    = $params->{object_type};
-    my $object_id      = $params->{object_id};
-    my $payload        = $params->{payload};
+    my $action      = $params->{action};
+    my $pod         = $params->{pod};
+    my $object_type = $params->{object_type};
+    my $object_id   = $params->{object_id};
+    my $payload     = $params->{payload};
 
     $payload = ""
         unless $payload;
@@ -367,9 +398,9 @@ sub schedule_task {
     C4::Context->dbh->do(
         qq{
         INSERT INTO $task_queue
-            (  central_server,     object_type,   object_id,   action,   status,  attempts,  payload )
+            (  pod,     object_type,   object_id,   action,   status,  attempts,  payload )
         VALUES
-            ( '$central_server', '$object_type', $object_id, '$action', 'queued',        0, '$payload' );
+            ( '$pod', '$object_type', $object_id, '$action', 'queued',        0, '$payload' );
     }
     );
 
@@ -426,8 +457,8 @@ Plugin hook for running nightly tasks
 sub cronjob_nightly {
     my ($self) = @_;
 
-    foreach my $central_server ( @{ $self->central_servers } ) {
-        $self->sync_agencies($central_server);
+    foreach my $pod ( @{ $self->pods } ) {
+        $self->sync_agencies($pod);
     }
 }
 
@@ -557,10 +588,10 @@ sub add_virtual_record_and_item {
 
     my $patron = $plugin->generate_patron_for_agency(
         {
-            central_server => $central_server,
-            local_server   => $local_server,
-            agency_id      => $agency_id,
-            description    => $description
+            pod          => $pod,
+            local_server => $local_server,
+            agency_id    => $agency_id,
+            description  => $description
         }
     );
 
@@ -573,14 +604,13 @@ place a hold on the requested items.
 sub generate_patron_for_agency {
     my ( $self, $args ) = @_;
 
-    my @mandatory_params =
-        qw(central_server local_server description agency_id requires_passcode visiting_checkout_allowed);
+    my @mandatory_params = qw(pod local_server description agency_id requires_passcode visiting_checkout_allowed);
     foreach my $param (@mandatory_params) {
         RapidoILL::Exception::MissingParameter->throw( param => $param )
             unless exists $args->{$param};
     }
 
-    my $central_server            = $args->{central_server};
+    my $pod                       = $args->{pod};
     my $local_server              = $args->{local_server};
     my $description               = $args->{description};
     my $agency_id                 = $args->{agency_id};
@@ -589,8 +619,8 @@ sub generate_patron_for_agency {
 
     my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
 
-    my $library_id    = $self->configuration->{$central_server}->{partners_library_id};
-    my $category_code = $self->configuration->{$central_server}->{partners_category};
+    my $library_id    = $self->configuration->{$pod}->{partners_library_id};
+    my $category_code = $self->configuration->{$pod}->{partners_category};
 
     my $patron;
 
@@ -598,10 +628,10 @@ sub generate_patron_for_agency {
         sub {
             my $cardnumber = $self->gen_cardnumber(
                 {
-                    central_server => $central_server,
-                    local_server   => $local_server,
-                    description    => $description,
-                    agency_id      => $agency_id
+                    pod          => $pod,
+                    local_server => $local_server,
+                    description  => $description,
+                    agency_id    => $agency_id
                 }
             );
             $patron = Koha::Patron->new(
@@ -610,10 +640,10 @@ sub generate_patron_for_agency {
                     categorycode => $category_code,
                     surname      => $self->gen_patron_description(
                         {
-                            central_server => $central_server,
-                            local_server   => $local_server,
-                            description    => $description,
-                            agency_id      => $agency_id
+                            pod          => $pod,
+                            local_server => $local_server,
+                            description  => $description,
+                            agency_id    => $agency_id
                         }
                     ),
                     cardnumber => $cardnumber,
@@ -627,9 +657,9 @@ sub generate_patron_for_agency {
             my $sth = $dbh->prepare(
                 qq{
             INSERT INTO $agency_to_patron
-              ( central_server, local_server, agency_id, patron_id, description, requires_passcode, visiting_checkout_allowed )
+              ( pod, local_server, agency_id, patron_id, description, requires_passcode, visiting_checkout_allowed )
             VALUES
-              ( '$central_server', '$local_server', '$agency_id', '$patron_id', '$description', '$requires_passcode', '$visiting_checkout_allowed' );
+              ( '$pod', '$local_server', '$agency_id', '$patron_id', '$description', '$requires_passcode', '$visiting_checkout_allowed' );
         }
             );
 
@@ -644,10 +674,10 @@ sub generate_patron_for_agency {
 
     my $patron = $plugin->update_patron_for_agency(
         {
-            central_server => $central_server,
-            local_server   => $local_server,
-            agency_id      => $agency_id,
-            description    => $description
+            pod          => $pod,
+            local_server => $local_server,
+            agency_id    => $agency_id,
+            description  => $description
         }
     );
 
@@ -662,14 +692,13 @@ See: scripts/sync_agencies.pl
 sub update_patron_for_agency {
     my ( $self, $args ) = @_;
 
-    my @mandatory_params =
-        qw(central_server local_server description agency_id requires_passcode visiting_checkout_allowed);
+    my @mandatory_params = qw(pod local_server description agency_id requires_passcode visiting_checkout_allowed);
     foreach my $param (@mandatory_params) {
         RapidoILL::Exception::MissingParameter->throw( param => $param )
             unless exists $args->{$param};
     }
 
-    my $central_server            = $args->{central_server};
+    my $pod                       = $args->{pod};
     my $local_server              = $args->{local_server};
     my $description               = $args->{description};
     my $agency_id                 = $args->{agency_id};
@@ -678,7 +707,7 @@ sub update_patron_for_agency {
 
     my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
 
-    my $library_id    = $self->configuration->{$central_server}->{partners_library_id};
+    my $library_id    = $self->configuration->{$pod}->{partners_library_id};
     my $category_code = C4::Context->config("interlibrary_loans")->{partner_code};
 
     my $patron;
@@ -688,28 +717,28 @@ sub update_patron_for_agency {
 
             my $patron_id = $self->get_patron_id_from_agency(
                 {
-                    central_server => $central_server,
-                    agency_id      => $agency_id
+                    pod       => $pod,
+                    agency_id => $agency_id
                 }
             );
 
             $patron = Koha::Patrons->find($patron_id);
             my $cardnumber = $self->gen_cardnumber(
                 {
-                    central_server => $central_server,
-                    local_server   => $local_server,
-                    description    => $description,
-                    agency_id      => $agency_id
+                    pod          => $pod,
+                    local_server => $local_server,
+                    description  => $description,
+                    agency_id    => $agency_id
                 }
             );
             $patron->set(
                 {
                     surname => $self->gen_patron_description(
                         {
-                            central_server => $central_server,
-                            local_server   => $local_server,
-                            description    => $description,
-                            agency_id      => $agency_id
+                            pod          => $pod,
+                            local_server => $local_server,
+                            description  => $description,
+                            agency_id    => $agency_id
                         }
                     ),
                     cardnumber => $cardnumber,
@@ -726,7 +755,7 @@ sub update_patron_for_agency {
               requires_passcode='$requires_passcode',
               visiting_checkout_allowed='$visiting_checkout_allowed'
             WHERE
-                  central_server='$central_server'
+                  pod='$pod'
               AND local_server='$local_server'
               AND agency_id='$agency_id'
               }
@@ -743,21 +772,21 @@ sub update_patron_for_agency {
 
     my $patron_id = $plugin->get_patron_id_from_agency(
         {
-            central_server => $central_server,
-            agency_id      => $agency_id
+            pod       => $pod,
+            agency_id => $agency_id
         }
     );
 
 Given an agency_id (which usually comes in the patronAgencyCode attribute on the itemhold request)
-and a central_server code, it returns Koha's patron id so the hold request can be correctly assigned.
+and a pod code, it returns Koha's patron id so the hold request can be correctly assigned.
 
 =cut
 
 sub get_patron_id_from_agency {
     my ( $self, $args ) = @_;
 
-    my $central_server = $args->{central_server};
-    my $agency_id      = $args->{agency_id};
+    my $pod       = $args->{pod};
+    my $agency_id = $args->{agency_id};
 
     my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
     my $dbh              = C4::Context->dbh;
@@ -765,7 +794,7 @@ sub get_patron_id_from_agency {
         qq{
         SELECT patron_id
         FROM   $agency_to_patron
-        WHERE  agency_id='$agency_id' AND central_server='$central_server'
+        WHERE  agency_id='$agency_id' AND pod='$pod'
     }
     );
 
@@ -783,10 +812,10 @@ sub get_patron_id_from_agency {
 
     my $patron_description = $plugin->gen_patron_description(
         {
-            central_server => $central_server,
-            local_server   => $local_server,
-            description    => $description,
-            agency_id      => $agency_id
+            pod          => $pod,
+            local_server => $local_server,
+            description  => $description,
+            agency_id    => $agency_id
         }
     );
 
@@ -798,10 +827,10 @@ The idea is that any change on this regard should happen on a single place.
 sub gen_patron_description {
     my ( $self, $args ) = @_;
 
-    my $central_server = $args->{central_server};
-    my $local_server   = $args->{local_server};
-    my $description    = $args->{description};
-    my $agency_id      = $args->{agency_id};
+    my $pod          = $args->{pod};
+    my $local_server = $args->{local_server};
+    my $description  = $args->{description};
+    my $agency_id    = $args->{agency_id};
 
     return "$description ($agency_id)";
 }
@@ -810,10 +839,10 @@ sub gen_patron_description {
 
     my $cardnumber = $plugin->gen_cardnumber(
         {
-            central_server => $central_server,
-            local_server   => $local_server,
-            description    => $description,
-            agency_id      => $agency_id
+            pod          => $pod,
+            local_server => $local_server,
+            description  => $description,
+            agency_id    => $agency_id
         }
     );
 
@@ -825,17 +854,19 @@ The idea is that any change on this regard should happen on a single place.
 sub gen_cardnumber {
     my ( $self, $args ) = @_;
 
-    my $central_server = $args->{central_server};
-    my $local_server   = $args->{local_server};
-    my $description    = $args->{description};
-    my $agency_id      = $args->{agency_id};
+    my $pod          = $args->{pod};
+    my $local_server = $args->{local_server};
+    my $description  = $args->{description};
+    my $agency_id    = $args->{agency_id};
 
-    return 'ILL_' . $central_server . '_' . $agency_id;
+    return 'ILL_' . $pod . '_' . $agency_id;
 }
 
 =head3 central_servers
 
     my $central_servers = $self->central_servers;
+
+FIXME: Remove in favour of pods
 
 =cut
 
@@ -846,6 +877,21 @@ sub central_servers {
     my @central_servers = keys %{$configuration};
 
     return \@central_servers;
+}
+
+=head3 pods
+
+    my $pods = $self->pods;
+
+=cut
+
+sub pods {
+    my ($self) = @_;
+
+    my $configuration = $self->configuration;
+    my @pods          = keys %{$configuration};
+
+    return \@pods;
 }
 
 =head3 get_ill_request_from_biblio_id
@@ -914,22 +960,24 @@ sub get_ill_request {
 
 =head3 get_ua
 
-This method retrieves a user agent to contact a central server.
+    my $us = $plugin->get_ua($pod_code);
+
+This method retrieves a user agent to contact a pod.
 
 =cut
 
 sub get_ua {
-    my ( $self, $central_server ) = @_;
+    my ( $self, $pod_code ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'central_server' missing")
-        unless $central_server;
+    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod_code' missing")
+        unless $pod_code;
 
     require RapidoILL::OAuth2;
 
-    my $configuration = $self->configuration->{$central_server};
+    my $configuration = $self->configuration->{$pod_code};
 
-    unless ( $self->{_oauth2}->{$central_server} ) {
-        $self->{_oauth2}->{$central_server} = RapidoILL::OAuth2->new(
+    unless ( $self->{_oauth2}->{$pod_code} ) {
+        $self->{_oauth2}->{$pod_code} = RapidoILL::OAuth2->new(
             {
                 client_id      => $configuration->{client_id},
                 client_secret  => $configuration->{client_secret},
@@ -939,35 +987,35 @@ sub get_ua {
         );
     }
 
-    return $self->{_oauth2}->{$central_server};
+    return $self->{_oauth2}->{$pod_code};
 }
 
 =head3 get_client
 
-This method retrieves a user agent to contact a central server.
+This method retrieves a user agent to contact a pod.
 
 =cut
 
 sub get_client {
-    my ( $self, $central_server ) = @_;
+    my ( $self, $pod_code ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'central_server' missing")
-        unless $central_server;
+    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod_code' missing")
+        unless $pod_code;
 
     require RapidoILL::Client;
 
-    my $configuration = $self->configuration->{$central_server};
+    my $configuration = $self->configuration->{$pod_code};
 
-    unless ( $self->{client}->{$central_server} ) {
-        $self->{client}->{$central_server} = RapidoILL::Client->new(
+    unless ( $self->{client}->{$pod_code} ) {
+        $self->{client}->{$pod_code} = RapidoILL::Client->new(
             {
-                central_server => $central_server,
-                plugin         => $self,
+                pod_code => $pod_code,
+                plugin   => $self,
             }
         );
     }
 
-    return $self->{client}->{$central_server};
+    return $self->{client}->{$pod_code};
 }
 
 =head3 get_normalizer
@@ -982,27 +1030,29 @@ sub get_normalizer {
 
 =head3 debug_mode
 
-    if ( $self->debug_mode($central_server) ) { ... }
+    if ( $self->debug_mode($pod_code) ) { ... }
 
-This method tells if debug mode is enabled/configured for the specified I<$central_server>.
+This method tells if debug mode is enabled/configured for the specified I<$pod>.
 
 Defaults to B<0> if not specified in the configuration YAML.
 
 =cut
 
 sub debug_mode {
-    my ( $self, $central_server ) = @_;
+    my ( $self, $pod_code ) = @_;
 
-    return $self->configuration->{$central_server}->{debug_mode} ? 1 : 0;
+    return $self->configuration->{$pod_code}->{debug_mode} ? 1 : 0;
 }
 
-=head3 get_req_central_server
+=head3 get_req_pod
 
-This method returns the central server code a Koha::ILL::Request is linked to.
+    my $pod_code = $plugin->get_req_pod( $req );
+
+This method returns the pod code a Koha::ILL::Request is linked to.
 
 =cut
 
-sub get_req_central_server {
+sub get_req_pod {
     my ( $self, $req ) = @_;
 
     my $attr = $req->extended_attributes->find( { type => 'centralCode' } );
@@ -1145,43 +1195,45 @@ sub check_configuration {
     push @errors, { code => 'CirculateILL_enabled' }
         if C4::Context->preference('CirculateILL');
 
-    my $configuration   = $self->configuration;
-    my @central_servers = keys %{$configuration};
+    my $configuration = $self->configuration;
+    my @pods          = keys %{$configuration};
 
-    foreach my $central_server (@central_servers) {
+    foreach my $pod_code (@pods) {
 
         # partners_library_id
-        if ( !exists $configuration->{$central_server}->{partners_library_id} ) {
+        if ( !exists $configuration->{$pod_code}->{partners_library_id} ) {
             push @errors,
                 {
                 code           => 'missing_entry',
                 value          => 'partners_library_id',
-                central_server => $central_server
+                central_server => $pod_code,
                 };
         } else {
             push @errors,
                 {
-                code  => 'undefined_partners_library_id',
-                value => $configuration->{$central_server}->{partners_library_id}, central_server => $central_server
+                code           => 'undefined_partners_library_id',
+                value          => $configuration->{$pod_code}->{partners_library_id},
+                central_server => $pod_code
                 }
-                unless Koha::Libraries->find( $configuration->{$central_server}->{partners_library_id} );
+                unless Koha::Libraries->find( $configuration->{$pod_code}->{partners_library_id} );
         }
 
         # partners_category
-        if ( !exists $configuration->{$central_server}->{partners_category} ) {
+        if ( !exists $configuration->{$pod_code}->{partners_category} ) {
             push @errors,
                 {
                 code           => 'missing_entry',
                 value          => 'partners_category',
-                central_server => $central_server
+                central_server => $pod_code,
                 };
         } else {
             push @errors,
                 {
-                code  => 'undefined_partners_category',
-                value => $configuration->{$central_server}->{partners_category}, central_server => $central_server
+                code           => 'undefined_partners_category',
+                value          => $configuration->{$pod_code}->{partners_category},
+                central_server => $pod_code,
                 }
-                unless Koha::Patron::Categories->find( $configuration->{$central_server}->{partners_category} );
+                unless Koha::Patron::Categories->find( $configuration->{$pod_code}->{partners_category} );
         }
     }
 
@@ -1190,21 +1242,19 @@ sub check_configuration {
 
 =head3 get_agencies_list
 
-    my $res = $plugin->get_agencies_list( $central_server );
+    my $res = $plugin->get_agencies_list( $pod_code );
 
-Sends a request for defined agencies to a central server. It performs a:
-
-    GET /view/broker/locals
+Retrieves defined agencies from a I<pod>.
 
 =cut
 
 sub get_agencies_list {
-    my ( $self, $central_server ) = @_;
+    my ( $self, $pod_code ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw( param => 'central_server' )
-        unless $central_server;
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod_code' )
+        unless $pod_code;
 
-    return $self->get_client($central_server)->locals();
+    return $self->get_client($pod_code)->locals();
 }
 
 =head3 sync_agencies
@@ -1229,9 +1279,9 @@ with the following structure:
 =cut
 
 sub sync_agencies {
-    my ( $self, $central_server ) = @_;
+    my ( $self, $pod ) = @_;
 
-    my $response = $self->get_agencies_list($central_server);
+    my $response = $self->get_agencies_list($pod);
 
     my $result = {};
 
@@ -1250,8 +1300,8 @@ sub sync_agencies {
 
             my $patron_id = $self->get_patron_id_from_agency(
                 {
-                    central_server => $central_server,
-                    agency_id      => $agency_id,
+                    pod       => $pod,
+                    agency_id => $agency_id,
                 }
             );
 
@@ -1290,7 +1340,7 @@ sub sync_agencies {
                         agency_id                 => $agency_id,
                         description               => $description,
                         local_server              => $local_server,
-                        central_server            => $central_server,
+                        pod                       => $pod,
                         requires_passcode         => $requires_passcode,
                         visiting_checkout_allowed => $visiting_checkout_allowed,
                     }
@@ -1304,7 +1354,7 @@ sub sync_agencies {
                         agency_id                 => $agency_id,
                         description               => $description,
                         local_server              => $local_server,
-                        central_server            => $central_server,
+                        pod                       => $pod,
                         requires_passcode         => $requires_passcode,
                         visiting_checkout_allowed => $visiting_checkout_allowed,
                     }

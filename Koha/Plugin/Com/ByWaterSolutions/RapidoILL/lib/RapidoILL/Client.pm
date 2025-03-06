@@ -33,8 +33,8 @@ A class implementing an API client for Rapido ILL.
 
     my $ua = RapidoILL::Client->new(
         {
-            central_server => $central_server,
-            plugin         => $plugin,
+            pod_code => $pod_code,
+            plugin   => $plugin,
         }
     );
 
@@ -45,18 +45,18 @@ Constructor for the API client class.
 sub new {
     my ( $class, $params ) = @_;
 
-    my @mandatory_params = qw(central_server plugin);
+    my @mandatory_params = qw(pod_code plugin);
     foreach my $param (@mandatory_params) {
         RapidoILL::Exception::MissingParameter->throw("Missing parameter: $param")
             unless $params->{$param};
     }
 
-    my $central_server = $params->{central_server};
+    my $pod_code = $params->{pod_code};
 
     my $self = {
-        central_server => $central_server,
-        configuration  => $params->{plugin}->configuration->{$central_server},
-        ua             => $params->{plugin}->get_ua($central_server),
+        pod_code      => $pod_code,
+        configuration => $params->{plugin}->configuration->{$pod_code},
+        ua            => $params->{plugin}->get_ua($pod_code),
     };
 
     bless $self, $class;
