@@ -22,6 +22,7 @@ use Getopt::Long;
 use Text::Table;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
+use RapidoILL::Circulation::Requests;
 
 use Koha::Script qw(-cron);
 
@@ -55,6 +56,9 @@ Valid options are:
 _USAGE_
 }
 
+print STDERR "\n\nIMPORTANT: THIS IS JUST STORING THE DATA, NOT PRODUCTION READY OR TESTABLE\n\n";
+sleep 3;
+
 my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
 my $pods = $plugin->pods;
@@ -84,30 +88,35 @@ foreach my $pod_code ( @{$pods} ) {
         }
     );
 
-    p($active_requests);
+    foreach my $data ( @{$active_requests} ) {
 
-    foreach my $request ( @{$active_requests} ) {
+        $data->{pod} = $pod_code;
+
+        # FIXME: Only modified requests should be recorded
+        # FIXME: Actions should be triggered on status change
+        my $req = RapidoILL::Circulation::Request->new( $data )->store;
+
         push @rows, [
-            $request->{author},
-            $request->{borrowerCode},
-            $request->{callNumber},
-            $request->{circId},
-            $request->{circStatus},
-            $request->{dateCreated},
-            $request->{dueDateTime},
-            $request->{itemAgencyCode},
-            $request->{itemBarcode},
-            $request->{itemId},
-            $request->{lastCircState},
-            $request->{lastUpdated},
-            $request->{lenderCode},
-            $request->{needBefore},
-            $request->{patronAgencyCode},
-            $request->{patronId},
-            $request->{patronName},
-            $request->{pickupLocation},
-            $request->{puaLocalServerCode},
-            $request->{title},
+            $data->{author},
+            $data->{borrowerCode},
+            $data->{callNumber},
+            $data->{circId},
+            $data->{circStatus},
+            $data->{dateCreated},
+            $data->{dueDateTime},
+            $data->{itemAgencyCode},
+            $data->{itemBarcode},
+            $data->{itemId},
+            $data->{lastCircState},
+            $data->{lastUpdated},
+            $data->{lenderCode},
+            $data->{needBefore},
+            $data->{patronAgencyCode},
+            $data->{patronId},
+            $data->{patronName},
+            $data->{pickupLocation},
+            $data->{puaLocalServerCode},
+            $data->{title},
         ];
     }
 }

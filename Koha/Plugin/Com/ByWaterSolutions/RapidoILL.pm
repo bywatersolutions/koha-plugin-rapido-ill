@@ -44,6 +44,21 @@ BEGIN {
     my $path = Module::Metadata->find_module_by_name(__PACKAGE__);
     $path =~ s!\.pm$!/lib!;
     unshift @INC, $path;
+
+    require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillAgencyToPatron;
+    require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCirculateRequest;
+    require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue;
+
+    # register the additional schema classes
+    Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillAgencyToPatron =>
+            'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillAgencyToPatron' );
+    Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillCirculateRequest =>
+            'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCirculateRequest' );
+    Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillTaskQueue =>
+            'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue' );
+
+    # force a refresh of the database handle so that it includes the new classes
+    Koha::Database->schema( { new => 1 } );
 }
 
 our $VERSION = "0.0.11";
@@ -372,7 +387,6 @@ sub upgrade {
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
-
 
     return 1;
 }
