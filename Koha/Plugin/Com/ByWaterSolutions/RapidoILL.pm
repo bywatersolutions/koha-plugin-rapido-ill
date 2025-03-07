@@ -46,7 +46,7 @@ BEGIN {
     unshift @INC, $path;
 }
 
-our $VERSION = "0.0.10";
+our $VERSION = "0.0.11";
 
 our $metadata = {
     name            => 'RapidoILL',
