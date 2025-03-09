@@ -1,12 +1,12 @@
 use utf8;
-package Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCirculateRequest;
+package Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCircAction;
 
 # Created by DBIx::Class::Schema::Loader
 # DO NOT MODIFY THE FIRST PART OF THIS FILE
 
 =head1 NAME
 
-Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCirculateRequest
+Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCircAction
 
 =cut
 
@@ -15,15 +15,15 @@ use warnings;
 
 use base 'DBIx::Class::Core';
 
-=head1 TABLE: C<koha_plugin_com_bywatersolutions_rapidoill_circulate_requests>
+=head1 TABLE: C<koha_plugin_com_bywatersolutions_rapidoill_circ_actions>
 
 =cut
 
-__PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_circulate_requests");
+__PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_circ_actions");
 
 =head1 ACCESSORS
 
-=head2 circulate_request_id
+=head2 circ_action_id
 
   data_type: 'integer'
   is_auto_increment: 1
@@ -172,6 +172,12 @@ __PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_circulate_request
   extra: {unsigned => 1}
   is_nullable: 1
 
+=head2 illrequest_id
+
+  data_type: 'bigint'
+  extra: {unsigned => 1}
+  is_nullable: 1
+
 =head2 timestamp
 
   data_type: 'timestamp'
@@ -182,7 +188,7 @@ __PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_circulate_request
 =cut
 
 __PACKAGE__->add_columns(
-  "circulate_request_id",
+  "circ_action_id",
   { data_type => "integer", is_auto_increment => 1, is_nullable => 0 },
   "pod",
   { data_type => "varchar", is_nullable => 0, size => 191 },
@@ -317,6 +323,8 @@ __PACKAGE__->add_columns(
     extra       => { unsigned => 1 },
     is_nullable => 1,
   },
+  "illrequest_id",
+  { data_type => "bigint", extra => { unsigned => 1 }, is_nullable => 1 },
   "timestamp",
   {
     data_type => "timestamp",
@@ -330,24 +338,24 @@ __PACKAGE__->add_columns(
 
 =over 4
 
-=item * L</circulate_request_id>
+=item * L</circ_action_id>
 
 =back
 
 =cut
 
-__PACKAGE__->set_primary_key("circulate_request_id");
+__PACKAGE__->set_primary_key("circ_action_id");
 
 
-# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-03-07 20:38:34
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:c6yOYpLbhvoiTyr3X0TTUg
+# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-03-09 22:40:54
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:vMpNhW+f7iE1QcNxivwcXA
 
 sub koha_objects_class {
-    'RapidoILL::CirculationRequests';
+    'RapidoILL::CircActions';
 }
 
 sub koha_object_class {
-    'RapidoILL::CirculationRequests';
+    'RapidoILL::CircAction';
 }
 
 1;

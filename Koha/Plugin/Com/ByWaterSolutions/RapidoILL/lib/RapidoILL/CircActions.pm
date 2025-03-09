@@ -1,4 +1,4 @@
-package RapidoILL::Circulation::Requests;
+package RapidoILL::CircActions;
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,13 +17,13 @@ package RapidoILL::Circulation::Requests;
 
 use Modern::Perl;
 
-use RapidoILL::Circulation::Request;
+use RapidoILL::CircAction;
 
 use base qw(Koha::Objects);
 
 =head1 NAME
 
-RapidoILL::Circulation::Requests - Rapido ILL circulation requests object set class
+RapidoILL::CircActions - Rapido ILL circulation actions object set class
 
 =head1 API
 
@@ -34,7 +34,7 @@ RapidoILL::Circulation::Requests - Rapido ILL circulation requests object set cl
 =cut
 
 sub _type {
-    return 'KohaPluginComBywatersolutionsRapidoillCirculateRequest';
+    return 'KohaPluginComBywatersolutionsRapidoillCircAction';
 }
 
 =head3 object_class
@@ -42,7 +42,7 @@ sub _type {
 =cut
 
 sub object_class {
-    return 'RapidoILL::Circulation::Request';
+    return 'RapidoILL::CircAction';
 }
 
 1;

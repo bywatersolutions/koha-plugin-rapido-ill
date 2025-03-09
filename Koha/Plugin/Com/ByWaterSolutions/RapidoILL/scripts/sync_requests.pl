@@ -22,7 +22,7 @@ use Getopt::Long;
 use Text::Table;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
-use RapidoILL::Circulation::Requests;
+use RapidoILL::CircActions;
 
 use Koha::Script qw(-cron);
 
@@ -94,7 +94,7 @@ foreach my $pod_code ( @{$pods} ) {
 
         # FIXME: Only modified requests should be recorded
         # FIXME: Actions should be triggered on status change
-        my $req = RapidoILL::Circulation::Request->new( $data )->store;
+        my $req = RapidoILL::CircAction->new( $data )->store;
 
         push @rows, [
             $data->{author},

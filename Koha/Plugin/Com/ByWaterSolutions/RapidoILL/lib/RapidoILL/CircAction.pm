@@ -1,4 +1,4 @@
-package RapidoILL::Circulation::Request;
+package RapidoILL::CircAction;
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ use base qw(Koha::Object);
 
 =head1 NAME
 
-RapidoILL::Circulation::Request - Circularion request Object class
+RapidoILL::CircAction - Circulation action Object class
 
 =head1 API
 
@@ -32,7 +32,7 @@ RapidoILL::Circulation::Request - Circularion request Object class
 =cut
 
 sub _type {
-    return 'KohaPluginComBywatersolutionsRapidoillCirculateRequest';
+    return 'KohaPluginComBywatersolutionsRapidoillCircAction';
 }
 
 1;

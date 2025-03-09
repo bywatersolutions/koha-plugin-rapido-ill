@@ -46,14 +46,14 @@ BEGIN {
     unshift @INC, $path;
 
     require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillAgencyToPatron;
-    require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCirculateRequest;
+    require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCircAction;
     require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue;
 
     # register the additional schema classes
     Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillAgencyToPatron =>
             'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillAgencyToPatron' );
-    Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillCirculateRequest =>
-            'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCirculateRequest' );
+    Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillCircAction =>
+            'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCircAction' );
     Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillTaskQueue =>
             'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue' );
 
@@ -237,13 +237,13 @@ sub install {
         );
     }
 
-    my $circulate_requests = $self->get_qualified_table_name('circulate_requests');
+    my $circ_actions = $self->get_qualified_table_name('circ_actions');
 
-    unless ( $self->_table_exists($circulate_requests) ) {
+    unless ( $self->_table_exists($circ_actions) ) {
         $dbh->do(
             qq{
-            CREATE TABLE $circulate_requests (
-                `circulate_request_id` INT(11) NOT NULL AUTO_INCREMENT,
+            CREATE TABLE $circ_actions (
+                `circ_action_id`       INT(11) NOT NULL AUTO_INCREMENT,
                 `pod`                  VARCHAR(191) NOT NULL,
                 `author`               LONGTEXT DEFAULT NULL,
                 `borrowerCode`         VARCHAR(191) NOT NULL,
@@ -265,8 +265,9 @@ sub install {
                 `dueDateTime`          INT UNSIGNED NULL,
                 `lastUpdated`          INT UNSIGNED NULL DEFAULT NULL,
                 `needBefore`           INT UNSIGNED NULL DEFAULT NULL,
+                `illrequest_id`        BIGINT(20) UNSIGNED NULL DEFAULT NULL,
                 `timestamp`            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (`circulate_request_id`),
+                PRIMARY KEY (`circ_action_id`),
                 KEY `circId` (`circId`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         }
@@ -287,9 +288,9 @@ sub upgrade {
 
     my $dbh = C4::Context->dbh;
 
-    my $agency_to_patron   = $self->get_qualified_table_name('agency_to_patron');
-    my $task_queue         = $self->get_qualified_table_name('task_queue');
-    my $circulate_requests = $self->get_qualified_table_name('circulate_requests');
+    my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
+    my $task_queue       = $self->get_qualified_table_name('task_queue');
+    my $circ_actions     = $self->get_qualified_table_name('circ_actions');
 
     my $new_version = "0.0.8";
     if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
@@ -348,14 +349,14 @@ sub upgrade {
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
 
-    $new_version = "0.0.11";
+    $new_version = "0.0.13";
     if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
 
-        unless ( $self->_table_exists($circulate_requests) ) {
+        unless ( $self->_table_exists($circ_actions) ) {
             $dbh->do(
                 qq{
-                CREATE TABLE $circulate_requests (
-                    `circulate_request_id` INT(11) NOT NULL AUTO_INCREMENT,
+                CREATE TABLE $circ_actions (
+                    `circ_action_id`       INT(11) NOT NULL AUTO_INCREMENT,
                     `pod`                  VARCHAR(191) NOT NULL,
                     `author`               LONGTEXT DEFAULT NULL,
                     `borrowerCode`         VARCHAR(191) NOT NULL,
@@ -377,8 +378,9 @@ sub upgrade {
                     `dueDateTime`          INT UNSIGNED NULL,
                     `lastUpdated`          INT UNSIGNED NULL DEFAULT NULL,
                     `needBefore`           INT UNSIGNED NULL DEFAULT NULL,
+                    `illrequest_id`        BIGINT(20) UNSIGNED NULL DEFAULT NULL,
                     `timestamp`            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (`circulate_request_id`),
+                    PRIMARY KEY (`circ_action_id`),
                     KEY `circId` (`circId`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             }
