@@ -38,6 +38,7 @@ use Koha::Libraries;
 use Koha::Patron::Categories;
 use Koha::Patrons;
 
+require RapidoILL::CircActions;
 require RapidoILL::Exceptions;
 
 BEGIN {
@@ -1442,6 +1443,75 @@ sub sync_agencies {
     }
 
     return $result;
+}
+
+=head3 sync_circ_requests
+
+    my $result = $self->sync_circ_requests(
+        {
+            pod       => $pod_code,
+          [ startTime => $startTime,
+            endTime   => $endTime, ]
+        }
+    );
+
+Syncs circulation requests from the specified I<pod>.
+
+TODO: Add state parameter.
+
+=cut
+
+sub sync_circ_requests {
+    my ( $self, $args ) = @_;
+
+    my @mandatory_params = qw(pod);
+    foreach my $param (@mandatory_params) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless exists $args->{$param};
+    }
+
+    my $startTime = $args->{startTime} // "1700000000";
+    my $endTime   = $args->{endTime}   // time();
+
+    my $reqs = $self->get_client( $args->{pod} )->circulation_requests(
+        {
+            startTime => $startTime,
+            endTime   => $endTime,
+            content   => 'verbose',
+            state     => [ 'ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED' ],
+        }
+    );
+
+    foreach my $data ( @{$reqs} ) {
+        my $stored_actions =
+            RapidoILL::CircActions->search( { circId => $data->{circId} }, { order_by => { -desc => 'lastUpdated' } } );
+
+        my $action;
+
+        if ( $stored_actions->count > 0 ) {
+
+            # it might be an update
+            my $last_update = $stored_actions->next;
+            if ( $last_update->lastUpdated < $data->{lastUpdated} ) {
+                $data->{pod}           = $args->{pod};
+                $data->{illrequest_id} = $last_update->illrequest_id;
+                $action                = RapidoILL::CircAction->new($data)->store;
+            }
+        } else {
+
+            # new request!
+            if ( $data->{circStatus} eq 'CANCELED' || $data->{circStatus} eq 'COMPLETED' ) {
+                $self->rapido_warn(
+                    sprintf(
+                        "A finished request with circStatus='%s' lastCircState='%s' was found with no recorded ILL request. ",
+                        $data->{circStatus}, $data->{lastCircState}
+                    )
+                );
+            }
+            $data->{pod} = $args->{pod};
+            $action = RapidoILL::CircAction->new($data)->store;
+        }
+    }
 }
 
 =head3 get_ill_request_from_attribute
