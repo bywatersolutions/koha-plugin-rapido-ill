@@ -28,15 +28,14 @@ use Koha::Script qw(-cron);
 
 binmode( STDOUT, ':encoding(utf8)' );
 
-my $verbose;
-my $local_server;
 my $pod;
-my $dry_run = 0;
+my $end_time;
+my $start_time;
 
 my $result = GetOptions(
-    'dry_run'   => \$dry_run,
-    'pod=s'     => \$pod,
-    'v|verbose' => \$verbose,
+    'pod=s'        => \$pod,
+    'end_time=s'   => \$end_time,
+    'start_time=s' => \$start_time,
 );
 
 unless ($result) {
@@ -49,15 +48,12 @@ sub print_usage {
 
 Valid options are:
 
-    --pod <pod_code>    Only sync the specified pod circulation requests
-    --dry_run           Don't make any changes
-    -v | --verbose      Verbose output
+    --pod <pod_code>      Only sync the specified pod circulation requests
+    --start_time <epoch>
+    --end_time <epoch>
 
 _USAGE_
 }
-
-print STDERR "\n\nIMPORTANT: THIS IS JUST STORING THE DATA, NOT PRODUCTION READY OR TESTABLE\n\n";
-sleep 3;
 
 my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
@@ -74,78 +70,13 @@ my @rows;
 
 foreach my $pod_code ( @{$pods} ) {
 
-    my $client = $plugin->get_client($pod_code);
-
-    # start at epoch, then save
-    my $startTime = $plugin->retrieve_data('startTime') // "1700000000";
-    my $endTime   = time();
-
-    my $active_requests = $client->circulation_requests(
+    $plugin->sync_circ_requests(
         {
-            startTime => $startTime,
-            endTime   => $endTime,
-            content   => "verbose",
+            pod => $pod_code,
+            ( $start_time ? ( startTime => $start_time ) : () ),
+            ( $end_time   ? ( endTime   => $end_time )   : () ),
         }
     );
-
-    foreach my $data ( @{$active_requests} ) {
-
-        $data->{pod} = $pod_code;
-
-        # FIXME: Only modified requests should be recorded
-        # FIXME: Actions should be triggered on status change
-        my $req = RapidoILL::CircAction->new( $data )->store;
-
-        push @rows, [
-            $data->{author},
-            $data->{borrowerCode},
-            $data->{callNumber},
-            $data->{circId},
-            $data->{circStatus},
-            $data->{dateCreated},
-            $data->{dueDateTime},
-            $data->{itemAgencyCode},
-            $data->{itemBarcode},
-            $data->{itemId},
-            $data->{lastCircState},
-            $data->{lastUpdated},
-            $data->{lenderCode},
-            $data->{needBefore},
-            $data->{patronAgencyCode},
-            $data->{patronId},
-            $data->{patronName},
-            $data->{pickupLocation},
-            $data->{puaLocalServerCode},
-            $data->{title},
-        ];
-    }
-}
-
-if ( scalar @rows && $verbose ) {
-    my $table = Text::Table->new(
-        'author',
-        'borrowerCode',
-        'callNumber',
-        'circId',
-        'circStatus',
-        'dateCreated',
-        'dueDateTime',
-        'itemAgencyCode',
-        'itemBarcode',
-        'itemId',
-        'lastCircState',
-        'lastUpdated',
-        'lenderCode',
-        'needBefore',
-        'patronAgencyCode',
-        'patronId',
-        'patronName',
-        'pickupLocation',
-        'puaLocalServerCode',
-        'title',
-    );
-    $table->load(@rows);
-    print STDOUT $table;
 }
 
 1;
