@@ -1483,35 +1483,116 @@ sub sync_circ_requests {
     );
 
     foreach my $data ( @{$reqs} ) {
-        my $stored_actions =
-            RapidoILL::CircActions->search( { circId => $data->{circId} }, { order_by => { -desc => 'lastUpdated' } } );
 
-        my $action;
+        $data->{pod} = $args->{pod};
+        my $action = RapidoILL::CircAction->new($data);
 
-        if ( $stored_actions->count > 0 ) {
+        try {
 
-            # it might be an update
-            my $last_update = $stored_actions->next;
-            if ( $last_update->lastUpdated < $data->{lastUpdated} ) {
-                $data->{pod}           = $args->{pod};
-                $data->{illrequest_id} = $last_update->illrequest_id;
-                $action                = RapidoILL::CircAction->new($data)->store;
-            }
-        } else {
+            if ( $self->is_circ_action_new($action) ) {
 
-            # new request!
-            if ( $data->{circStatus} eq 'CANCELED' || $data->{circStatus} eq 'COMPLETED' ) {
-                $self->rapido_warn(
-                    sprintf(
-                        "A finished request with circStatus='%s' lastCircState='%s' was found with no recorded ILL request. ",
-                        $data->{circStatus}, $data->{lastCircState}
-                    )
+                # deal with creation
+                my $schema = Koha::Database->new->schema;
+                $schema->txn_do(
+                    sub {
+                        if ( $data->{circStatus} eq 'CANCELED' || $data->{circStatus} eq 'COMPLETED' ) {
+                            $self->rapido_warn(
+                                sprintf(
+                                    "A finished request with circStatus='%s' lastCircState='%s' was found with no recorded ILL request. ",
+                                    $data->{circStatus}, $data->{lastCircState}
+                                )
+                            );
+                        } else {
+                            $action->store();
+                            $self->add_ill_request($action);
+                        }
+                    }
                 );
-            }
-            $data->{pod} = $args->{pod};
-            $action = RapidoILL::CircAction->new($data)->store;
+            } elsif ( my $prev_action = $self->is_circ_action_update($action) ) {
+
+                # this is an update
+                my $schema = Koha::Database->new->schema;
+                $schema->txn_do(
+                    sub {
+                        $action->set( { illrequest_id => $prev_action->illrequest_id } )->store();
+                        $self->update_ill_request($action);
+                    }
+                );
+            }    # else / no action required
+        } catch {
+            $self->rapido_warn( sprintf( "Error processing circId=%s: %s", $data->{circId}, $_ ) );
+        };
+    }
+}
+
+=head3 add_ill_request
+
+=cut
+
+sub add_ill_request {
+    my ( $self, $action ) = @_;
+    warn "add_ill_request() called";
+    return;
+}
+
+=head3 update_ill_request
+
+=cut
+
+sub update_ill_request {
+    my ( $self, $action ) = @_;
+    warn "update_ill_request() called";
+    return;
+}
+
+=head3 is_circ_action_update
+
+    if ( $self->is_circ_action_update($action) ) { ... }
+    my $prev_action = $self->is_circ_action_update($action);
+    if ( $prev_action ) { ... }
+
+Method that returns a the I<RapidoILL::CircAction> the passed one is updating.
+It returns I<undef> otherwise.
+
+=cut
+
+sub is_circ_action_update {
+    my ( $self, $action ) = @_;
+
+    my $stored_actions = RapidoILL::CircActions->search(
+        { circId   => $action->circId },
+        { order_by => { -desc => 'lastUpdated' } }
+    );
+
+    if ( $stored_actions->count > 0 ) {
+
+        # pick the newest
+        my $last_update = $stored_actions->next;
+        if ( $last_update->lastUpdated < $action->lastUpdated ) {
+            return $last_update;
         }
     }
+
+    return;
+}
+
+=head3 is_circ_action_new
+
+    if ( $self->is_circ_action_new($action) ) { ... }
+
+Method that returns a boolean telling if the action is new to the DB.
+
+=cut
+
+sub is_circ_action_new {
+    my ( $self, $action ) = @_;
+
+    my $stored_actions = RapidoILL::CircActions->search(
+        { circId   => $action->circId },
+        { order_by => { -desc => 'lastUpdated' } }
+    );
+
+    return $stored_actions->count == 0;
 }
 
 =head3 get_ill_request_from_attribute
