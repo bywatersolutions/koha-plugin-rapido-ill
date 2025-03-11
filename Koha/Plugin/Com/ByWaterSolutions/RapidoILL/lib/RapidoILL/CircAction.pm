@@ -17,6 +17,8 @@ package RapidoILL::CircAction;
 
 use Modern::Perl;
 
+use Koha::ILL::Requests;
+
 use base qw(Koha::Object);
 
 =head1 NAME
@@ -24,6 +26,21 @@ use base qw(Koha::Object);
 RapidoILL::CircAction - Circulation action Object class
 
 =head1 API
+
+=head2 Class methods
+
+=head3 ill_request
+
+    my $req = $action->ill_request;
+
+Get the linked I<Koha::ILL::Request> object.
+
+=cut
+
+sub ill_request {
+    my ($self) = @_;
+    return Koha::ILL::Requests->find( $self->illrequest_id );
+}
 
 =head2 Internal methods
 
