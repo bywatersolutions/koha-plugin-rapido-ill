@@ -18,6 +18,7 @@ package RapidoILL::CircAction;
 use Modern::Perl;
 
 use Koha::ILL::Requests;
+use Koha::Items;
 
 use base qw(Koha::Object);
 
@@ -40,6 +41,19 @@ Get the linked I<Koha::ILL::Request> object.
 sub ill_request {
     my ($self) = @_;
     return Koha::ILL::Requests->find( $self->illrequest_id );
+}
+
+=head3 item
+
+    my $req = $action->item;
+
+Get the linked I<Koha::Item> object.
+
+=cut
+
+sub item {
+    my ($self) = @_;
+    return Koha::Items->find( $self->itemId );
 }
 
 =head2 Internal methods

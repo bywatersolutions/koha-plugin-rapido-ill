@@ -1002,16 +1002,16 @@ sub get_ill_request_from_biblio_id {
 
 =head3 get_ill_request
 
-This method retrieves the ILL request using the I<trackingId> and
-I<centralCode> attributes.
+This method retrieves the ILL request using the I<circId> and
+I<pod> attributes.
 
 =cut
 
 sub get_ill_request {
     my ( $self, $args ) = @_;
 
-    my $trackingId  = $args->{trackingId};
-    my $centralCode = $args->{centralCode};
+    my $circId = $args->{circId};
+    my $pod    = $args->{pod};
 
     # Get/validate the request
     my $dbh = C4::Context->dbh;
@@ -1020,8 +1020,8 @@ sub get_ill_request {
         SELECT * FROM illrequestattributes AS ra_a
         INNER JOIN    illrequestattributes AS ra_b
         ON ra_a.illrequest_id=ra_b.illrequest_id AND
-          (ra_a.type='trackingId'  AND ra_a.value='$trackingId') AND
-          (ra_b.type='centralCode' AND ra_b.value='$centralCode');
+          (ra_a.type='circId'  AND ra_a.value='$circId') AND
+          (ra_b.type='pod' AND ra_b.value='$pod');
     }
     );
 
@@ -1531,8 +1531,265 @@ sub sync_circ_requests {
 
 sub add_ill_request {
     my ( $self, $action ) = @_;
-    warn "add_ill_request() called";
-    return;
+
+    my $req = $self->get_ill_request( { circId => $action->circId, pod => $action->pod } );
+    RapidoILL::Exception->throw(
+        sprintf( "A request with circId=%s and pod=%s already exists!", $action->circId, $action->pod ) )
+        if $req;
+
+    if ( $action->lastCircState eq 'ITEM_HOLD' ) {
+        $req = $self->create_item_hold($action);
+    } elsif ( $action->lastCircState eq 'PATRON_HOLD' ) {
+        $req = $self->create_patron_hold($action);
+    } else {
+        RapidoILL::Exception::InconsistentStatus->throw(
+            expected => 'ITEM_HOLD or PATRON_HOLD',
+            got      => $action->lastCircState
+        );
+    }
+
+    return $req;
+}
+
+=head3 create_item_hold
+
+=cut
+
+sub create_item_hold {
+    my ( $self, $action ) = @_;
+
+    my $item = $action->item;
+
+    RapidoILL::Exception::UnknownItemId->throw( item_id => $action->itemId )
+        unless $item;
+
+    my $attributes = {
+        author             => $action->author,
+        borrowerCode       => $action->borrowerCode,
+        callNumber         => $action->callNumber,
+        circ_action_id     => $action->circ_action_id,
+        circId             => $action->circId,
+        circStatus         => $action->circStatus,
+        dateCreated        => $action->dateCreated,
+        dueDateTime        => $action->dueDateTime,
+        itemAgencyCode     => $action->itemAgencyCode,
+        itemBarcode        => $action->itemBarcode,
+        itemId             => $action->itemId,
+        lastCircState      => $action->lastCircState,
+        lastUpdated        => $action->lastUpdated,
+        lenderCode         => $action->lenderCode,
+        needBefore         => $action->needBefore,
+        patronAgencyCode   => $action->patronAgencyCode,
+        patronId           => $action->patronId,
+        patronName         => $action->patronName,
+        pickupLocation     => $action->pickupLocation,
+        pod                => $action->pod,
+        puaLocalServerCode => $action->puaLocalServerCode,
+        title              => $action->title,
+    };
+
+    return try {
+
+        my $schema = Koha::Database->new->schema;
+        $schema->txn_do(
+            sub {
+                my $agency_id  = $action->patronAgencyCode;
+                my $config     = $plugin->configuration->{ $action->pod };
+                my $library_id = $config->{partners_library_id};
+                my $patron_id  = $plugin->get_patron_id_from_agency(
+                    {
+                        agency_id => $agency_id,
+                        pod       => $pod
+                    }
+                );
+
+                if ( !$patron_id ) {
+
+                    # FIXME: Should we just try to sync?
+                    RapidoILL::Exceptions->throw(
+                        sprintf( "No patron_id for the request agency code (%s)", $agency_id ) );
+                }
+
+                # Create the request
+                $req = $plugin->new_ill_request(
+                    {
+                        branchcode     => $library_id,
+                        borrowernumber => $patron_id,
+                        biblio_id      => $item->biblionumber,
+                        status         => 'O_ITEM_REQUESTED',
+                        backend        => $self->ill_backend(),
+                        placed         => \'NOW()',
+                    }
+                );
+
+                $req->store;
+
+                # Add attributes
+                $plugin->add_or_update_attributes(
+                    {
+                        attributes => $attributes,
+                        request    => $req,
+                    }
+                );
+
+                my $patron               = Koha::Patrons->find($patron_id);
+                my $can_item_be_reserved = CanItemBeReserved( $patron, $item, $library_id )->{status};
+
+                if ( $can_item_be_reserved ne 'OK' ) {
+                    $plugin->rapido_warn(
+                              "Placing the hold, but rules woul've prevented it. FIXME! (patron_id=$patron_id, item_id="
+                            . $item->itemnumber
+                            . ", library_id=$library_id, status=$can_item_be_reserved)" );
+                }
+
+                my $hold_id = $plugin->add_hold(
+                    {
+                        biblio_id  => $biblio->id,
+                        item_id    => $item->id,
+                        library_id => $req->branchcode,
+                        patron_id  => $patron_id,
+                        notes      => exists $config->{default_hold_note}
+                        ? $config->{default_hold_note}
+                        : 'Placed by ILL',
+                    }
+                );
+
+                $plugin->new_ill_request_attr(
+                    {
+                        illrequest_id => $req->illrequest_id,
+                        type          => 'hold_id',
+                        value         => $hold_id,
+                        readonly      => 1
+                    }
+                )->store;
+            }
+        );
+    } catch {
+        return $_->rethrow;
+    };
+
+    return $req;
+}
+
+=head3 create_patron_hold
+
+=cut
+
+sub create_patron_hold {
+    my ( $self, $action ) = @_;
+
+    my $attributes = {
+        author             => $action->author,
+        borrowerCode       => $action->borrowerCode,
+        callNumber         => $action->callNumber,
+        circ_action_id     => $action->circ_action_id,
+        circId             => $action->circId,
+        circStatus         => $action->circStatus,
+        dateCreated        => $action->dateCreated,
+        dueDateTime        => $action->dueDateTime,
+        itemAgencyCode     => $action->itemAgencyCode,
+        itemBarcode        => $action->itemBarcode,
+        itemId             => $action->itemId,
+        lastCircState      => $action->lastCircState,
+        lastUpdated        => $action->lastUpdated,
+        lenderCode         => $action->lenderCode,
+        needBefore         => $action->needBefore,
+        patronAgencyCode   => $action->patronAgencyCode,
+        patronId           => $action->patronId,
+        patronName         => $action->patronName,
+        pickupLocation     => $action->pickupLocation,
+        pod                => $action->pod,
+        puaLocalServerCode => $action->puaLocalServerCode,
+        title              => $action->title,
+    };
+
+    my $user_id = $attributes->{patronId};
+    my $patron  = Koha::Patrons->find($user_id);
+
+    RapidoILL::Exceptions::UnknownPatronId->throw( patron_id => $user_id )
+        unless $patron;
+
+    return try {
+
+        my $schema = Koha::Database->new->schema;
+        $schema->txn_do(
+            sub {
+                my $agency_id  = $action->patronAgencyCode;
+                my $config     = $plugin->configuration->{ $action->pod };
+                my $library_id = $config->{partners_library_id};
+                my $patron_id  = $plugin->get_patron_id_from_agency(
+                    {
+                        agency_id => $agency_id,
+                        pod       => $pod
+                    }
+                );
+
+                if ( !$patron_id ) {
+
+                    # FIXME: Should we just try to sync?
+                    RapidoILL::Exceptions->throw(
+                        sprintf( "No patron_id for the request agency code (%s)", $agency_id ) );
+                }
+
+                # Create the request
+                $req = $plugin->new_ill_request(
+                    {
+                        branchcode     => $library_id,
+                        borrowernumber => $patron_id,
+                        biblio_id      => $item->biblionumber,
+                        status         => 'O_ITEM_REQUESTED',
+                        backend        => $self->ill_backend(),
+                        placed         => \'NOW()',
+                    }
+                );
+
+                $req->store;
+
+                # Add attributes
+                $plugin->add_or_update_attributes(
+                    {
+                        attributes => $attributes,
+                        request    => $req,
+                    }
+                );
+
+                my $patron               = Koha::Patrons->find($patron_id);
+                my $can_item_be_reserved = CanItemBeReserved( $patron, $item, $library_id )->{status};
+
+                if ( $can_item_be_reserved ne 'OK' ) {
+                    $plugin->rapido_warn(
+                              "Placing the hold, but rules woul've prevented it. FIXME! (patron_id=$patron_id, item_id="
+                            . $item->itemnumber
+                            . ", library_id=$library_id, status=$can_item_be_reserved)" );
+                }
+
+                my $hold_id = $plugin->add_hold(
+                    {
+                        biblio_id  => $biblio->id,
+                        item_id    => $item->id,
+                        library_id => $req->branchcode,
+                        patron_id  => $patron_id,
+                        notes      => exists $config->{default_hold_note}
+                        ? $config->{default_hold_note}
+                        : 'Placed by ILL',
+                    }
+                );
+
+                $plugin->new_ill_request_attr(
+                    {
+                        illrequest_id => $req->illrequest_id,
+                        type          => 'hold_id',
+                        value         => $hold_id,
+                        readonly      => 1
+                    }
+                )->store;
+            }
+        );
+    } catch {
+        return $_->rethrow;
+    };
+
+    return $req;
 }
 
 =head3 update_ill_request
@@ -1722,6 +1979,26 @@ sub add_or_update_attributes {
             }
         }
     );
+
+    return;
+}
+
+=head3 validate_params
+
+    $self->validate_params( { required => $required, params => $params } );
+
+Reusable method for validating the passed parameters with a list of
+required params.
+
+=cut
+
+sub validate_params {
+    my ( $self, $args ) = @_;
+
+    foreach my $param ( @{ $args->{required} } ) {
+        RapidoILL::Exception::MissingParameter->throw("Missing parameter: $param")
+            unless $args->{params}->{$param};
+    }
 
     return;
 }
