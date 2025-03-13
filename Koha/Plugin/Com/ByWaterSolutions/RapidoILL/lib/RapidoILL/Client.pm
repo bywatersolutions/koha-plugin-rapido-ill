@@ -57,6 +57,7 @@ sub new {
         pod_code      => $pod_code,
         configuration => $params->{plugin}->configuration->{$pod_code},
         ua            => $params->{plugin}->get_ua($pod_code),
+        plugin        => $params->{plugin},
     };
 
     bless $self, $class;
@@ -111,7 +112,7 @@ sub locals {
 sub lender_cancel {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => [qw(circId localBibId patronName)], } );
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId localBibId patronName)], } );
 
     my $response;
 
@@ -150,7 +151,7 @@ sub lender_cancel {
 sub lender_visiting_patron_checkout {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params(
+    $self->{plugin}->validate_params(
         {
             params   => $params,
             required => [
@@ -204,7 +205,7 @@ sub lender_visiting_patron_checkout {
 sub lender_checkin {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => [qw(circId)], } );
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
 
     my $response;
 
@@ -238,7 +239,7 @@ sub lender_checkin {
 sub lender_shipped {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => [qw(callNumber circId itemBarcode)], } );
+    $self->{plugin}->validate_params( { params => $params, required => [qw(callNumber circId itemBarcode)], } );
 
     my $response;
 
@@ -276,7 +277,7 @@ sub lender_shipped {
 sub borrower_item_received {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => [qw(circId)], } );
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
 
     my $response;
 
@@ -308,7 +309,7 @@ sub borrower_item_received {
 sub borrower_item_returned {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => [qw(circId)], } );
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
 
     my $response;
 
@@ -348,7 +349,7 @@ I<startTime> and I<endTime> are the only mandatory parameter.
 sub circulation_requests {
     my ( $self, $params, $options ) = @_;
 
-    $self->validate_params( { params => $params, required => [qw(startTime endTime)], } );
+    $self->{plugin}->validate_params( { params => $params, required => [qw(startTime endTime)], } );
 
     my $response;
 
@@ -372,28 +373,6 @@ sub circulation_requests {
     }
 
     return decode_json( encode( 'UTF-8', $response->decoded_content ) );
-}
-
-=head2 Internal methods
-
-=head3 validate_params
-
-    $self->validate_params( { required => $required, params => $params } );
-
-Reusable method for validating the passed parameters with a list of
-required params.
-
-=cut
-
-sub validate_params {
-    my ( $self, $args ) = @_;
-
-    foreach my $param ( @{ $args->{required} } ) {
-        RapidoILL::Exception::MissingParameter->throw("Missing parameter: $param")
-            unless $args->{params}->{$param};
-    }
-
-    return;
 }
 
 1;
