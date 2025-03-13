@@ -31,16 +31,25 @@ binmode( STDOUT, ':encoding(utf8)' );
 my $pod;
 my $end_time;
 my $start_time;
+my $list_pods;
+my $help;
 
 my $result = GetOptions(
     'pod=s'        => \$pod,
     'end_time=s'   => \$end_time,
     'start_time=s' => \$start_time,
+    'list_pods'    => \$list_pods,
+    'help|h'       => \$help,
 );
 
 unless ($result) {
     print_usage();
     die "Not sure what wen't wrong";
+}
+
+if ($help) {
+    print_usage();
+    exit 0;
 }
 
 sub print_usage {
@@ -49,8 +58,11 @@ sub print_usage {
 Valid options are:
 
     --pod <pod_code>      Only sync the specified pod circulation requests
-    --start_time <epoch>
-    --end_time <epoch>
+    --start_time <epoch>  Start time range (epoch) [OPTIONAL]
+    --end_time <epoch>    End time range (epoch) [OPTIONAL]
+    --list_pods           Print configured pods and exit.
+
+    --help|-h             Print this information and exit.
 
 _USAGE_
 }
@@ -58,6 +70,14 @@ _USAGE_
 my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
 my $pods = $plugin->pods;
+
+if ($list_pods) {
+    foreach my $i ( @{$pods} ) {
+        print STDOUT "$i\n";
+    }
+    exit 0;
+}
+
 $pods = [ grep { $_ eq $pod } @{$pods} ]
     if $pod;
 

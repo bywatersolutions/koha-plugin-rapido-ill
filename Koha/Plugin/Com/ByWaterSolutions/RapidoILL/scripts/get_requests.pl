@@ -27,10 +27,12 @@ use Koha::Script;
 binmode( STDOUT, ':encoding(utf8)' );
 
 my $pod;
+my $list_pods;
 my $end_time;
 my $start_time;
 my $state;
 my $content = 'verbose';
+my $help;
 
 my $result = GetOptions(
     'pod=s'        => \$pod,
@@ -38,6 +40,8 @@ my $result = GetOptions(
     'start_time=s' => \$start_time,
     'state=s@'     => \$state,
     'content=s'    => \$content,
+    'list_pods'    => \$list_pods,
+    'help|h|'      => \$help,
 );
 
 unless ($result) {
@@ -45,13 +49,14 @@ unless ($result) {
     die "Not sure what wen't wrong";
 }
 
-if ( !$pod ) {
+if ($help) {
     print_usage();
-    die "Passign --pod is mandatory.";
+    exit 0;
 }
 
-if ( !$state ) {
-    $state = [ 'ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED' ];
+if ( !$pod && !$list_pods ) {
+    print_usage();
+    die "Passing --pod is mandatory.";
 }
 
 sub print_usage {
@@ -64,6 +69,11 @@ Valid options are:
     --start_time <epoch>  Start time range (epoch) [OPTIONAL]
     --end_time <epoch>    End time range (epoch) [OPTIONAL]
     --state <state>       Filter by 'state'. Multiple occurences allowed [OPTIONAL]
+    --content <level>     Valid values are 'verbose' and 'concise'
+    --list_pods           Print configured pods and exit.
+    --state string        A state you want to filter on
+
+    --help|-h             Print this information and exit.
 
 _USAGE_
 }
@@ -71,12 +81,24 @@ _USAGE_
 my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
 my $pods = $plugin->pods;
+
+if ($list_pods) {
+    foreach my $i ( @{$pods} ) {
+        print STDOUT "$i\n";
+    }
+    exit 0;
+}
+
 $pods = [ grep { $_ eq $pod } @{$pods} ]
     if $pod;
 
+if ( !$state ) {
+    $state = [ 'ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED' ];
+}
+
 unless ( scalar @{$pods} > 0 ) {
     print_usage();
-    print STDERR "No usable pods passed.\n";
+    print STDERR "No usable pods found.\n";
 }
 
 print STDOUT encode_json(
