@@ -78,6 +78,11 @@ use Exception::Class (
         description => 'Passed biblio_id is invalid',
         fields      => ['biblio_id']
     },
+    'RapidoILL::Exception::UnknownPatronId' => {
+        isa         => 'RapidoILL::Exception',
+        description => 'Passed patronId is invalid',
+        fields      => ['patron_id']
+    },
     'RapidoILL::Exception::UnhandledException' => {
         isa         => 'RapidoILL::Exception',
         description => 'Unhandled exception',
