@@ -473,11 +473,7 @@ Method for adding tasks to the queue
 sub schedule_task {
     my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(action pod object_type object_id);
-    foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw( param => $param )
-            unless exists $params->{$param};
-    }
+    $self->validate_params( { required => [qw(action pod object_type object_id)], params => $params } );
 
     my $action      = $params->{action};
     my $pod         = $params->{pod};
@@ -697,20 +693,21 @@ place a hold on the requested items.
 =cut
 
 sub generate_patron_for_agency {
-    my ( $self, $args ) = @_;
+    my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(pod local_server description agency_id requires_passcode visiting_checkout_allowed);
-    foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw( param => $param )
-            unless exists $args->{$param};
-    }
+    $self->validate_params(
+        {
+            required => [qw(pod local_server description agency_id requires_passcode visiting_checkout_allowed)],
+            params   => $params,
+        }
+    );
 
-    my $pod                       = $args->{pod};
-    my $local_server              = $args->{local_server};
-    my $description               = $args->{description};
-    my $agency_id                 = $args->{agency_id};
-    my $requires_passcode         = $args->{requires_passcode};
-    my $visiting_checkout_allowed = $args->{visiting_checkout_allowed};
+    my $pod                       = $params->{pod};
+    my $local_server              = $params->{local_server};
+    my $description               = $params->{description};
+    my $agency_id                 = $params->{agency_id};
+    my $requires_passcode         = $params->{requires_passcode};
+    my $visiting_checkout_allowed = $params->{visiting_checkout_allowed};
 
     my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
 
@@ -785,20 +782,21 @@ See: scripts/sync_agencies.pl
 =cut
 
 sub update_patron_for_agency {
-    my ( $self, $args ) = @_;
+    my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(pod local_server description agency_id requires_passcode visiting_checkout_allowed);
-    foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw( param => $param )
-            unless exists $args->{$param};
-    }
+    $self->validate_params(
+        {
+            required => [qw(pod local_server description agency_id requires_passcode visiting_checkout_allowed)],
+            params   => $params
+        }
+    );
 
-    my $pod                       = $args->{pod};
-    my $local_server              = $args->{local_server};
-    my $description               = $args->{description};
-    my $agency_id                 = $args->{agency_id};
-    my $requires_passcode         = $args->{requires_passcode};
-    my $visiting_checkout_allowed = $args->{visiting_checkout_allowed};
+    my $pod                       = $params->{pod};
+    my $local_server              = $params->{local_server};
+    my $description               = $params->{description};
+    my $agency_id                 = $params->{agency_id};
+    my $requires_passcode         = $params->{requires_passcode};
+    my $visiting_checkout_allowed = $params->{visiting_checkout_allowed};
 
     my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
 
@@ -878,10 +876,12 @@ and a pod code, it returns Koha's patron id so the hold request can be correctly
 =cut
 
 sub get_patron_id_from_agency {
-    my ( $self, $args ) = @_;
+    my ( $self, $params ) = @_;
 
-    my $pod       = $args->{pod};
-    my $agency_id = $args->{agency_id};
+    $self->validate_params( { required => [qw(agency_id pod)], params => $params } );
+
+    my $pod       = $params->{pod};
+    my $agency_id = $params->{agency_id};
 
     my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
     my $dbh              = C4::Context->dbh;
@@ -979,18 +979,15 @@ This method retrieves the ILL request using a biblio_id.
 =cut
 
 sub get_ill_request_from_biblio_id {
-    my ( $self, $args ) = @_;
+    my ( $self, $params ) = @_;
 
-    my $biblio_id = $args->{biblio_id};
+    $self->validate_params( { required => [qw(biblio_id)], params => $params } );
 
-    unless ($biblio_id) {
-        RapidoILL::Exception::UnknownBiblioId->throw( biblio_id => $biblio_id );
-    }
-
-    my $reqs = Koha::ILL::Requests->search( { biblio_id => $biblio_id } );
+    my $reqs = Koha::ILL::Requests->search( { biblio_id => $params->{biblio_id} } );
 
     if ( $reqs->count > 1 ) {
-        $self->rapido_warn("More than one ILL request for biblio_id ($biblio_id). Beware!");
+        $self->rapido_warn(
+            sprintf( "More than one ILL request for the biblio_id (%s). Beware!", $params->{biblio_id} ) );
     }
 
     return unless $reqs->count > 0;
@@ -1009,6 +1006,8 @@ I<pod> attributes.
 
 sub get_ill_request {
     my ( $self, $args ) = @_;
+
+    $self->validate_params( { required => [qw(circId pod)], params => $params } );
 
     my $circId = $args->{circId};
     my $pod    = $args->{pod};
@@ -1172,11 +1171,7 @@ Parameters:
 sub add_issue {
     my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(barcode patron);
-    foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw( param => $param )
-            unless exists $params->{$param};
-    }
+    $self->validate_params( { required => [qw(barcode patron)], params => $params } );
 
     return AddIssue( $params->{patron}, $params->{barcode} );
 }
@@ -1201,11 +1196,7 @@ Parameters:
 sub add_return {
     my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(barcode);
-    foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw( param => $param )
-            unless exists $params->{$param};
-    }
+    $self->validate_params( { required => [qw(barcode)], params => $params } );
 
     return AddReturn( $params->{barcode} );
 }
@@ -1231,11 +1222,7 @@ Parameters: all AddReserve parameters
 sub add_hold {
     my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(library_id patron_id biblio_id item_id);
-    foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw( param => $param )
-            unless exists $params->{$param};
-    }
+    $self->validate_params( { required => [qw(library_id patron_id biblio_id item_id)], params => $params } );
 
     return AddReserve(
         {
@@ -1462,18 +1449,14 @@ TODO: Add state parameter.
 =cut
 
 sub sync_circ_requests {
-    my ( $self, $args ) = @_;
+    my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(pod);
-    foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw( param => $param )
-            unless exists $args->{$param};
-    }
+    $self->validate_params( { required => [qw(pod)], params => $params } );
 
-    my $startTime = $args->{startTime} // "1700000000";
-    my $endTime   = $args->{endTime}   // time();
+    my $startTime = $params->{startTime} // "1700000000";
+    my $endTime   = $params->{endTime}   // time();
 
-    my $reqs = $self->get_client( $args->{pod} )->circulation_requests(
+    my $reqs = $self->get_client( $params->{pod} )->circulation_requests(
         {
             startTime => $startTime,
             endTime   => $endTime,
@@ -1828,16 +1811,12 @@ Retrieve an ILL request using some attribute.
 =cut
 
 sub get_ill_request_from_attribute {
-    my ( $self, $args ) = @_;
+    my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(type value);
-    foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw( param => $param )
-            unless exists $args->{$param};
-    }
+    $self->validate_params( { required => [qw(type value)], params => $params } );
 
-    my $type  = $args->{type};
-    my $value = $args->{value};
+    my $type  = $params->{type};
+    my $value = $params->{value};
 
     my $requests_rs = Koha::ILL::Requests->search(
         {
@@ -1872,16 +1851,12 @@ matching the passed parameters.
 =cut
 
 sub get_ill_requests_from_attribute {
-    my ( $self, $args ) = @_;
+    my ( $self, $params ) = @_;
 
-    my @mandatory_params = qw(type value);
-    foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw( param => $param )
-            unless exists $args->{$param};
-    }
+    $self->validate_params( { required => [qw(type value)], params => $params } );
 
-    my $type  = $args->{type};
-    my $value = $args->{value};
+    my $type  = $params->{type};
+    my $value = $params->{value};
 
     return Koha::ILL::Requests->search(
         {
@@ -1912,6 +1887,8 @@ Takes care of updating or adding attributes if they don't already exist.
 
 sub add_or_update_attributes {
     my ( $self, $params ) = @_;
+
+    $self->validate_params( { required => [qw(attributes request)], params => $params } );
 
     my $request    = $params->{request};
     my $attributes = $params->{attributes};
