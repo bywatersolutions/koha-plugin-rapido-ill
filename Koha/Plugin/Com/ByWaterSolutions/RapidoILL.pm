@@ -1005,12 +1005,12 @@ I<pod> attributes.
 =cut
 
 sub get_ill_request {
-    my ( $self, $args ) = @_;
+    my ( $self, $params ) = @_;
 
     $self->validate_params( { required => [qw(circId pod)], params => $params } );
 
-    my $circId = $args->{circId};
-    my $pod    = $args->{pod};
+    my $circId = $params->{circId};
+    my $pod    = $params->{pod};
 
     # Get/validate the request
     my $dbh = C4::Context->dbh;
@@ -1469,7 +1469,7 @@ sub sync_circ_requests {
 
     foreach my $data ( @{$reqs} ) {
 
-        $data->{pod} = $args->{pod};
+        $data->{pod} = $params->{pod};
         my $action = RapidoILL::CircAction->new($data);
 
         try {
