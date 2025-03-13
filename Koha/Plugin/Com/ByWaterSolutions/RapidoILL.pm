@@ -1970,7 +1970,7 @@ sub validate_params {
 
     foreach my $param ( @{ $args->{required} } ) {
         RapidoILL::Exception::MissingParameter->throw("Missing parameter: $param")
-            unless $args->{params}->{$param};
+            unless exists $args->{params}->{$param};
     }
 
     return;
