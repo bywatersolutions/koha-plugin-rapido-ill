@@ -1465,8 +1465,6 @@ sub sync_circ_requests {
         }
     );
 
-    p($reqs);
-
     foreach my $data ( @{$reqs} ) {
 
         $data->{pod} = $params->{pod};
