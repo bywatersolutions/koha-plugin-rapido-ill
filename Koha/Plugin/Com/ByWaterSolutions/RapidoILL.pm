@@ -29,7 +29,7 @@ use YAML::XS;
 
 use C4::Context;
 use C4::Circulation qw(AddIssue AddReturn);
-use C4::Reserves    qw(AddReserve);
+use C4::Reserves    qw(AddReserve CanItemBeReserved);
 
 use Koha::Biblios;
 use Koha::Database;
