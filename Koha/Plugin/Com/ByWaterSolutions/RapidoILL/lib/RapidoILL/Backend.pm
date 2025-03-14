@@ -554,10 +554,10 @@ sub item_checkin {
         $self->{plugin}->rapido_warn("[item_checkin] $_");
         return {
             error   => 1,
-            status  => 'error',
             message => "$_",
             method  => 'item_checkin',
             stage   => 'commit',
+            status  => 'error',
             value   => q{},
         };
     };
@@ -575,14 +575,7 @@ sub cancel_request {
 
     my $req = $params->{request};
 
-    my $result = {
-        status  => q{},
-        message => q{},
-        method  => 'illview',
-        stage   => 'commit',
-    };
-
-    try {
+    return try {
         Koha::Database->schema->storage->txn_do(
             sub {
                 my $attrs = $req->extended_attributes;
@@ -606,20 +599,26 @@ sub cancel_request {
                         patronName => $patronName,
                     }
                 );
+
+                return {
+                    status  => q{},
+                    message => q{},
+                    method  => 'illview',
+                    stage   => 'commit',
+                };
             }
         );
     } catch {
         $self->{plugin}->rapido_warn("[cancel_request] $_");
-
-        $result->{status}   = 'innreach_error';
-        $result->{error}    = 1;
-        $result->{message}  = "$_ | " . $_->method . " - " . $_->response->decoded_content;
-        $result->{stage}    = 'init';
-        $result->{method}   = 'cancel_request';
-        $result->{template} = 'cancel_request';
+        return {
+            error    => 1,
+            message  => "$_ | " . $_->method . " - " . $_->response->decoded_content,
+            method   => 'cancel_request',
+            stage    => 'init',
+            status   => 'error',
+            template => 'cancel_request',
+        };
     };
-
-    return $result;
 }
 
 =head2 Requesting site methods
