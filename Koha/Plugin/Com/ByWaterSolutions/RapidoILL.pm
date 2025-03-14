@@ -324,29 +324,35 @@ sub upgrade {
     $new_version = "0.0.9";
     if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
 
-        if ( $self->_table_exists($agency_to_patron) ) {
-            $dbh->do(
-                qq{
-                ALTER TABLE $agency_to_patron
-                    RENAME COLUMN `central_server` TO `pod`;
-            }
-            );
+        $dbh->do(
+            qq{
+            ALTER TABLE $agency_to_patron
+                CHANGE COLUMN `central_server`
+                                `pod`
+                                VARCHAR(191) NOT NULL;
         }
-        if ( $self->_table_exists($task_queue) ) {
-            $dbh->do(
-                qq{
-                ALTER TABLE $task_queue
-                    RENAME COLUMN `central_server` TO `pod`;
-            }
-            );
+        );
 
-            $dbh->do(
-                qq{
-                ALTER TABLE $task_queue DROP KEY `central_server`;
+        $dbh->do(
+            qq{
+            ALTER TABLE $task_queue DROP KEY `central_server`;
+            }
+        );
+
+        $dbh->do(
+            qq{
+            ALTER TABLE $task_queue
+                CHANGE COLUMN `central_server`
+                                `pod`
+                                VARCHAR(10) NOT NULL;
+        }
+        );
+
+        $dbh->do(
+            qq{
                 ALTER TABLE $task_queue ADD KEY `pod` (`pod`);
             }
-            );
-        }
+        );
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
