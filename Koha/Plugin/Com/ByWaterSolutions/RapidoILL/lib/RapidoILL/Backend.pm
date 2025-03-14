@@ -637,32 +637,41 @@ sub item_received {
     my $req   = $params->{request};
     my $attrs = $req->extended_attributes;
 
-    my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
-    my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
+    my $circId = $attrs->find( { type => 'circId' } )->value;
+    my $pod    = $attrs->find( { type => 'pod' } )->value;
 
-    # skip actual INN-Reach interactions in dev_mode
-    unless ( $self->{configuration}->{$centralCode}->{dev_mode} ) {
-        my $response = $self->{plugin}->get_ua($centralCode)->post_request(
-            {
-                endpoint    => "/innreach/v2/circ/itemreceived/$trackingId/$centralCode",
-                centralCode => $centralCode,
+    return try {
+        Koha::Database->schema->storage->txn_do(
+            sub {
+                $req->status('B_ITEM_RECEIVED')->store;
+
+                # notify Rapido. Throws an exception if failed
+                $self->{plugin}->get_client($pod)->borrower_item_received(
+                    {
+                        circId => $circId,
+                    }
+                );
+                return {
+                    error   => 0,
+                    status  => q{},
+                    message => q{},
+                    method  => 'item_received',
+                    stage   => 'commit',
+                    next    => 'illview',
+                    value   => q{},
+                };
             }
         );
-
-        RapidoILL::Exception::RequestFailed->throw( method => 'cancel_request', response => $response )
-            unless $response->is_success;
-    }
-
-    $req->status('B_ITEM_RECEIVED')->store;
-
-    return {
-        error   => 0,
-        status  => q{},
-        message => q{},
-        method  => 'item_received',
-        stage   => 'commit',
-        next    => 'illview',
-        value   => q{},
+    } catch {
+        $self->{plugin}->rapido_warn("[item_received] $_");
+        return {
+            status   => 'error',
+            error    => 1,
+            message  => "$_ | " . $_->method . " - " . $_->response->decoded_content,
+            stage    => 'init',
+            method   => 'item_received',
+            template => 'item_received',
+        };
     };
 }
 
