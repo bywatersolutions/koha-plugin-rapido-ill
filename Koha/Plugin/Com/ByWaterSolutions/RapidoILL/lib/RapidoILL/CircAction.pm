@@ -53,7 +53,7 @@ Get the linked I<Koha::Item> object.
 
 sub item {
     my ($self) = @_;
-    return Koha::Items->find( $self->itemId );
+    return Koha::Items->find( { barcode => $self->itemId } );
 }
 
 =head2 Internal methods
