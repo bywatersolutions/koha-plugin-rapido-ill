@@ -33,6 +33,8 @@ use C4::Reserves    qw(AddReserve);
 
 use Koha::Biblios;
 use Koha::Database;
+use Koha::ILL::Requests;
+use Koha::ILL::Request::Attributes;
 use Koha::Items;
 use Koha::Libraries;
 use Koha::Patron::Categories;
@@ -1603,7 +1605,7 @@ sub create_item_hold {
                 }
 
                 # Create the request
-                $req = $self->new_ill_request(
+                $req = Koha::ILL::Request->new(
                     {
                         branchcode     => $library_id,
                         borrowernumber => $patron_id,
@@ -1646,7 +1648,7 @@ sub create_item_hold {
                     }
                 );
 
-                $self->new_ill_request_attr(
+                Koha::ILL::Request::Attribute->new(
                     {
                         illrequest_id => $req->illrequest_id,
                         type          => 'hold_id',
@@ -1715,7 +1717,7 @@ sub create_patron_hold {
                 );
 
                 # Create the request
-                $req = $self->new_ill_request(
+                $req = Koha::ILL::Request->new(
                     {
                         branchcode     => $pickup_location,
                         borrowernumber => $patron->id,
