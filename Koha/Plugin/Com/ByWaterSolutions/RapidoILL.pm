@@ -1670,7 +1670,7 @@ sub create_item_hold {
 sub create_patron_hold {
     my ( $self, $action ) = @_;
 
-    my $patron = Koha::Patrons->find( $action->patronId );
+    my $patron = Koha::Patrons->find( { cardnumber => $action->patronId } );
 
     RapidoILL::Exception::UnknownPatronId->throw( patron_id => $action->patronId )
         unless $patron;
