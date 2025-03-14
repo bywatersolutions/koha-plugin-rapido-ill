@@ -37,6 +37,7 @@ use Koha::Items;
 use Koha::Libraries;
 use Koha::Patron::Categories;
 use Koha::Patrons;
+use Koha::Schema;
 
 require RapidoILL::CircActions;
 require RapidoILL::Exceptions;
