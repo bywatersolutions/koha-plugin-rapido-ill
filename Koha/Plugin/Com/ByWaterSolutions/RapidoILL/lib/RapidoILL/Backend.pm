@@ -29,6 +29,8 @@ use Koha::Biblios;
 use Koha::Checkouts;
 use Koha::DateUtils qw(dt_from_string);
 use Koha::Holds;
+use Koha::ILL::Requests;
+use Koha::ILL::Request::Attributes;
 use Koha::Items;
 use Koha::Patrons;
 
@@ -372,17 +374,17 @@ sub item_shipped {
     my $req   = $params->{request};
     my $attrs = $req->extended_attributes;
 
-    my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
-    my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
-    my $itemId      = $attrs->find( { type => 'itemId' } )->value;
+    my $circId = $attrs->find( { type => 'circId' } )->value;
+    my $pod    = $attrs->find( { type => 'pod' } )->value;
+    my $itemId = $attrs->find( { type => 'itemId' } )->value;
 
-    my $item = Koha::Items->find($itemId);
+    my $item = Koha::Items->find( { barcode => $itemId } );
 
     return try {
         Koha::Database->schema->storage->txn_do(
             sub {
                 my $patron   = Koha::Patrons->find( $req->borrowernumber );
-                my $checkout = Koha::Checkouts->find( { itemnumber => $itemId } );
+                my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
 
                 if ($checkout) {
                     if ( $checkout->borrowernumber != $req->borrowernumber ) {
@@ -402,7 +404,7 @@ sub item_shipped {
                 }
 
                 # record checkout_id
-                $self->{plugin}->new_ill_request_attr(
+                Koha::ILL::Request::Attribute->new(
                     {
                         illrequest_id => $req->illrequest_id,
                         type          => 'checkout_id',
@@ -413,17 +415,15 @@ sub item_shipped {
 
                 # update status
                 $req->status('O_ITEM_SHIPPED')->store;
-            }
-        );
 
-        my $response = $self->{plugin}->get_ua($centralCode)->post_request(
-            {
-                endpoint    => "/innreach/v2/circ/itemshipped/$trackingId/$centralCode",
-                centralCode => $centralCode,
-                data        => {
-                    callNumber  => $item->itemcallnumber // q{},
-                    itemBarcode => $item->barcode        // q{},
-                }
+                # notify Rapido. Throws an exception if failed
+                $self->{plugin}->get_client($pod)->lender_shipped(
+                    {
+                        callNumber  => $item->itemcallnumber,
+                        circId      => $circId,
+                        itemBarcode => $item->barcode,
+                    }
+                );
             }
         );
 
@@ -437,6 +437,7 @@ sub item_shipped {
             value   => q{},
         };
     } catch {
+        $self->{plugin}->rapido_warn("[item_shipped] $_");
         return {
             error   => 1,
             status  => 'error_on_checkout',
@@ -527,26 +528,38 @@ sub item_checkin {
     my $req   = $params->{request};
     my $attrs = $req->extended_attributes;
 
-    my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
-    my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
+    my $circId = $attrs->find( { type => 'circId' } )->value;
+    my $pod    = $attrs->find( { type => 'pod' } )->value;
 
-    my $response = $self->{plugin}->get_ua($centralCode)->post_request(
-        {
-            endpoint    => "/innreach/v2/circ/finalcheckin/$trackingId/$centralCode",
-            centralCode => $centralCode,
-        }
-    );
+    return try {
+        Koha::Database->schema->storage->txn_do(
+            sub {
+                # update status
+                $req->status('O_ITEM_CHECKED_IN')->store;
 
-    $req->status('O_ITEM_CHECKED_IN')->store;
-
-    return {
-        error   => 0,
-        status  => q{},
-        message => q{},
-        method  => 'item_checkin',
-        stage   => 'commit',
-        next    => 'illview',
-        value   => q{},
+                # notify Rapido. Throws an exception if failed
+                $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, } );
+            }
+        );
+        return {
+            error   => 0,
+            status  => q{},
+            message => q{},
+            method  => 'item_checkin',
+            stage   => 'commit',
+            next    => 'illview',
+            value   => q{},
+        };
+    } catch {
+        $self->{plugin}->rapido_warn("[item_checkin] $_");
+        return {
+            error   => 1,
+            status  => 'error',
+            message => "$_",
+            method  => 'item_checkin',
+            stage   => 'commit',
+            value   => q{},
+        };
     };
 }
 
@@ -574,9 +587,9 @@ sub cancel_request {
             sub {
                 my $attrs = $req->extended_attributes;
 
-                my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
-                my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
-                my $patronName  = $attrs->find( { type => 'patronName' } )->value;
+                my $circId     = $attrs->find( { type => 'circId' } )->value;
+                my $pod        = $attrs->find( { type => 'pod' } )->value;
+                my $patronName = $attrs->find( { type => 'patronName' } )->value;
 
                 $req->status('O_ITEM_CANCELLED_BY_US')->store;
 
@@ -585,38 +598,18 @@ sub cancel_request {
                 $hold->cancel
                     if $hold;
 
-                # Make sure we notify the item status
-                $self->{plugin}->schedule_task(
+                # notify Rapido. Throws an exception if failed
+                $self->{plugin}->get_client($pod)->lender_cancel(
                     {
-                        action         => 'modify',
-                        central_server => $centralCode,
-                        object_type    => 'item',
-                        object_id      => $hold->itemnumber,
+                        circId     => $circId,
+                        localBibId => $req->biblionumber,
+                        patronName => $patronName,
                     }
                 );
-
-                # skip actual INN-Reach interactions in dev_mode
-                unless ( $self->{configuration}->{$centralCode}->{dev_mode} ) {
-                    my $response = $self->{plugin}->get_ua($centralCode)->post_request(
-                        {
-                            endpoint    => "/innreach/v2/circ/owningsitecancel/$trackingId/$centralCode",
-                            centralCode => $centralCode,
-                            data        => {
-                                localBibId => $req->biblio_id,
-                                reason     => q{},
-                                reasonCode => '7',
-                                patronName => $patronName
-                            }
-                        }
-                    );
-
-                    RapidoILL::Exception::RequestFailed->throw( method => 'cancel_request', response => $response )
-                        unless $response->is_success;
-                }
             }
         );
     } catch {
-        warn "[innreach] [cancel_request()] $_";
+        $self->{plugin}->rapido_warn("[cancel_request] $_");
 
         $result->{status}   = 'innreach_error';
         $result->{error}    = 1;
@@ -957,8 +950,10 @@ sub cancel_request_by_us {
                         }
                     );
 
-                    RapidoILL::Exception::RequestFailed->throw( method => 'cancel_request_by_us', response => $response )
-                        unless $response->is_success;
+                    RapidoILL::Exception::RequestFailed->throw(
+                        method   => 'cancel_request_by_us',
+                        response => $response
+                    ) unless $response->is_success;
                 }
             }
         );
