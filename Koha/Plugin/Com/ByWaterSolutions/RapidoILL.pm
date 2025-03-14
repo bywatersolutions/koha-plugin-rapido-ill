@@ -1944,7 +1944,7 @@ this method returns the local library_id that is mapped to the passed value
 sub pickup_location_to_library_id {
     my ( $self, $params ) = @_;
 
-    $self->validate_params( { required => [qw(pickupLocation pod)], $params } );
+    $self->validate_params( { required => [qw(pickupLocation pod)], params => $params } );
 
     my $configuration = $self->{configuration}->{ $params->{pod} };
 
