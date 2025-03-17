@@ -295,7 +295,7 @@ sub borrower_item_received {
     return decode_json( encode( 'UTF-8', $response->decoded_content ) );
 }
 
-=head3 borrower_item_receive_unshipped
+=head3 borrower_receive_unshipped
 
     $client->borrower_item_receive_unshipped(
         {
@@ -306,7 +306,7 @@ sub borrower_item_received {
 
 =cut
 
-sub borrower_item_receive_unshipped {
+sub borrower_receive_unshipped {
     my ( $self, $params, $options ) = @_;
 
     $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
