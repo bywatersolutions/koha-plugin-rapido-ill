@@ -295,6 +295,38 @@ sub borrower_item_received {
     return decode_json( encode( 'UTF-8', $response->decoded_content ) );
 }
 
+=head3 borrower_item_receive_unshipped
+
+    $client->borrower_item_receive_unshipped(
+        {
+            circId => $circId,
+        },
+      [ { skip_api_request => 0 | 1 } ]
+    );
+
+=cut
+
+sub borrower_item_receive_unshipped {
+    my ( $self, $params, $options ) = @_;
+
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
+
+    my $response;
+
+    if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
+        $response = $self->{ua}->post_request(
+            {
+                endpoint => '/view/broker/circ/' . $params->{circId} . '/receiveunshipped',
+            }
+        );
+
+        RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_receive_unshipped', response => $response )
+            unless $response->is_success;
+    }
+
+    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+}
+
 =head3 borrower_item_returned
 
     $client->borrower_item_returned(
