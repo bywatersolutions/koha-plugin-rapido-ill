@@ -1104,6 +1104,32 @@ sub get_client {
     return $self->{client}->{$pod_code};
 }
 
+=head3 get_borrower_actions
+
+This method retrieves a user agent to contact a pod.
+
+=cut
+
+sub get_borrower_actions {
+    my ( $self, $pod ) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+        unless $pod;
+
+    require RapidoILL::Backend::BorrowerActions;
+
+    unless ( $self->{borrower_actions}->{$pod} ) {
+        $self->{borrower_actions}->{$pod} = RapidoILL::Backend::BorrowerActions->new(
+            {
+                pod    => $pod,
+                plugin => $self,
+            }
+        );
+    }
+
+    return $self->{borrower_actions}->{$pod};
+}
+
 =head3 get_normalizer
 
 =cut
@@ -1141,7 +1167,7 @@ This method returns the pod code a Koha::ILL::Request is linked to.
 sub get_req_pod {
     my ( $self, $req ) = @_;
 
-    my $attr = $req->extended_attributes->find( { type => 'centralCode' } );
+    my $attr = $req->extended_attributes->find( { type => 'pod' } );
 
     return $attr->value
         if $attr;
