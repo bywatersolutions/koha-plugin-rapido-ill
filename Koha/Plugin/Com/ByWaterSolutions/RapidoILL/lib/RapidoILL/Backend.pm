@@ -696,130 +696,42 @@ sub receive_unshipped {
         };
     } else {                                # confirm
 
-        my $req   = $params->{request};
-        my $attrs = $req->extended_attributes;
+        my $request = $params->{request};
+        my $pod = $self->{plugin}->get_req_pod($request);
 
-        my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
-        my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
+        return try {
 
-        my $attributes = {
-            callNumber  => $params->{other}->{item_callnumber},
-            itemBarcode => $params->{other}->{item_barcode},
-        };
-
-        my $barcode = $params->{other}->{item_barcode};
-        my $config  = $self->{configuration}->{$centralCode};
-
-        my $schema = Koha::Database->new->schema;
-        try {
-            $schema->txn_do(
-                sub {
-                    # check if already catalogued. INN-Reach requires no barcode collision
-                    my $item = Koha::Items->find( { barcode => $barcode } );
-
-                    if ($item) {
-
-                        # already exists, add suffix
-                        my $i = 1;
-                        my $done;
-
-                        while ( !$done ) {
-                            my $tmp_barcode = $barcode . "-$i";
-                            $item = Koha::Items->find( { barcode => $tmp_barcode } );
-
-                            if ( !$item ) {
-                                $barcode = $tmp_barcode;
-                                $done    = 1;
-                            } else {
-                                $i++;
-                            }
-                        }
-
-                        $attributes->{barcode_collision} = 1;
-                    }
-
-                    # Create the MARC record and item
-                    $item = $self->{plugin}->add_virtual_record_and_item(
-                        {
-                            req         => $req,
-                            config      => $config,
-                            call_number => $attributes->{callNumber},
-                            barcode     => $barcode,
-                        }
-                    );
-
-                    # Place a hold on the item
-                    my $patron_id = $req->borrowernumber;
-
-                    my $hold_id = AddReserve(
-                        {
-                            branchcode       => $req->branchcode,
-                            borrowernumber   => $patron_id,
-                            biblionumber     => $item->biblionumber,
-                            priority         => 1,
-                            reservation_date => undef,
-                            expiration_date  => undef,
-                            notes            => $config->{default_hold_note} // 'Placed by ILL',
-                            title            => q{},
-                            itemnumber       => $item->id,
-                            found            => undef,
-                            itemtype         => $item->effective_itemtype
-                        }
-                    );
-
-                    $attributes->{hold_id} = $hold_id;
-
-                    # Update request
-                    $req->biblio_id( $item->biblionumber )->status('B_ITEM_RECEIVED')->store;
-
-                    $self->{plugin}->add_or_update_attributes(
-                        {
-                            attributes => $attributes,
-                            request    => $req,
-                        }
-                    );
-
-                    my $commands = INNReach::Commands::BorrowingSite->new( { plugin => $self->{plugin} } );
-                    try {
-                        $commands->receive_unshipped($req);
-                    } catch {
-                        if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
-                            my $response = $_->response;
-                            if ( $response->headers->header('X-IR-Allowed-Circulation') eq '[ITEM RECEIVED]' ) {
-
-                                # we missed an 'itemshipped' message, and INN-Reach is rejecting
-                                # the 'receiveunshipped' message we try to send. We are good, send itemreceived.
-                                return $commands->item_received($req);
-                            }
-                        } else {
-
-                            # unhandled exception!
-                            $_->rethrow();
-                        }
-                    };
+            $self->{plugin}->get_borrower_actions($pod)->borrower_receive_unshipped(
+                {
+                    request    => $request,
+                    callnumber => $params->{other}->{item_callnumber},
+                    barcode    => $params->{other}->{item_barcode}
                 }
             );
-        } catch {
-            $self->{plugin}->innreach_warn("$_");
+
             return {
-                error   => 1,
+                error   => 0,
                 status  => q{},
-                message => "$_",
+                message => q{},
                 method  => 'receive_unshipped',
-                stage   => 'form'
+                stage   => 'commit',
+                next    => 'illview',
+                value   => q{},
+            };
+
+        } catch {
+            $self->{plugin}->rapido_warn("[receive_unshipped] $_");
+            # FIXME: need to check error type
+            return {
+                status   => 'error',
+                error    => 1,
+                message  => "$_ | " . $_->method . " - " . $_->response->decoded_content,
+                stage    => 'init',
+                method   => 'receive_unshipped',
+                template => 'receive_unshipped',
             };
         };
     }
-
-    return {
-        error   => 0,
-        status  => q{},
-        message => q{},
-        method  => 'receive_unshipped',
-        stage   => 'commit',
-        next    => 'illview',
-        value   => q{},
-    };
 }
 
 =head3 item_in_transit
