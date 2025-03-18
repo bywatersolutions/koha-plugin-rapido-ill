@@ -280,7 +280,7 @@ sub status_graph {
             id             => 'B_ITEM_CANCELLED_BY_US',
             name           => 'Item request cancelled',
             ui_method_name => 'Cancel request',
-            method         => 'cancel_request_by_us',
+            method         => 'borrower_cancel',
             next_actions   => ['COMP'],
             ui_method_icon => 'fa-times',
         },
@@ -697,7 +697,7 @@ sub receive_unshipped {
     } else {                                # confirm
 
         my $request = $params->{request};
-        my $pod = $self->{plugin}->get_req_pod($request);
+        my $pod     = $self->{plugin}->get_req_pod($request);
 
         return try {
 
@@ -721,6 +721,7 @@ sub receive_unshipped {
 
         } catch {
             $self->{plugin}->rapido_warn("[receive_unshipped] $_");
+
             # FIXME: need to check error type
             return {
                 status   => 'error',
@@ -759,6 +760,7 @@ sub item_in_transit {
         };
     } catch {
         $self->{plugin}->rapido_warn("[item_in_transit] $_");
+
         # FIXME: need to check error type
         return {
             status   => 'error',
@@ -834,68 +836,44 @@ sub return_uncirculated {
     };
 }
 
-=head3 cancel_request_by_us
+=head3 borrower_cancel
 
 Method triggered by the UI, to cancel the request. Can only happen when the request
 is on B_ITEM_REQUESTED status.
 
 =cut
 
-sub cancel_request_by_us {
+sub borrower_cancel {
     my ( $self, $params ) = @_;
 
     my $req = $params->{request};
 
-    my $result = {
-        status  => q{},
-        message => q{},
-        method  => 'illview',
-        stage   => 'commit',
-    };
-
-    try {
-        Koha::Database->schema->storage->txn_do(
-            sub {
-                my $attrs = $req->extended_attributes;
-
-                my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
-                my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
-
-                $req->status('B_ITEM_CANCELLED_BY_US')->store;
-
-                # skip actual INN-Reach interactions in dev_mode
-                unless ( $self->{configuration}->{$centralCode}->{dev_mode} ) {
-                    my $response = $self->{plugin}->get_ua($centralCode)->post_request(
-                        {
-                            endpoint    => "/innreach/v2/circ/cancelitemhold/$trackingId/$centralCode",
-                            centralCode => $centralCode,
-                        }
-                    );
-
-                    RapidoILL::Exception::RequestFailed->throw(
-                        method   => 'cancel_request_by_us',
-                        response => $response
-                    ) unless $response->is_success;
-                }
-            }
-        );
+    return try {
+        $self->{plugin}->get_agencies_list( $self->{plugin}->get_req_pod($req) )
+            ->borrower_cancel( { request => $req } );
+        return {
+            status  => q{},
+            message => q{},
+            method  => 'illview',
+            stage   => 'commit',
+        };
     } catch {
-        $result->{status}   = 'innreach_error';
-        $result->{error}    = 1;
-        $result->{stage}    = 'init';
-        $result->{method}   = 'cancel_request_by_us';
-        $result->{template} = 'cancel_request_by_us';
-
+        $self->{plugin}->rapido_warn("[borrower_cancel] $_");
+        my $message = "$_";
         if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
-            $result->{message} = "$_ | " . $_->method . " - " . $_->response->decoded_content;
-            warn "[innreach] [cancel_request_by_us()] " . $result->{message};
-        } else {
-            $result->{message} = "$_";
-            warn "[innreach] [cancel_request_by_us()] $_";
+            $message = "$_ | " . $_->method . " - " . $_->response->decoded_content;
         }
-    };
+        my $result = {
+            status   => 'error',
+            error    => 1,
+            stage    => 'init',
+            method   => 'borrower_cancel',
+            template => 'borrower_cancel',
+            message  => $message,
+        };
 
-    return $result;
+        return $result;
+    };
 }
 
 =head3 claims_returned
