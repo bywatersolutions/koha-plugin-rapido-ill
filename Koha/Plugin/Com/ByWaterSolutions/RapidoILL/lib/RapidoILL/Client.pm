@@ -78,10 +78,8 @@ sub new {
 sub locals {
     my ( $self, $options ) = @_;
 
-    my $response;
-
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        $response = $self->{ua}->get_request(
+        my $response = $self->{ua}->get_request(
             {
                 endpoint => "/view/broker/locals",
             }
@@ -89,9 +87,11 @@ sub locals {
 
         RapidoILL::Exception::RequestFailed->throw( method => 'locals', response => $response )
             unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
 
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return;
 }
 
 =head2 LENDING SITE Client methods
@@ -114,10 +114,8 @@ sub lender_cancel {
 
     $self->{plugin}->validate_params( { params => $params, required => [qw(circId localBibId patronName)], } );
 
-    my $response;
-
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        $response = $self->{ua}->post_request(
+        my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/lendercancel',
                 data     => {
@@ -130,9 +128,11 @@ sub lender_cancel {
 
         RapidoILL::Exception::RequestFailed->throw( method => 'lender_cancel', response => $response )
             unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
 
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return;
 }
 
 =head3 lender_visiting_patron_checkout
@@ -167,10 +167,8 @@ sub lender_visiting_patron_checkout {
         }
     );
 
-    my $response;
-
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        $response = $self->{ua}->post_request(
+        my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/visitingpatroncheckout',
                 data     => {
@@ -186,9 +184,11 @@ sub lender_visiting_patron_checkout {
 
         RapidoILL::Exception::RequestFailed->throw( method => 'lender_visiting_patron_checkout', response => $response )
             unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
 
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return;
 }
 
 =head3 lender_checkin
@@ -207,10 +207,8 @@ sub lender_checkin {
 
     $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
 
-    my $response;
-
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        $response = $self->{ua}->post_request(
+        my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/lendercheckin',
             }
@@ -218,9 +216,11 @@ sub lender_checkin {
 
         RapidoILL::Exception::RequestFailed->throw( method => 'lender_checkin', response => $response )
             unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
 
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return;
 }
 
 =head3 lender_shipped
@@ -241,10 +241,8 @@ sub lender_shipped {
 
     $self->{plugin}->validate_params( { params => $params, required => [qw(callNumber circId itemBarcode)], } );
 
-    my $response;
-
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        $response = $self->{ua}->post_request(
+        my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/lendershipped',
                 data     => {
@@ -256,9 +254,11 @@ sub lender_shipped {
 
         RapidoILL::Exception::RequestFailed->throw( method => 'lender_shipped', response => $response )
             unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
 
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return;
 }
 
 =head2 BORROWING SITE Client methods
@@ -279,10 +279,8 @@ sub borrower_item_received {
 
     $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
 
-    my $response;
-
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        $response = $self->{ua}->post_request(
+        my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/itemreceived',
             }
@@ -290,9 +288,11 @@ sub borrower_item_received {
 
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_received', response => $response )
             unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
 
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return;
 }
 
 =head3 borrower_receive_unshipped
@@ -311,10 +311,8 @@ sub borrower_receive_unshipped {
 
     $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
 
-    my $response;
-
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        $response = $self->{ua}->post_request(
+        my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/receiveunshipped',
             }
@@ -322,9 +320,11 @@ sub borrower_receive_unshipped {
 
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_receive_unshipped', response => $response )
             unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
 
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return;
 }
 
 =head3 borrower_cancel
@@ -372,10 +372,8 @@ sub borrower_item_returned {
 
     $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
 
-    my $response;
-
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        $response = $self->{ua}->post_request(
+        my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/itemreturned',
             }
@@ -383,9 +381,11 @@ sub borrower_item_returned {
 
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_returned', response => $response )
             unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
 
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return;
 }
 
 =head2 General client methods
@@ -412,11 +412,9 @@ sub circulation_requests {
 
     $self->{plugin}->validate_params( { params => $params, required => [qw(startTime endTime)], } );
 
-    my $response;
-
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
 
-        $response = $self->{ua}->get_request(
+        my $response = $self->{ua}->get_request(
             {
                 endpoint => '/view/broker/circ/circrequests',
                 query    => {
@@ -431,9 +429,11 @@ sub circulation_requests {
 
         RapidoILL::Exception::RequestFailed->throw( method => 'circulation_requests', response => $response )
             unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
 
-    return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    return;
 }
 
 1;
