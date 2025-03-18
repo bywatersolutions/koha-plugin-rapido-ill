@@ -231,4 +231,39 @@ sub item_in_transit {
     return;
 }
 
+=head3 borrower_cancel
+
+    $client->borrower_cancel(
+        {
+            request => $request,
+        },
+      [ { skip_api_request => 0|1 } ]
+    );
+
+=cut
+
+sub borrower_cancel {
+    my ( $self, $params, $options ) = @_;
+
+    $self->{plugin}->validate_params( { params => $params, required => [qw(request)], } );
+
+    my $req    = $params->{request};
+    my $circId = $self->{plugin}->get_req_circ_id($req);
+
+    my $schema = Koha::Database->new->schema;
+    try {
+        $schema->txn_do(
+            sub {
+                $req->status('B_ITEM_CANCELLED_BY_US')->store;
+
+                $self->{plugin}->get_client( $self->{pod} )->borrower_cancel( { circId => $circId }, $options );
+            }
+        );
+    } catch {
+        $_->rethrow();
+    };
+
+    return;
+}
+
 1;
