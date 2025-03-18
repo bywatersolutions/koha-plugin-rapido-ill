@@ -745,8 +745,8 @@ sub item_in_transit {
     my ( $self, $params ) = @_;
 
     return try {
-
-        INNReach::Commands::BorrowingSite->new( { plugin => $self->{plugin} } )->item_in_transit( $params->{request} );
+        my $pod = $self->{plugin}->get_req_pod( $params->{request} );
+        $self->{plugin}->get_borrower_actions($pod)->borrower_receive_unshipped( { request => $params->{request} } );
 
         return {
             error   => 0,
@@ -758,13 +758,15 @@ sub item_in_transit {
             value   => q{},
         };
     } catch {
+        $self->{plugin}->rapido_warn("[item_in_transit] $_");
+        # FIXME: need to check error type
         return {
-            error   => 1,
-            status  => 'item_in_transit_error',
-            message => "$_",
-            method  => 'item_in_transit',
-            stage   => 'commit',
-            value   => q{},
+            status   => 'error',
+            error    => 1,
+            message  => "$_ | " . $_->method . " - " . $_->response->decoded_content,
+            stage    => 'init',
+            method   => 'item_in_transit',
+            template => 'item_in_transit',
         };
     };
 }
