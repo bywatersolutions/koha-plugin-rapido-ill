@@ -1158,7 +1158,7 @@ sub debug_mode {
 
 =head3 get_req_pod
 
-    my $pod_code = $plugin->get_req_pod( $req );
+    my $pod = $plugin->get_req_pod( $req );
 
 This method returns the pod code a Koha::ILL::Request is linked to.
 
@@ -1168,6 +1168,25 @@ sub get_req_pod {
     my ( $self, $req ) = @_;
 
     my $attr = $req->extended_attributes->find( { type => 'pod' } );
+
+    return $attr->value
+        if $attr;
+
+    return;
+}
+
+=head3 get_req_circ_id
+
+    my $circId = $plugin->get_req_circ_id( $req );
+
+This method returns the I<circId> code a Koha::ILL::Request is linked to.
+
+=cut
+
+sub get_req_circ_id {
+    my ( $self, $req ) = @_;
+
+    my $attr = $req->extended_attributes->find( { type => 'circId' } );
 
     return $attr->value
         if $attr;
