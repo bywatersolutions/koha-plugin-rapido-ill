@@ -209,7 +209,7 @@ sub item_in_transit {
                     }
                 }
 
-                my $biblio = Koha::Biblios->find( $request->biblio_id );
+                my $biblio = Koha::Biblios->find( $req->biblio_id );
 
                 if ($biblio) {    # is the biblio still on the database
                                   # Remove the virtual items. there should only be one
