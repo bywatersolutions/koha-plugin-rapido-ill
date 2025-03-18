@@ -21,6 +21,7 @@ use Encode;
 use JSON      qw( decode_json );
 use Try::Tiny qw(catch try);
 
+use Koha::Checkouts;
 use Koha::Database;
 use Koha::Items;
 
@@ -70,15 +71,15 @@ sub new {
 
     $client->borrower_receive_unshipped(
         {
-            circId     => $circId,
+            circId => $circId,
         },
-      [ { skip_api_request => 0|1 } ]
+        [ { skip_api_request => 0 | 1 } ]
     );
 
 =cut
 
 sub borrower_receive_unshipped {
-    my ( $self, $params ) = @_;
+    my ( $self, $params, $options ) = @_;
 
     $self->{plugin}->validate_params( { params => $params, required => [qw(request callnumber barcode)], } );
 
@@ -119,7 +120,7 @@ sub borrower_receive_unshipped {
                     $attributes->{barcode_collision} = 1;
                 }
 
-                my $config = $self->{configuration}->{$self->{pod}};
+                my $config = $self->{configuration}->{ $self->{pod} };
 
                 # Create the MARC record and item
                 $item = $self->{plugin}->add_virtual_record_and_item(
@@ -161,6 +162,66 @@ sub borrower_receive_unshipped {
                 );
 
                 $self->{plugin}->get_client( $self->{pod} )->borrower_receive_unshipped;
+            }
+        );
+    } catch {
+        $_->rethrow();
+    };
+
+    return;
+}
+
+=head3 item_in_transit
+
+    $client->item_in_transit(
+        {
+            request => $request,
+        },
+      [ { skip_api_request => 0|1 } ]
+    );
+
+=cut
+
+sub item_in_transit {
+    my ( $self, $params, $options ) = @_;
+
+    $self->{plugin}->validate_params( { params => $params, required => [qw(request)], } );
+
+    my $req   = $params->{request};
+    my $attrs = $req->extended_attributes;
+
+    my $circId = $self->{plugin}->get_req_circ_id($req);
+
+    my $schema = Koha::Database->new->schema;
+    try {
+        $schema->txn_do(
+            sub {
+                # Return the item first
+                my $barcode = $attrs->find( { type => 'itemBarcode' } )->value;
+
+                my $item = Koha::Items->find( { barcode => $barcode } );
+
+                if ($item) {    # is the item still on the database
+                    my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
+
+                    if ($checkout) {
+                        $self->{plugin}->add_return( { barcode => $barcode } );
+                    }
+                }
+
+                my $biblio = Koha::Biblios->find( $request->biblio_id );
+
+                if ($biblio) {    # is the biblio still on the database
+                                  # Remove the virtual items. there should only be one
+                    foreach my $item ( $biblio->items->as_list ) {
+                        $item->delete( { skip_record_index => 1 } );
+                    }
+                    DelBiblio( $biblio->id );
+                }
+
+                $req->status('B_ITEM_IN_TRANSIT')->store;
+
+                $self->{plugin}->get_client( $self->{pod} )->borrower_item_returned( { circId => $circId }, $options );
             }
         );
     } catch {
