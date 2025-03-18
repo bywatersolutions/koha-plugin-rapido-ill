@@ -595,7 +595,7 @@ sub cancel_request {
                 $self->{plugin}->get_client($pod)->lender_cancel(
                     {
                         circId     => $circId,
-                        localBibId => $req->biblionumber,
+                        localBibId => $req->biblio_id,
                         patronName => $patronName,
                     }
                 );
