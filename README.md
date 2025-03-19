@@ -11,6 +11,7 @@ dev03-na:
   base_url: https://dev03-na.alma.exlibrisgroup.com
   client_id: client_id
   client_secret: client_secret
+  server_code: 11747
   partners_library_id: CPL
   partners_category: ILL
   default_patron_agency: code1

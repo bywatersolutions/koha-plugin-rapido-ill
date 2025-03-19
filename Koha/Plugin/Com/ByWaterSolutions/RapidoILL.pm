@@ -1319,6 +1319,15 @@ sub check_configuration {
 
     foreach my $pod_code (@pods) {
 
+        if ( !defined $configuration->{$pod_code}->{server_code} ) {
+            push @errors,
+                {
+                code  => 'missing_entry',
+                value => 'server_code',
+                pod   => $pod_code,
+                };
+        }
+
         # partners_library_id
         if ( !exists $configuration->{$pod_code}->{partners_library_id} ) {
             push @errors,
