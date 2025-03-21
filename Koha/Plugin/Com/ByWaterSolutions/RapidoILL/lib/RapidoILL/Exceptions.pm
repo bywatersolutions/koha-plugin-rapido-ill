@@ -24,6 +24,11 @@ use Exception::Class (
         isa         => 'Koha::Exception',
         description => 'Generic Rapido ILL plugin exception',
     },
+    'RapidoILL::Exception::BadAgencyCode' => {
+        isa         => 'RapidoILL::Exception',
+        description => 'The passed agency codes are not recognized',
+        fields      => [ 'lenderCode', 'borrowerCode' ],
+    },
     'RapidoILL::Exception::BadConfig' => {
         isa         => 'RapidoILL::Exception',
         description => 'A configuration entry has an unsupported value',

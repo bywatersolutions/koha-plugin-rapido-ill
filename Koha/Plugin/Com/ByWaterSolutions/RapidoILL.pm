@@ -1583,14 +1583,17 @@ sub add_ill_request {
         sprintf( "A request with circId=%s and pod=%s already exists!", $action->circId, $action->pod ) )
         if $req;
 
-    if ( $action->lastCircState eq 'ITEM_HOLD' ) {
+    my $server_code = $self->configuration->{ $action->pod }->{server_code};
+
+    # identify our role
+    if ( $action->lenderCode eq $server_code ) {
         $req = $self->create_item_hold($action);
-    } elsif ( $action->lastCircState eq 'PATRON_HOLD' ) {
+    } elsif ( $action->borrowerCode eq $server_code ) {
         $req = $self->create_patron_hold($action);
     } else {
-        RapidoILL::Exception::InconsistentStatus->throw(
-            expected => 'ITEM_HOLD or PATRON_HOLD',
-            got      => $action->lastCircState
+        RapidoILL::Exception::BadAgencyCode->throw(
+            borrowerCode => $action->borrowerCode,
+            lenderCode   => $action->lenderCode,
         );
     }
 
