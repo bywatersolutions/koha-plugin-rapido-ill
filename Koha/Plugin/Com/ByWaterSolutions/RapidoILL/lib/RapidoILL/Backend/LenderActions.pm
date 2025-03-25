@@ -65,11 +65,15 @@ sub new {
     return $self;
 }
 
-=head3 handle_action
+=head3 handle_from_action
+
+    $lender_actions->handle_from_action( $action );
+
+Method for dispatching methods based on the passed I<$action> status.
 
 =cut
 
-sub handle_action {
+sub handle_from_action {
     my ( $self, $action ) = @_;
 
     my $status_to_method = {

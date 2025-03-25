@@ -67,6 +67,10 @@ sub new {
 
 =head3 handle_from_action
 
+    $borrower_actions->handle_from_action( $action );
+
+Method for dispatching methods based on the passed I<$action> status.
+
 =cut
 
 sub handle_from_action {
