@@ -1725,6 +1725,8 @@ sub create_item_hold {
 
                 $req->store;
 
+                $action->illrequest_id($req->id)->store();
+
                 # Add attributes
                 $self->add_or_update_attributes(
                     {
