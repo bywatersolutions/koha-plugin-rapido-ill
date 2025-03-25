@@ -125,7 +125,7 @@ sub borrower_item_received {
                     sprintf(
                         "[lender_actions][borrower_item_received]: Request %s set to O_ITEM_RECEIVED_DESTINATION but didn't have a 'checkout_id' attribute",
                         $req->id
-                    );
+                    )
                 );
             }
 

@@ -1859,9 +1859,9 @@ sub update_ill_request {
     my ( $self, $action ) = @_;
 
     if ( $self->are_we_lender($action) ) {
-        $plugin->get_lender_actions( $action->pod )->handle_from_action($action);
+        $self->get_lender_actions( $action->pod )->handle_from_action($action);
     } elsif ( $self->are_we_borrower($action) ) {
-        $plugin->get_borrower_actions( $action->pod )->handle_from_action($action);
+        $self->get_borrower_actions( $action->pod )->handle_from_action($action);
     } else {
         RapidoILL::Exception::BadAgencyCode->throw(
             borrowerCode => $action->borrowerCode,
