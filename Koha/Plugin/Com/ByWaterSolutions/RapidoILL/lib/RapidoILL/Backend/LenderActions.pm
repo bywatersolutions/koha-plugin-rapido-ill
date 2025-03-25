@@ -77,8 +77,9 @@ sub handle_from_action {
     my ( $self, $action ) = @_;
 
     my $status_to_method = {
-        'ITEM_RECEIVED' => \&borrower_item_received,
-        'DEFAULT'       => \&default_handler,
+        'ITEM_RECEIVED'   => \&borrower_item_received,
+        'ITEM_IN_TRANSIT' => \&borrower_item_in_transit,
+        'DEFAULT'         => \&default_handler,
     };
 
     my $status =
@@ -147,6 +148,52 @@ sub borrower_item_received {
             }
 
             $req->status('O_ITEM_RECEIVED_DESTINATION')->store;
+        }
+    );
+
+    return;
+}
+
+=head3 borrower_item_in_transit
+
+    $client->borrower_item_in_transit( { action  => $action } );
+
+FIXME: This should probably take an ILL request instead or have them both optional.
+       implement as needed, Tomas!
+
+=cut
+
+sub borrower_item_in_transit {
+    my ( $self, $action ) = @_;
+
+    my $req = $action->ill_request;
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            if ( !$req->extended_attributes->search( { type => q{checkout_id} } )->count ) {
+                my $item   = Koha::Items->find( $action->itemId );
+                my $patron = Koha::Patrons->find( $req->borrowernumber );
+
+                my $checkout = $self->{plugin}->add_issue( { patron => $patron, barcode => $item->barcode } );
+
+                $self->{plugin}->add_or_update_attributes(
+                    {
+                        request    => $req,
+                        attributes => {
+                            checkout_id => $checkout->id,
+                        }
+                    }
+                );
+
+                $self->{plugin}->rapido_warn(
+                    sprintf(
+                        "[lender_actions][borrower_item_in_transit]: Request %s set to O_ITEM_IN_TRANSIT but didn't have a 'checkout_id' attribute",
+                        $req->id
+                    )
+                );
+            }
+
+            $req->status('O_ITEM_IN_TRANSIT')->store;
         }
     );
 
