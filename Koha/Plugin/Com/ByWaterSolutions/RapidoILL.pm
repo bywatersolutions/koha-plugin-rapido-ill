@@ -2075,7 +2075,7 @@ sub pickup_location_to_library_id {
     my $pickup_location;
     my $library_id;
 
-    if ( $params->{pickupLocation} =~ m/^(?<pickup_location>.*):.*:.*$/ ) {
+    if ( $params->{pickupLocation} =~ m/^(?<pickup_location>.*):.*$/ ) {
         $pickup_location = $+{pickup_location};
     } else {
         RapidoILL::Exception::BadPickupLocation->throw( value => $params->{pickupLocation} );
