@@ -76,18 +76,32 @@ Method for dispatching methods based on the passed I<$action> status.
 sub handle_from_action {
     my ( $self, $action ) = @_;
 
-    my $status_to_method = {};
+    my $status_to_method = {
+        'DEFAULT' => \&default_handler,
+    };
 
-    if ( !exists $status_to_method->{ $action->lastCircState } ) {
-        RapidoILL::Exception::UnhandledException->throw(
-            sprintf(
-                "[borrower_actions][handle_action] No method implemented for handling a %s status",
-                $action->lastCircState
-            )
-        );
-    }
+    my $status =
+        exists $status_to_method->{ $action->lastCircState }
+        ? $action->lastCircState
+        : 'DEAFULT';
 
-    return $self->$action;
+    return $status_to_method->{$status}->( $self, $action );
+}
+
+=head3 default_handler
+
+Throws an exception.
+
+=cut
+
+sub default_handler {
+    my ( $self, $action ) = @_;
+    RapidoILL::Exception::UnhandledException->throw(
+        sprintf(
+            "[borrower_actions][handle_action] No method implemented for handling a %s status",
+            $action->lastCircState
+        )
+    );
 }
 
 =head2 Class methods

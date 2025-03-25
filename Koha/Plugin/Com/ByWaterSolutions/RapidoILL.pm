@@ -1149,7 +1149,7 @@ sub get_lender_actions {
     require RapidoILL::Backend::LenderActions;
 
     unless ( $self->{lender_actions}->{$pod} ) {
-        $self->{lender_actions}->{$pod} = RapidoILL::Backend::BorrowerActions->new(
+        $self->{lender_actions}->{$pod} = RapidoILL::Backend::LenderActions->new(
             {
                 pod    => $pod,
                 plugin => $self,
