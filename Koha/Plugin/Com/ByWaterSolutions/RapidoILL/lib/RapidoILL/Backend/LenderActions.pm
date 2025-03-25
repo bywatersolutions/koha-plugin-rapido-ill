@@ -203,14 +203,14 @@ sub borrower_item_in_transit {
 
 =head3 final_checkin
 
-    $client->final_checkin( { request  => $request } );
+    $client->final_checkin( $action );
 
 =cut
 
 sub final_checkin {
-    my ( $self, $req ) = @_;
+    my ( $self, $action ) = @_;
 
-    $req->status('COMP')->store;
+    $action->ill_request->status('COMP')->store;
 
     return;
 }
