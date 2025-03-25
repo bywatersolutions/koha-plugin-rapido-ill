@@ -84,7 +84,7 @@ sub handle_from_action {
     my $status =
         exists $status_to_method->{ $action->lastCircState }
         ? $action->lastCircState
-        : 'DEAFULT';
+        : 'DEFAULT';
 
     return $status_to_method->{$status}->( $self, $action );
 }
