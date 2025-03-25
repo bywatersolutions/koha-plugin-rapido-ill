@@ -1616,9 +1616,9 @@ sub add_ill_request {
     my $server_code = $self->configuration->{ $action->pod }->{server_code};
 
     # identify our role
-    if ( $action->lenderCode eq $server_code ) {
+    if ( $self->are_we_lender( $action ) ) {
         $req = $self->create_item_hold($action);
-    } elsif ( $action->borrowerCode eq $server_code ) {
+    } elsif ( $self->are_we_borrower( $action ) ) {
         $req = $self->create_patron_hold($action);
     } else {
         RapidoILL::Exception::BadAgencyCode->throw(
