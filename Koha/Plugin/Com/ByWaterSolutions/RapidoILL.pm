@@ -1106,7 +1106,9 @@ sub get_client {
 
 =head3 get_borrower_actions
 
-This method retrieves a user agent to contact a pod.
+    my $borrower_actions = $plugin->get_borrower_actions( $pod );
+
+This method instantiates an action handler for the borrower site.
 
 =cut
 
@@ -1128,6 +1130,34 @@ sub get_borrower_actions {
     }
 
     return $self->{borrower_actions}->{$pod};
+}
+
+=head3 get_lender_actions
+
+    my $lender_actions = $plugin->get_lender_actions( $pod );
+
+This method instantiates an action handler for the lender site.
+
+=cut
+
+sub get_lender_actions {
+    my ( $self, $pod ) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+        unless $pod;
+
+    require RapidoILL::Backend::LenderActions;
+
+    unless ( $self->{lender_actions}->{$pod} ) {
+        $self->{lender_actions}->{$pod} = RapidoILL::Backend::BorrowerActions->new(
+            {
+                pod    => $pod,
+                plugin => $self,
+            }
+        );
+    }
+
+    return $self->{lender_actions}->{$pod};
 }
 
 =head3 get_normalizer
