@@ -1630,6 +1630,26 @@ sub add_ill_request {
     return $req;
 }
 
+=head3 are_we_lender
+
+=cut
+
+sub are_we_lender {
+    my ( $self, $action ) = @_;
+    my $server_code = $self->configuration->{ $action->pod }->{server_code};
+    return $action->lenderCode eq $server_code;
+}
+
+=head3 are_we_borrower
+
+=cut
+
+sub are_we_borrower {
+    my ( $self, $action ) = @_;
+    my $server_code = $self->configuration->{ $action->pod }->{server_code};
+    return $action->borrowerCode eq $server_code;
+}
+
 =head3 create_item_hold
 
 =cut
@@ -1837,7 +1857,18 @@ sub create_patron_hold {
 
 sub update_ill_request {
     my ( $self, $action ) = @_;
-    warn "update_ill_request() called";
+
+    if ( $self->are_we_lender($action) ) {
+        $plugin->get_lender_actions( $action->pod )->handle_from_action($action);
+    } elsif ( $self->are_we_borrower($action) ) {
+        $plugin->get_borrower_actions( $action->pod )->handle_from_action($action);
+    } else {
+        RapidoILL::Exception::BadAgencyCode->throw(
+            borrowerCode => $action->borrowerCode,
+            lenderCode   => $action->lenderCode,
+        );
+    }
+
     return;
 }
 

@@ -65,6 +65,27 @@ sub new {
     return $self;
 }
 
+=head3 handle_from_action
+
+=cut
+
+sub handle_from_action {
+    my ( $self, $action ) = @_;
+
+    my $status_to_method = {};
+
+    if ( !exists $status_to_method->{ $action->lastCircState } ) {
+        RapidoILL::Exception::UnhandledException->throw(
+            sprintf(
+                "[borrower_actions][handle_action] No method implemented for handling a %s status",
+                $action->lastCircState
+            )
+        );
+    }
+
+    return $self->$action;
+}
+
 =head2 Class methods
 
 =head3 borrower_receive_unshipped

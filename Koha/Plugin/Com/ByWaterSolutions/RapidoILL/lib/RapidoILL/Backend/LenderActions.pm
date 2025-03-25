@@ -65,38 +65,54 @@ sub new {
     return $self;
 }
 
+=head3 handle_action
+
+=cut
+
+sub handle_action {
+    my ( $self, $action ) = @_;
+
+    my $status_to_method = {
+        'ITEM_RECEIVED' => \&borrower_item_received,
+    };
+
+    if ( !exists $status_to_method->{ $action->lastCircState } ) {
+        RapidoILL::Exception::UnhandledException->throw(
+            sprintf(
+                "[lender_actions][handle_action] No method implemented for handling a %s status",
+                $action->lastCircState
+            )
+        );
+    }
+
+    return $self->$action;
+}
+
 =head2 Borrower-generated actions
 
 =head3 borrower_item_received
 
-    $client->borrower_item_received(
-        {
-            circId => $circId,
-            pod    => $pod,
-        },
-        [ { skip_api_request => 0 | 1 } ]
-    );
+    $client->borrower_item_received( { action  => $action } );
+
+FIXME: This should probably take an ILL request instead or have them both optional.
+       implement as needed, Tomas!
 
 =cut
 
 sub borrower_item_received {
-    my ( $self, $params, $options ) = @_;
+    my ( $self, $action ) = @_;
 
-    my $plugin = $self->{plugin};
-
-    $plugin->validate_params( { params => $params, required => [qw{circId pod}], } );
-
-    my $req = $plugin->get_ill_request( { circId => $params->{circId}, pod => $params->{pod}, } );
+    my $req = $action->ill_request;
 
     Koha::Database->new->schema->txn_do(
         sub {
             if ( !$req->extended_attributes->search( { type => q{checkout_id} } )->count ) {
-                my $item   = Koha::Items->find( $body->{itemId} );
+                my $item   = Koha::Items->find( $action->itemId );
                 my $patron = Koha::Patrons->find( $req->borrowernumber );
 
-                my $checkout = $plugin->add_issue( { patron => $patron, barcode => $item->barcode } );
+                my $checkout = $self->{plugin}->add_issue( { patron => $patron, barcode => $item->barcode } );
 
-                $plugin->add_or_update_attributes(
+                $self->{plugin}->add_or_update_attributes(
                     {
                         request    => $req,
                         attributes => {
@@ -107,7 +123,7 @@ sub borrower_item_received {
 
                 $self->{plugin}->rapido_warn(
                     sprintf(
-                        "[borrower_item_received]: Request %s set to O_ITEM_RECEIVED_DESTINATION but didn't have a 'checkout_id' attribute",
+                        "[lender_actions][borrower_item_received]: Request %s set to O_ITEM_RECEIVED_DESTINATION but didn't have a 'checkout_id' attribute",
                         $req->id
                     );
                 );
