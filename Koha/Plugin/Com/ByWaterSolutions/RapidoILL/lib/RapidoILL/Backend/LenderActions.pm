@@ -77,6 +77,7 @@ sub handle_from_action {
     my ( $self, $action ) = @_;
 
     my $status_to_method = {
+        'FINAL_CHECKIN'   => \&final_checkin,
         'ITEM_RECEIVED'   => \&borrower_item_received,
         'ITEM_IN_TRANSIT' => \&borrower_item_in_transit,
         'DEFAULT'         => \&default_handler,
@@ -196,6 +197,20 @@ sub borrower_item_in_transit {
             $req->status('O_ITEM_IN_TRANSIT')->store;
         }
     );
+
+    return;
+}
+
+=head3 final_checkin
+
+    $client->final_checkin( { request  => $request } );
+
+=cut
+
+sub final_checkin {
+    my ( $self, $req ) = @_;
+
+    $req->status('COMP')->store;
 
     return;
 }
