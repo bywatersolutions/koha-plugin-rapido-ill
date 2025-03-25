@@ -1837,6 +1837,8 @@ sub create_patron_hold {
                     }
                 )->store;
 
+                $action->illrequest_id($req->id)->store();
+
                 # Add attributes
                 $self->add_or_update_attributes(
                     {
