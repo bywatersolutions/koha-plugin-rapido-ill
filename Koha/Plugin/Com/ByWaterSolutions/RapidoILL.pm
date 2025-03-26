@@ -2070,7 +2070,7 @@ sub pickup_location_to_library_id {
 
     $self->validate_params( { required => [qw(pickupLocation pod)], params => $params } );
 
-    my $configuration = $self->{configuration}->{ $params->{pod} };
+    my $configuration = $self->configuration->{ $params->{pod} };
 
     my $pickup_location;
     my $library_id;
