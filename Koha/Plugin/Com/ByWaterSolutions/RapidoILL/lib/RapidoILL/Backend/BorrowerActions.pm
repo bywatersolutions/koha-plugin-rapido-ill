@@ -150,9 +150,9 @@ sub lender_item_shipped {
             my ( $biblio_id, $item_id, $biblioitemnumber );
 
             # check if already catalogued. INN-Reach requires no barcode collision
-            my $item = Koha::Items->find( { barcode => $barcode } );
+            my $existing_item = Koha::Items->find( { barcode => $barcode } );
 
-            if ($item) {
+            if ($existing_item) {
 
                 # already exists, add suffix
                 my $i = 1;
@@ -160,7 +160,7 @@ sub lender_item_shipped {
 
                 while ( !$done ) {
                     my $tmp_barcode = $barcode . "-$i";
-                    $item = Koha::Items->find( { barcode => $tmp_barcode } );
+                    $existing_item = Koha::Items->find( { barcode => $tmp_barcode } );
 
                     if ( !$item ) {
                         $barcode = $tmp_barcode;
@@ -176,7 +176,7 @@ sub lender_item_shipped {
             my $config = $self->{plugin}->configuration->{$action->pod};
 
             # Create the MARC record and item
-            ( $biblio_id, $item_id, $biblioitemnumber ) = $self->{plugin}->add_virtual_record_and_item(
+            my $item = $self->{plugin}->add_virtual_record_and_item(
                 {
                     req         => $req,
                     config      => $config,
@@ -185,13 +185,11 @@ sub lender_item_shipped {
                 }
             );
 
-            $item = Koha::Items->find($item_id);
-
             # Place a hold on the item
             my $hold_id = $self->{plugin}->add_hold(
                 {
-                    biblio_id  => $biblio_id,
-                    item_id    => $item_id,
+                    biblio_id  => $item->biblionumber,
+                    item_id    => $item->id,
                     library_id => $req->branchcode,
                     patron_id  => $req->borrowernumber,
                     notes      => exists $config->{default_hold_note}
@@ -214,7 +212,7 @@ sub lender_item_shipped {
             # Update request
             $req->set(
                 {
-                    biblio_id => $biblio_id,
+                    biblio_id => $item->biblionumber,
                     status    => 'B_ITEM_SHIPPED',
                 }
             );
