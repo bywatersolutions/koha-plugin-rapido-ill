@@ -77,7 +77,8 @@ sub handle_from_action {
     my ( $self, $action ) = @_;
 
     my $status_to_method = {
-        'DEFAULT' => \&default_handler,
+        'DEFAULT'      => \&default_handler,
+        'ITEM_SHIPPED' => \&lender_item_shipped,
     };
 
     my $status =
@@ -105,6 +106,123 @@ sub default_handler {
 }
 
 =head2 Class methods
+
+=head3 lender_item_shipped
+
+=cut
+
+sub lender_item_shipped {
+    my ($self, $action) = @_;
+
+    my $req     = $action->ill_request;
+    my $barcode = $action->itemBarcode;
+
+    RapidoILL::Exception->throw( "[borrower_actions][lender_item_shipped] No barcode in request. FIXME" )
+        unless $barcode;
+
+    my $attributes = {
+        author             => $action->author,
+        borrowerCode       => $action->borrowerCode,
+        callNumber         => $action->callNumber,
+        circ_action_id     => $action->circ_action_id,
+        circId             => $action->circId,
+        circStatus         => $action->circStatus,
+        dateCreated        => $action->dateCreated,
+        dueDateTime        => $action->dueDateTime,
+        itemAgencyCode     => $action->itemAgencyCode,
+        itemBarcode        => $action->itemBarcode,
+        itemId             => $action->itemId,
+        lastCircState      => $action->lastCircState,
+        lastUpdated        => $action->lastUpdated,
+        lenderCode         => $action->lenderCode,
+        needBefore         => $action->needBefore,
+        patronAgencyCode   => $action->patronAgencyCode,
+        patronId           => $action->patronId,
+        patronName         => $action->patronName,
+        pickupLocation     => $action->pickupLocation,
+        pod                => $action->pod,
+        puaLocalServerCode => $action->puaLocalServerCode,
+        title              => $action->title,
+    };
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            my ( $biblio_id, $item_id, $biblioitemnumber );
+
+            # check if already catalogued. INN-Reach requires no barcode collision
+            my $item = Koha::Items->find( { barcode => $barcode } );
+
+            if ($item) {
+
+                # already exists, add suffix
+                my $i = 1;
+                my $done;
+
+                while ( !$done ) {
+                    my $tmp_barcode = $barcode . "-$i";
+                    $item = Koha::Items->find( { barcode => $tmp_barcode } );
+
+                    if ( !$item ) {
+                        $barcode = $tmp_barcode;
+                        $done    = 1;
+                    } else {
+                        $i++;
+                    }
+                }
+
+                $attributes->{barcode_collision} = 1;
+            }
+
+            my $config = $self->{plugin}->configuration->{$action->pod};
+
+            # Create the MARC record and item
+            ( $biblio_id, $item_id, $biblioitemnumber ) = $self->{plugin}->add_virtual_record_and_item(
+                {
+                    req         => $req,
+                    config      => $config,
+                    call_number => $attributes->{callNumber},
+                    barcode     => $barcode,
+                }
+            );
+
+            $item = Koha::Items->find($item_id);
+
+            # Place a hold on the item
+            my $hold_id = $self->{plugin}->add_hold(
+                {
+                    biblio_id  => $biblio_id,
+                    item_id    => $item_id,
+                    library_id => $req->branchcode,
+                    patron_id  => $req->borrowernumber,
+                    notes      => exists $config->{default_hold_note}
+                    ? $config->{default_hold_note}
+                    : 'Placed by ILL',
+                }
+            );
+
+            # We need to store the hold_id
+            $attributes->{hold_id} = $hold_id;
+
+            # Update attributes
+            $self->{plugin}->add_or_update_attributes(
+                {
+                    attributes => $attributes,
+                    request    => $req,
+                }
+            );
+
+            # Update request
+            $req->set(
+                {
+                    biblio_id => $biblio_id,
+                    status    => 'B_ITEM_SHIPPED',
+                }
+            );
+        }
+    );
+
+    return;
+}
 
 =head3 borrower_receive_unshipped
 
