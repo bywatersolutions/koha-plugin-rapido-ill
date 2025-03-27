@@ -1932,7 +1932,7 @@ sub is_circ_action_new {
     my ( $self, $action ) = @_;
 
     my $stored_actions = RapidoILL::CircActions->search(
-        { circId   => $action->circId },
+        { circId   => $action->circId, pod => $action->pod, },
         { order_by => { -desc => 'lastUpdated' } }
     );
 
