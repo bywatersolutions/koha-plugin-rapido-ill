@@ -162,7 +162,7 @@ sub lender_item_shipped {
                     my $tmp_barcode = $barcode . "-$i";
                     $existing_item = Koha::Items->find( { barcode => $tmp_barcode } );
 
-                    if ( !$item ) {
+                    if ( !$existing_item ) {
                         $barcode = $tmp_barcode;
                         $done    = 1;
                     } else {
