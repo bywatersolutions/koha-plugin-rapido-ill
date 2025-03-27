@@ -14,6 +14,7 @@ dev03-na:
   server_code: 11747
   partners_library_id: CPL
   partners_category: ILL
+  default_item_type: ILL
   default_patron_agency: code1
   default_location:
   default_checkin_note: Additional processing required (ILL)

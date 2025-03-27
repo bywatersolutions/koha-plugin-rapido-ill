@@ -36,6 +36,7 @@ use Koha::Database;
 use Koha::ILL::Requests;
 use Koha::ILL::Request::Attributes;
 use Koha::Items;
+use Koha::ItemTypes;
 use Koha::Libraries;
 use Koha::Patron::Categories;
 use Koha::Patrons;
@@ -1374,6 +1375,24 @@ sub check_configuration {
                 pod   => $pod_code
                 }
                 unless Koha::Libraries->find( $configuration->{$pod_code}->{partners_library_id} );
+        }
+
+        # default_item_type
+        if ( !exists $configuration->{$pod_code}->{default_item_type} ) {
+            push @errors,
+                {
+                code  => 'missing_entry',
+                value => 'default_item_type',
+                pod   => $pod_code,
+                };
+        } else {
+            push @errors,
+                {
+                code  => 'undefined_default_item_type',
+                value => $configuration->{$pod_code}->{default_item_type},
+                pod   => $pod_code
+                }
+                unless Koha::ItemTypes->find( $configuration->{$pod_code}->{default_item_type} );
         }
 
         # partners_category
