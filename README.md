@@ -24,15 +24,6 @@ dev03-na:
   default_notforloan:
   materials_specified: true
   default_materials_specified: Additional processing required (ILL)
-  local_to_central_itype:
-    BK: 200
-    CF: 201
-    CR: 200
-    MP: 200
-    MU: 201
-    MX: 201
-    REF: 202
-    VM: 201
   local_to_central_patron_type:
     AP: 200
     CH: 200
@@ -42,9 +33,6 @@ dev03-na:
     LIBSTAFF: 201
     NR: 200
     SR: 202
-  central_to_local_itype:
-    200: D2IR_BK
-    201: D2IR_CF
   no_barcode_central_itypes:
     - 201
     - 202

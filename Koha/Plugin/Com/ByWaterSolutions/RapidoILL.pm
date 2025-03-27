@@ -597,6 +597,7 @@ sub add_virtual_record_and_item {
     my $notforloan                = $config->{default_notforloan} // -1;
     my $checkin_note              = $config->{default_checkin_note} || 'Additional processing required (ILL)';
     my $no_barcode_central_itypes = $config->{no_barcode_central_itypes} // [];
+    my $item_type                 = $config->{default_item_type} // 'ILL';
 
     my $materials;
 
@@ -608,33 +609,11 @@ sub add_virtual_record_and_item {
     }
 
     my $attributes      = $req->extended_attributes;
-    my $centralItemType = $attributes->search( { type => 'centralItemType' } )->next->value;
 
-    if ( any { $centralItemType eq $_ } @{$no_barcode_central_itypes} ) {
-        $barcode = undef;
-    } else {
-        my $default_normalizers = $config->{default_barcode_normalizers} // [];
-
-        if ( scalar @{$default_normalizers} ) {
-            my $normalizer = $self->get_normalizer($default_normalizers);
-            $barcode = $normalizer->process($barcode);
-        }
-    }
-
-    # determine the right item types
-    my $item_type;
-    if ( exists $config->{central_to_local_itype} ) {
-        $item_type =
-            ( exists $config->{central_to_local_itype}->{$centralItemType}
-                and $config->{central_to_local_itype}->{$centralItemType} )
-            ? $config->{central_to_local_itype}->{$centralItemType}
-            : $config->{default_item_type};
-    } else {
-        $item_type = $config->{default_item_type};
-    }
-
-    unless ($item_type) {
-        RapidoILL::Exception::MissingConfigEntry->throw( entry => 'default_item_type' );
+    my $default_normalizers = $config->{default_barcode_normalizers} // [];
+    if ( scalar @{$default_normalizers} ) {
+        my $normalizer = $self->get_normalizer($default_normalizers);
+        $barcode = $normalizer->process($barcode);
     }
 
     my $author_attr = $attributes->search( { type => 'author' } )->next;
