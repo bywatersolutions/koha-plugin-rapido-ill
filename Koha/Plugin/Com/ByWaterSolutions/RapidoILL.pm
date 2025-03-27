@@ -1574,13 +1574,20 @@ sub sync_circ_requests {
                         if ( $data->{circStatus} eq 'CANCELED' || $data->{circStatus} eq 'COMPLETED' ) {
                             $self->rapido_warn(
                                 sprintf(
-                                    "A finished request with circStatus='%s' lastCircState='%s' was found with no recorded ILL request. ",
+                                    "ERROR:\tA finished request with circStatus='%s' lastCircState='%s' was found with no recorded ILL request. ",
                                     $data->{circStatus}, $data->{lastCircState}
                                 )
                             );
                         } else {
+                            my $req = $self->add_ill_request($action);
+                            $action->illrequest_id( $req->id );
                             $action->store();
-                            $self->add_ill_request($action);
+                            $self->rapido_warn(
+                                sprintf(
+                                    "SUCCESS:\tNew action recorded circStatus='%s' lastCircState='%s'. A new ILL request has been created (%s).",
+                                    $data->{circStatus}, $data->{lastCircState}, $req->id
+                                )
+                            );
                         }
                     }
                 );
@@ -1592,11 +1599,17 @@ sub sync_circ_requests {
                     sub {
                         $action->set( { illrequest_id => $prev_action->illrequest_id } )->store();
                         $self->update_ill_request($action);
+                        $self->rapido_warn(
+                            sprintf(
+                                "SUCCESS:\tAction update recorded circStatus='%s' lastCircState='%s'. ILL request has been updated (%s).",
+                                $data->{circStatus}, $data->{lastCircState}, $prev_action->illrequest_id
+                            )
+                        );
                     }
                 );
             }    # else / no action required
         } catch {
-            $self->rapido_warn( sprintf( "Error processing circId=%s: %s", $data->{circId}, $_ ) );
+            $self->rapido_warn( sprintf( "ERROR:\tError processing circId=%s: %s", $data->{circId}, $_ ) );
         };
     }
 }
