@@ -215,7 +215,7 @@ sub lender_item_shipped {
                     biblio_id => $item->biblionumber,
                     status    => 'B_ITEM_SHIPPED',
                 }
-            );
+            )->store();
         }
     );
 
