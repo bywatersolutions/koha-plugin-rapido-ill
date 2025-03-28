@@ -747,7 +747,7 @@ sub item_in_transit {
 
     return try {
         my $pod = $self->{plugin}->get_req_pod( $params->{request} );
-        $self->{plugin}->get_borrower_actions($pod)->borrower_item_returned( { request => $params->{request} } );
+        $self->{plugin}->get_borrower_actions($pod)->item_in_transit( { request => $params->{request} } );
 
         return {
             error   => 0,
