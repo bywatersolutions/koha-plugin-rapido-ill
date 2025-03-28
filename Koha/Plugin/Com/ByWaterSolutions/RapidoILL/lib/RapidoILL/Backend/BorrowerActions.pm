@@ -21,6 +21,9 @@ use Encode;
 use JSON      qw( decode_json );
 use Try::Tiny qw(catch try);
 
+use C4::Biblio qw(DelBiblio);
+
+use Koha::Biblios;
 use Koha::Checkouts;
 use Koha::Database;
 use Koha::Items;
@@ -112,12 +115,12 @@ sub default_handler {
 =cut
 
 sub lender_item_shipped {
-    my ($self, $action) = @_;
+    my ( $self, $action ) = @_;
 
     my $req     = $action->ill_request;
     my $barcode = $action->itemBarcode;
 
-    RapidoILL::Exception->throw( "[borrower_actions][lender_item_shipped] No barcode in request. FIXME" )
+    RapidoILL::Exception->throw("[borrower_actions][lender_item_shipped] No barcode in request. FIXME")
         unless $barcode;
 
     my $attributes = {
@@ -173,7 +176,7 @@ sub lender_item_shipped {
                 $attributes->{barcode_collision} = 1;
             }
 
-            my $config = $self->{plugin}->configuration->{$action->pod};
+            my $config = $self->{plugin}->configuration->{ $action->pod };
 
             # Create the MARC record and item
             my $item = $self->{plugin}->add_virtual_record_and_item(
