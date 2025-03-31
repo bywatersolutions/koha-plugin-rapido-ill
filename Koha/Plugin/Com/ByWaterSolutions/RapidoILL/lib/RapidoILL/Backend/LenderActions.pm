@@ -80,6 +80,7 @@ sub handle_from_action {
         'FINAL_CHECKIN'   => \&final_checkin,
         'ITEM_RECEIVED'   => \&borrower_item_received,
         'ITEM_IN_TRANSIT' => \&borrower_item_in_transit,
+        'ITEM_SHIPPED'    => \&item_shipped,
         'DEFAULT'         => \&default_handler,
     };
 
@@ -211,6 +212,20 @@ sub final_checkin {
     my ( $self, $action ) = @_;
 
     $action->ill_request->status('COMP')->store;
+
+    return;
+}
+
+=head3 item_shipped
+
+    $client->item_shipped( $action );
+
+=cut
+
+sub item_shipped {
+    my ( $self, $action ) = @_;
+
+    # This was triggered by us. No action
 
     return;
 }
