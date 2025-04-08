@@ -63,7 +63,6 @@ sub filter_by_runnable {
     );
 }
 
-
 =head2 Internal methods
 
 =head3 _type
