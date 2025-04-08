@@ -66,6 +66,20 @@ sub filter_by_runnable {
     );
 }
 
+=head3 enqueue
+
+    my $queued_task = $queued_tasks->enqueue($params);
+
+Enqueues a new task. I<$params> can include the task attributes.
+Returns the new I<RapidoILL::QueuedTask> object.
+
+=cut
+
+sub enqueue {
+    my ( $self, $attributes ) = @_;
+    return RapidoILL::QueuedTask->new($attributes)->store();
+}
+
 =head2 Internal methods
 
 =head3 _type
