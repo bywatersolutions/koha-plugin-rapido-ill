@@ -447,6 +447,90 @@ sub new_ill_backend {
     return RapidoILL::Backend->new($args);
 }
 
+=head3 after_circ_action
+
+Hook that is caled on circulation actions
+
+=cut
+
+sub after_circ_action {
+    my ( $self, $params ) = @_;
+
+    my $action   = $params->{action};
+    my $checkout = $params->{payload}->{checkout};
+
+    # my $type     = $params->{payload}->{type};
+
+    my $req;
+
+    if ( $action eq 'checkout' )
+    {    # we don't have a checkout_id yet. the item has been created by itemshipped so query using the barcode
+         # this only applies to the borrowing side. On the lending side all the workflow is handled
+         # within the hold cancel/fill actions, which trigger plain cancellation or setting the status as
+         # O_ITEM_SHIPPED and generating the checkout right after, inside the same transaction.
+        $req = $self->get_ill_requests_from_attribute(
+            {
+                type  => 'itemBarcode',
+                value => $checkout->item->barcode,
+            }
+        )->search(
+            { 'me.status' => [ 'B_ITEM_RECEIVED', 'B_ITEM_RECALLED' ] },
+            { order_by    => { '-desc' => 'updated' }, rows => 1, }
+        )->single;
+    } else {
+        $req = $self->get_ill_request_from_attribute(
+            {
+                type  => 'checkout_id',
+                value => $checkout->id,
+            }
+        );
+    }
+
+    return
+        unless $req;
+
+    if ( $action eq 'checkout' ) {
+
+        # FIXME: do stuff here
+    } elsif ( $action eq 'renewal' ) {
+
+        # FIXME: do stuff here
+    } elsif ( $action eq 'checkin' ) {
+
+        # FIXME: do stuff here
+    }
+
+    return;
+}
+
+=head3 after_hold_action
+
+Hook that is caled on holds-related actions
+
+=cut
+
+sub after_hold_action {
+    my ( $self, $params ) = @_;
+
+    my $action = $params->{action};
+
+    my $payload = $params->{payload};
+    my $hold    = $payload->{hold};
+
+    my $req = $self->get_ill_request_from_attribute(
+        {
+            type  => 'hold_id',
+            value => $hold->id,
+        }
+    );
+
+    # skip actions if this is not an ILL request
+    return
+        unless $req;
+
+    # FIXME: do stuff
+}
+
 =head3 _table_exists (helper)
 
 Method to check if a table exists in Koha.
@@ -598,7 +682,7 @@ sub add_virtual_record_and_item {
     my $notforloan                = $config->{default_notforloan} // -1;
     my $checkin_note              = $config->{default_checkin_note} || 'Additional processing required (ILL)';
     my $no_barcode_central_itypes = $config->{no_barcode_central_itypes} // [];
-    my $item_type                 = $config->{default_item_type} // 'ILL';
+    my $item_type                 = $config->{default_item_type}         // 'ILL';
 
     my $materials;
 
@@ -609,7 +693,7 @@ sub add_virtual_record_and_item {
             : 'Additional processing required (ILL)';
     }
 
-    my $attributes      = $req->extended_attributes;
+    my $attributes = $req->extended_attributes;
 
     my $default_normalizers = $config->{default_barcode_normalizers} // [];
     if ( scalar @{$default_normalizers} ) {
@@ -1141,7 +1225,6 @@ sub get_lender_actions {
     return $self->{lender_actions}->{$pod};
 }
 
-
 =head3 get_queued_tasks
 
     my $queued_tasks = $plugin->get_queued_tasks();
@@ -1645,9 +1728,9 @@ sub add_ill_request {
     my $server_code = $self->configuration->{ $action->pod }->{server_code};
 
     # identify our role
-    if ( $self->are_we_lender( $action ) ) {
+    if ( $self->are_we_lender($action) ) {
         $req = $self->create_item_hold($action);
-    } elsif ( $self->are_we_borrower( $action ) ) {
+    } elsif ( $self->are_we_borrower($action) ) {
         $req = $self->create_patron_hold($action);
     } else {
         RapidoILL::Exception::BadAgencyCode->throw(
@@ -1754,7 +1837,7 @@ sub create_item_hold {
 
                 $req->store;
 
-                $action->illrequest_id($req->id)->store();
+                $action->illrequest_id( $req->id )->store();
 
                 # Add attributes
                 $self->add_or_update_attributes(
@@ -1866,7 +1949,7 @@ sub create_patron_hold {
                     }
                 )->store;
 
-                $action->illrequest_id($req->id)->store();
+                $action->illrequest_id( $req->id )->store();
 
                 # Add attributes
                 $self->add_or_update_attributes(
