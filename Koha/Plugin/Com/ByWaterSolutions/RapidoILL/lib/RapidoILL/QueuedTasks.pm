@@ -27,6 +27,43 @@ RapidoILL::QueuedTasks - Queued tasks object set class
 
 =head1 API
 
+=head2 Class methods
+
+=head3 filter_by_active
+
+    my $active_tasks = $tasks->filter_by_active();
+
+Filters the current resultset so it only contains active tasks.
+
+=cut
+
+sub filter_by_active {
+    my ($self) = @_;
+
+    return $self->search( { status => [qw(queued retry)] } );
+}
+
+=head3 filter_by_runnable
+
+    my $runnable_tasks = $tasks->filter_by_runnable();
+
+Filters the current resultset so it only contains runnable tasks. This is
+tasks that have an active status and also that are scheduled to be run 
+
+=cut
+
+sub filter_by_runnable {
+    my ($self) = @_;
+
+    return $self->search(
+        {
+            status => [qw(queued retry)],
+            -or    => [ { run_after => undef }, { run_after => { '<' => \'NOW()' } } ]
+        }
+    );
+}
+
+
 =head2 Internal methods
 
 =head3 _type
