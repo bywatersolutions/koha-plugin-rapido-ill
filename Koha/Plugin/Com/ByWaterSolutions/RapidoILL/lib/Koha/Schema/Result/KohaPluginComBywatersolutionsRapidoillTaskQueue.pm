@@ -175,6 +175,12 @@ __PACKAGE__->set_primary_key("id");
 # Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-03-07 20:38:34
 # DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:MG1LUG1lM+8VDh6TZd+d8A
 
+sub koha_objects_class {
+    'RapidoILL::QueuedTasks';
+}
 
-# You can replace this text with custom code or comments, and it will be preserved on regeneration
+sub koha_object_class {
+    'RapidoILL::QueuedTask';
+}
+
 1;

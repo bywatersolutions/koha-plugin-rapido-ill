@@ -1141,6 +1141,23 @@ sub get_lender_actions {
     return $self->{lender_actions}->{$pod};
 }
 
+
+=head3 get_queued_tasks
+
+    my $queued_tasks = $plugin->get_queued_tasks();
+
+Returns a I<RapidoILL::QueuedTasks> resultset.
+
+=cut
+
+sub get_queued_tasks {
+    my ($self) = @_;
+
+    require RapidoILL::QueuedTasks;
+
+    return RapidoILL::QueuedTasks->new;
+}
+
 =head3 get_normalizer
 
 =cut
