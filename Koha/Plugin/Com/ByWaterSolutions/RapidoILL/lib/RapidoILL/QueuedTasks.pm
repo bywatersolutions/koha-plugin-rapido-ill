@@ -31,16 +31,17 @@ RapidoILL::QueuedTasks - Queued tasks object set class
 
 =head3 filter_by_active
 
-    my $active_tasks = $tasks->filter_by_active();
+    my $active_tasks = $tasks->filter_by_active($attributes);
 
 Filters the current resultset so it only contains active tasks.
+I<$attributes> are passed through.
 
 =cut
 
 sub filter_by_active {
-    my ($self) = @_;
+    my ( $self, $attributes ) = @_;
 
-    return $self->search( { status => [qw(queued retry)] } );
+    return $self->search( { status => [qw(queued retry)] }, $attributes );
 }
 
 =head3 filter_by_runnable
@@ -48,18 +49,20 @@ sub filter_by_active {
     my $runnable_tasks = $tasks->filter_by_runnable();
 
 Filters the current resultset so it only contains runnable tasks. This is
-tasks that have an active status and also that are scheduled to be run 
+tasks that have an active status and also that are scheduled to be run.
+I<$attributes> are passed through.
 
 =cut
 
 sub filter_by_runnable {
-    my ($self) = @_;
+    my ( $self, $attributes ) = @_;
 
     return $self->search(
         {
             status => [qw(queued retry)],
             -or    => [ { run_after => undef }, { run_after => { '<' => \'NOW()' } } ]
-        }
+        },
+        $attributes
     );
 }
 
