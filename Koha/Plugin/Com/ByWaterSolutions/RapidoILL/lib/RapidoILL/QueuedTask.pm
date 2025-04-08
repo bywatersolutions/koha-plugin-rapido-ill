@@ -17,6 +17,8 @@ package RapidoILL::CircAction;
 
 use Modern::Perl;
 
+use JSON qw(encode_json);
+
 use base qw(Koha::Object);
 
 =head1 NAME
@@ -26,6 +28,70 @@ RapidoILL::QueuedTask - Task queue row Object class
 =head1 API
 
 =head2 Class methods
+
+=head3 can_retry
+
+    if ( $task->can_retry( [ $max_retries ] ) ) { ... }
+
+Returns I<true> if the task can be retried. Useful for final error recording.
+If I<$max_retries> is passed, it is used. Otherwise it defaults to 10.
+
+=cut
+
+sub can_retry {
+    my ( $self, $max_retries ) = @_;
+
+    $max_retries //= 10;
+
+    return ( $self->attempts <= $max_retries ) ? 1 : 0;
+}
+
+=head3 error
+
+    $task->error($error);
+
+Marks the task as failed. Expects a hashref as I<$error> or nothing.
+
+=cut
+
+sub error {
+    my ( $self, $error ) = @_;
+
+    $self->set(
+        {
+            status => 'error',
+            ( $error ? ( last_error => encode_json($error) ) : () ),
+        }
+    )->store();
+
+    return $self;
+}
+
+=head3 retry
+
+    $task->retry( { [ delay => $delay_secs ] } );
+
+Marks the task for retry. If I<delay> is not passed it defaults to B<120> seconds.
+
+=cut
+
+sub retry {
+    my ( $self, $params ) = @_;
+
+    my $retry_delay = $params->{delay} // 120;
+    my $error       = $params->{error};
+
+    $self->set(
+        {
+            status   => 'retry',
+            attempts => $self->attempts + 1,
+            ( $error ? ( last_error => encode_json($error) ) : () ),
+            run_after => \"DATE_ADD(NOW(), INTERVAL $retry_delay SECOND)"
+        }
+    )->store();
+
+    return $self;
+}
 
 =head2 Internal methods
 
