@@ -204,17 +204,18 @@ sub install {
         $dbh->do(
             qq{
             CREATE TABLE $task_queue (
-                `id`           INT(11) NOT NULL AUTO_INCREMENT,
-                `object_type`  ENUM('ill', 'circulation', 'holds') NOT NULL DEFAULT 'biblio',
-                `object_id`    INT(11) NOT NULL DEFAULT 0,
-                `payload`      TEXT DEFAULT NULL,
-                `action`       ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL,
-                `status`       ENUM('queued','retry','success','error','skipped') NOT NULL DEFAULT 'queued',
-                `attempts`     INT(11) NOT NULL DEFAULT 0,
-                `last_error`   VARCHAR(191) DEFAULT NULL,
-                `timestamp`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                `pod`          VARCHAR(10) NOT NULL,
-                `run_after`    TIMESTAMP NULL DEFAULT NULL,
+                `id`            INT(11) NOT NULL AUTO_INCREMENT,
+                `object_type`   ENUM('ill', 'circulation', 'holds') NOT NULL DEFAULT 'biblio',
+                `object_id`     INT(11) NOT NULL DEFAULT 0,
+                `illrequest_id` BIGINT(20) UNSIGNED NULL DEFAULT NULL,
+                `payload`       TEXT DEFAULT NULL,
+                `action`        ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL,
+                `status`        ENUM('queued','retry','success','error','skipped') NOT NULL DEFAULT 'queued',
+                `attempts`      INT(11) NOT NULL DEFAULT 0,
+                `last_error`    VARCHAR(191) DEFAULT NULL,
+                `timestamp`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `pod`           VARCHAR(10) NOT NULL,
+                `run_after`     TIMESTAMP NULL DEFAULT NULL,
                 PRIMARY KEY (`id`),
                 KEY `status` (`status`),
                 KEY `pod` (`pod`)
@@ -422,6 +423,19 @@ sub upgrade {
             qq{
             ALTER TABLE $task_queue
                 CHANGE COLUMN `action` `action` ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL;
+        }
+        );
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "0.1.42";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        $dbh->do(
+            qq{
+            ALTER TABLE $task_queue
+                ADD COLUMN `illrequest_id` BIGINT(20) UNSIGNED NULL DEFAULT NULL AFTER `object_id`;
         }
         );
 
