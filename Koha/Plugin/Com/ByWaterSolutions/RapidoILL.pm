@@ -205,7 +205,7 @@ sub install {
             qq{
             CREATE TABLE $task_queue (
                 `id`           INT(11) NOT NULL AUTO_INCREMENT,
-                `object_type`  ENUM('biblio', 'item', 'circulation', 'holds') NOT NULL DEFAULT 'biblio',
+                `object_type`  ENUM('ill', 'circulation', 'holds') NOT NULL DEFAULT 'biblio',
                 `object_id`    INT(11) NOT NULL DEFAULT 0,
                 `payload`      TEXT DEFAULT NULL,
                 `action`       ENUM('create','modify','delete','renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL DEFAULT 'modify',
@@ -402,6 +402,19 @@ sub upgrade {
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
 
+    $new_version = "0.1.39";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        $dbh->do(
+            qq{
+            ALTER TABLE $task_queue
+                CHANGE COLUMN `object_type` `object_type` ENUM('ill', 'circulation', 'holds') NOT NULL;
+        }
+        );
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
     return 1;
 }
 
@@ -493,7 +506,8 @@ sub after_circ_action {
     return
         if $req->borrowernumber != $checkout->borrowernumber;
 
-    my $pod = $self->get_req_pod($req);
+    my $pod    = $self->get_req_pod($req);
+    my $config = $self->pod_config($pod);
 
     if ( $action eq 'checkout' ) {
 
@@ -520,7 +534,34 @@ sub after_circ_action {
 
     } elsif ( $action eq 'checkin' ) {
 
-        # FIXME: do stuff here
+        if (
+            any { $req->status eq $_ }
+            qw(O_ITEM_CANCELLED
+            O_ITEM_CANCELLED_BY_US
+            O_ITEM_CLAIMED_RETURNED
+            O_ITEM_IN_TRANSIT
+            O_ITEM_RETURN_UNCIRCULATED
+            O_ITEM_RECEIVED_DESTINATION)
+            )
+        {
+            $self->get_queued_tasks->enqueue(
+                {
+                    object_type => 'ill',
+                    object_id   => $req->id,
+                    action      => 'o_final_checkin',
+                    pod         => $pod,
+                }
+            ) if $config->{lending}->{automatic_final_checkin};
+        } elsif ( any { $req->status eq $_ } qw{B_ITEM_RECEIVED B_ITEM_RECALLED} ) {
+            $self->get_queued_tasks->enqueue(
+                {
+                    object_type => 'ill',
+                    object_id   => $req->id,
+                    action      => 'b_item_in_transit',
+                    pod         => $pod,
+                }
+            ) if $config->{borrowing}->{automatic_item_in_transit};
+        }
     }
 
     return;
