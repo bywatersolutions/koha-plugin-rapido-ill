@@ -552,10 +552,11 @@ sub after_circ_action {
         # Notify renewal
         $self->get_queued_tasks->enqueue(
             {
-                object_type => 'circulation',
-                object_id   => $checkout->id,
-                action      => 'renewal',
-                pod         => $pod,
+                object_type   => 'circulation',
+                object_id     => $checkout->id,
+                action        => 'renewal',
+                pod           => $pod,
+                illrequest_id => $req->id,
             }
         );
 
@@ -573,19 +574,21 @@ sub after_circ_action {
         {
             $self->get_queued_tasks->enqueue(
                 {
-                    object_type => 'ill',
-                    object_id   => $req->id,
-                    action      => 'o_final_checkin',
-                    pod         => $pod,
+                    object_type   => 'ill',
+                    object_id     => $req->id,
+                    action        => 'o_final_checkin',
+                    pod           => $pod,
+                    illrequest_id => $req->id,
                 }
             ) if $config->{lending}->{automatic_final_checkin};
         } elsif ( any { $req->status eq $_ } qw{B_ITEM_RECEIVED B_ITEM_RECALLED} ) {
             $self->get_queued_tasks->enqueue(
                 {
-                    object_type => 'ill',
-                    object_id   => $req->id,
-                    action      => 'b_item_in_transit',
-                    pod         => $pod,
+                    object_type   => 'ill',
+                    object_id     => $req->id,
+                    action        => 'b_item_in_transit',
+                    pod           => $pod,
+                    illrequest_id => $req->id,
                 }
             ) if $config->{borrowing}->{automatic_item_in_transit};
         }
@@ -629,10 +632,11 @@ sub after_hold_action {
 
                 $self->get_queued_tasks->enqueue(
                     {
-                        object_type => 'ill',
-                        object_id   => $req->id,
-                        action      => 'o_item_shipped',
-                        pod         => $pod,
+                        object_type   => 'ill',
+                        object_id     => $req->id,
+                        action        => 'o_item_shipped',
+                        pod           => $pod,
+                        illrequest_id => $req->id,
                     }
                 ) if $config->{lending}->{automatic_item_shipped};
             }
@@ -642,10 +646,11 @@ sub after_hold_action {
 
                 $self->get_queued_tasks->enqueue(
                     {
-                        object_type => 'ill',
-                        object_id   => $req->id,
-                        action      => 'o_cancel_request',
-                        pod         => $pod,
+                        object_type   => 'ill',
+                        object_id     => $req->id,
+                        action        => 'o_cancel_request',
+                        pod           => $pod,
+                        illrequest_id => $req->id,
                     }
                 );
             }
@@ -656,10 +661,11 @@ sub after_hold_action {
 
                 $self->get_queued_tasks->enqueue(
                     {
-                        object_type => 'ill',
-                        object_id   => $req->id,
-                        action      => 'b_item_received',
-                        pod         => $pod,
+                        object_type   => 'ill',
+                        object_id     => $req->id,
+                        action        => 'b_item_received',
+                        pod           => $pod,
+                        illrequest_id => $req->id,
                     }
                 ) if $config->{borrowing}->{automatic_item_receive};
             }
