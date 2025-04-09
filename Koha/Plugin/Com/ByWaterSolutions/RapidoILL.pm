@@ -208,7 +208,7 @@ sub install {
                 `object_type`  ENUM('ill', 'circulation', 'holds') NOT NULL DEFAULT 'biblio',
                 `object_id`    INT(11) NOT NULL DEFAULT 0,
                 `payload`      TEXT DEFAULT NULL,
-                `action`       ENUM('create','modify','delete','renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL DEFAULT 'modify',
+                `action`       ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL DEFAULT 'modify',
                 `status`       ENUM('queued','retry','success','error','skipped') NOT NULL DEFAULT 'queued',
                 `attempts`     INT(11) NOT NULL DEFAULT 0,
                 `last_error`   VARCHAR(191) DEFAULT NULL,
@@ -409,6 +409,19 @@ sub upgrade {
             qq{
             ALTER TABLE $task_queue
                 CHANGE COLUMN `object_type` `object_type` ENUM('ill', 'circulation', 'holds') NOT NULL;
+        }
+        );
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "0.1.40";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        $dbh->do(
+            qq{
+            ALTER TABLE $task_queue
+                CHANGE COLUMN `action` `action` ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL DEFAULT 'modify';
         }
         );
 
