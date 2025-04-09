@@ -489,12 +489,33 @@ sub after_circ_action {
     return
         unless $req;
 
+    # skip if checkout for another patron.
+    return
+        if $req->borrowernumber != $checkout->borrowernumber;
+
     if ( $action eq 'checkout' ) {
 
-        # FIXME: do stuff here
+        # FIXME: Should be handled through CirculateILL
+        if ( any { $req->status eq $_ } qw{B_ITEM_RECEIVED} ) {
+            $self->add_or_update_attributes(
+                {
+                    request    => $req,
+                    attributes => { checkout_id => $checkout->id }
+                }
+            );
+        }
     } elsif ( $action eq 'renewal' ) {
 
-        # FIXME: do stuff here
+        # Notify renewal
+        $self->get_queued_tasks->enqueue(
+            {
+                object_type => 'circulation',
+                object_id   => $checkout->id,
+                action      => 'renewal',
+                pod         => $self->get_req_pod( $req ),
+            }
+        );
+
     } elsif ( $action eq 'checkin' ) {
 
         # FIXME: do stuff here
