@@ -1026,6 +1026,23 @@ sub pods {
     return \@pods;
 }
 
+=head3 pod_config
+
+    my $config = $plugin->pod_config($pod);
+
+Helper to get the I<$pod> config.
+
+=cut
+
+sub pod_config {
+    my ($self, $pod) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+        unless $pod;
+
+    return $self->configuration->{$pod};
+}
+
 =head3 get_ill_request_from_biblio_id
 
 This method retrieves the ILL request using a biblio_id.
@@ -1091,24 +1108,24 @@ sub get_ill_request {
 
 =head3 get_ua
 
-    my $us = $plugin->get_ua($pod_code);
+    my $us = $plugin->get_ua($pod);
 
-This method retrieves a user agent to contact a pod.
+This method retrieves a user agent object for contacting a given I<$pod>.
 
 =cut
 
 sub get_ua {
-    my ( $self, $pod_code ) = @_;
+    my ( $self, $pod ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod_code' missing")
-        unless $pod_code;
+    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+        unless $pod;
 
     require RapidoILL::OAuth2;
 
-    my $configuration = $self->configuration->{$pod_code};
+    my $configuration = $self->configuration->{$pod};
 
-    unless ( $self->{_oauth2}->{$pod_code} ) {
-        $self->{_oauth2}->{$pod_code} = RapidoILL::OAuth2->new(
+    unless ( $self->{_oauth2}->{$pod} ) {
+        $self->{_oauth2}->{$pod} = RapidoILL::OAuth2->new(
             {
                 client_id      => $configuration->{client_id},
                 client_secret  => $configuration->{client_secret},
@@ -1118,7 +1135,7 @@ sub get_ua {
         );
     }
 
-    return $self->{_oauth2}->{$pod_code};
+    return $self->{_oauth2}->{$pod};
 }
 
 =head3 get_client
