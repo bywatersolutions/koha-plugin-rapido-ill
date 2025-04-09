@@ -208,7 +208,7 @@ sub install {
                 `object_type`  ENUM('ill', 'circulation', 'holds') NOT NULL DEFAULT 'biblio',
                 `object_id`    INT(11) NOT NULL DEFAULT 0,
                 `payload`      TEXT DEFAULT NULL,
-                `action`       ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL DEFAULT 'modify',
+                `action`       ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL,
                 `status`       ENUM('queued','retry','success','error','skipped') NOT NULL DEFAULT 'queued',
                 `attempts`     INT(11) NOT NULL DEFAULT 0,
                 `last_error`   VARCHAR(191) DEFAULT NULL,
@@ -421,7 +421,7 @@ sub upgrade {
         $dbh->do(
             qq{
             ALTER TABLE $task_queue
-                CHANGE COLUMN `action` `action` ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL DEFAULT 'modify';
+                CHANGE COLUMN `action` `action` ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL;
         }
         );
 
