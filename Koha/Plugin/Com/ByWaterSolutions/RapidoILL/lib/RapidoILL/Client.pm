@@ -18,8 +18,9 @@ package RapidoILL::Client;
 use Modern::Perl;
 
 use Encode;
-use JSON      qw( decode_json );
-use Try::Tiny qw(catch try);
+use JSON            qw( decode_json );
+use Koha::DateUtils qw(dt_from_string);
+use Try::Tiny       qw(catch try);
 
 use RapidoILL::Exceptions;
 
@@ -348,6 +349,40 @@ sub borrower_cancel {
             $self->{ua}->post_request( { endpoint => '/view/broker/circ/' . $params->{circId} . '/borrowercancel' } );
 
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_cancel', response => $response )
+            unless $response->is_success;
+
+        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+    }
+
+    return;
+}
+
+=head3 borrower_renew
+
+    $client->borrower_renew(
+        {
+            circId      => $circId,
+            dueDateTime => $checkout->date_due,
+        },
+      [ { skip_api_request => 0 | 1 } ]
+    );
+
+=cut
+
+sub borrower_renew {
+    my ( $self, $params, $options ) = @_;
+
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId dueDateTime)], } );
+
+    if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
+        my $response = $self->{ua}->post_request(
+            {
+                endpoint => '/view/broker/circ/' . $params->{circId} . '/borrowerrenew',
+                data     => { dueDateTime => dt_from_string( $params->{dueDateTime} )->epoch }
+            }
+        );
+
+        RapidoILL::Exception::RequestFailed->throw( method => 'borrower_renew', response => $response )
             unless $response->is_success;
 
         return decode_json( encode( 'UTF-8', $response->decoded_content ) );
