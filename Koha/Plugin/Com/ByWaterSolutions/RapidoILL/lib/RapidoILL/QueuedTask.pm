@@ -18,6 +18,7 @@ package RapidoILL::CircAction;
 use Modern::Perl;
 
 use JSON qw(encode_json);
+use Koha::ILL::Requests;
 
 use base qw(Koha::Object);
 
@@ -28,6 +29,20 @@ RapidoILL::QueuedTask - Task queue row Object class
 =head1 API
 
 =head2 Class methods
+
+=head3 ill_request
+
+    my $req = $task->ill_request;
+
+Accessor for the linked I<Koha::ILL::Request> object.
+
+=cut
+
+sub ill_request {
+    my ($self) = @_;
+
+    return Koha::ILL::Requests->find( $self->illrequest_id );
+}
 
 =head3 can_retry
 
