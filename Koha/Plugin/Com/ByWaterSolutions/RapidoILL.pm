@@ -1194,30 +1194,32 @@ sub get_ua {
 
 =head3 get_client
 
-This method retrieves a user agent to contact a pod.
+    my $client = $plugin->get_client($pod);
+
+This method retrieves an API client to contact a I<$pod>.
 
 =cut
 
 sub get_client {
-    my ( $self, $pod_code ) = @_;
+    my ( $self, $pod ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod_code' missing")
-        unless $pod_code;
+    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+        unless $pod;
 
     require RapidoILL::Client;
 
-    my $configuration = $self->configuration->{$pod_code};
+    my $configuration = $self->configuration->{$pod};
 
-    unless ( $self->{client}->{$pod_code} ) {
-        $self->{client}->{$pod_code} = RapidoILL::Client->new(
+    unless ( $self->{client}->{$pod} ) {
+        $self->{client}->{$pod} = RapidoILL::Client->new(
             {
-                pod_code => $pod_code,
-                plugin   => $self,
+                pod    => $pod,
+                plugin => $self,
             }
         );
     }
 
-    return $self->{client}->{$pod_code};
+    return $self->{client}->{$pod};
 }
 
 =head3 get_borrower_actions
@@ -1304,7 +1306,7 @@ sub get_normalizer {
 
 =head3 debug_mode
 
-    if ( $self->debug_mode($pod_code) ) { ... }
+    if ( $self->debug_mode($pod) ) { ... }
 
 This method tells if debug mode is enabled/configured for the specified I<$pod>.
 
@@ -1313,9 +1315,9 @@ Defaults to B<0> if not specified in the configuration YAML.
 =cut
 
 sub debug_mode {
-    my ( $self, $pod_code ) = @_;
+    my ( $self, $pod ) = @_;
 
-    return $self->configuration->{$pod_code}->{debug_mode} ? 1 : 0;
+    return $self->configuration->{$pod}->{debug_mode} ? 1 : 0;
 }
 
 =head3 is_lending_req
@@ -1493,69 +1495,69 @@ sub check_configuration {
     my $configuration = $self->configuration;
     my @pods          = keys %{$configuration};
 
-    foreach my $pod_code (@pods) {
+    foreach my $pod (@pods) {
 
-        if ( !defined $configuration->{$pod_code}->{server_code} ) {
+        if ( !defined $configuration->{$pod}->{server_code} ) {
             push @errors,
                 {
                 code  => 'missing_entry',
                 value => 'server_code',
-                pod   => $pod_code,
+                pod   => $pod,
                 };
         }
 
         # partners_library_id
-        if ( !exists $configuration->{$pod_code}->{partners_library_id} ) {
+        if ( !exists $configuration->{$pod}->{partners_library_id} ) {
             push @errors,
                 {
                 code  => 'missing_entry',
                 value => 'partners_library_id',
-                pod   => $pod_code,
+                pod   => $pod,
                 };
         } else {
             push @errors,
                 {
                 code  => 'undefined_partners_library_id',
-                value => $configuration->{$pod_code}->{partners_library_id},
-                pod   => $pod_code
+                value => $configuration->{$pod}->{partners_library_id},
+                pod   => $pod
                 }
-                unless Koha::Libraries->find( $configuration->{$pod_code}->{partners_library_id} );
+                unless Koha::Libraries->find( $configuration->{$pod}->{partners_library_id} );
         }
 
         # default_item_type
-        if ( !exists $configuration->{$pod_code}->{default_item_type} ) {
+        if ( !exists $configuration->{$pod}->{default_item_type} ) {
             push @errors,
                 {
                 code  => 'missing_entry',
                 value => 'default_item_type',
-                pod   => $pod_code,
+                pod   => $pod,
                 };
         } else {
             push @errors,
                 {
                 code  => 'undefined_default_item_type',
-                value => $configuration->{$pod_code}->{default_item_type},
-                pod   => $pod_code
+                value => $configuration->{$pod}->{default_item_type},
+                pod   => $pod
                 }
-                unless Koha::ItemTypes->find( $configuration->{$pod_code}->{default_item_type} );
+                unless Koha::ItemTypes->find( $configuration->{$pod}->{default_item_type} );
         }
 
         # partners_category
-        if ( !exists $configuration->{$pod_code}->{partners_category} ) {
+        if ( !exists $configuration->{$pod}->{partners_category} ) {
             push @errors,
                 {
                 code  => 'missing_entry',
                 value => 'partners_category',
-                pod   => $pod_code,
+                pod   => $pod,
                 };
         } else {
             push @errors,
                 {
                 code  => 'undefined_partners_category',
-                value => $configuration->{$pod_code}->{partners_category},
-                pod   => $pod_code,
+                value => $configuration->{$pod}->{partners_category},
+                pod   => $pod,
                 }
-                unless Koha::Patron::Categories->find( $configuration->{$pod_code}->{partners_category} );
+                unless Koha::Patron::Categories->find( $configuration->{$pod}->{partners_category} );
         }
     }
 
@@ -1564,19 +1566,19 @@ sub check_configuration {
 
 =head3 get_agencies_list
 
-    my $res = $plugin->get_agencies_list( $pod_code );
+    my $res = $plugin->get_agencies_list( $pod );
 
 Retrieves defined agencies from a I<pod>.
 
 =cut
 
 sub get_agencies_list {
-    my ( $self, $pod_code ) = @_;
+    my ( $self, $pod ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw( param => 'pod_code' )
-        unless $pod_code;
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
+        unless $pod;
 
-    return $self->get_client($pod_code)->locals();
+    return $self->get_client($pod)->locals();
 }
 
 =head3 sync_agencies
@@ -1693,7 +1695,7 @@ sub sync_agencies {
 
     my $result = $self->sync_circ_requests(
         {
-            pod       => $pod_code,
+            pod       => $pod,
           [ startTime => $startTime,
             endTime   => $endTime, ]
         }
