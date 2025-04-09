@@ -622,6 +622,19 @@ sub after_hold_action {
                     }
                 ) if $config->{lending}->{automatic_item_shipped};
             }
+        } elsif ( $action eq 'cancel' ) {
+
+            if ( $req->status eq 'O_ITEM_REQUESTED' ) {
+
+                $self->get_queued_tasks->enqueue(
+                    {
+                        object_type => 'ill',
+                        object_id   => $req->id,
+                        action      => 'o_cancel_request',
+                        pod         => $pod,
+                    }
+                );
+            }
         }
     }
 }
