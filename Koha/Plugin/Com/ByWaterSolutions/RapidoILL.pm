@@ -636,6 +636,20 @@ sub after_hold_action {
                 );
             }
         }
+    } else {
+        if ( $action eq 'fill' || $action eq 'waiting' || $action eq 'transfer' ) {
+            if ( $req->status eq 'B_ITEM_SHIPPED' ) {
+
+                $self->get_queued_tasks->enqueue(
+                    {
+                        object_type => 'ill',
+                        object_id   => $req->id,
+                        action      => 'b_item_received',
+                        pod         => $pod,
+                    }
+                ) if $config->{borrowing}->{automatic_item_receive};
+            }
+        }
     }
 }
 
