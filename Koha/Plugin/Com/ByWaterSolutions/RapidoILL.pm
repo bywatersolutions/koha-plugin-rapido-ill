@@ -1089,7 +1089,7 @@ Helper to get the I<$pod> config.
 =cut
 
 sub pod_config {
-    my ($self, $pod) = @_;
+    my ( $self, $pod ) = @_;
 
     RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
         unless $pod;
