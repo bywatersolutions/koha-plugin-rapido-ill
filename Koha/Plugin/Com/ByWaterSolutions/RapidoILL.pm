@@ -571,49 +571,6 @@ sub _table_exists {
     return 0;
 }
 
-=head3 schedule_task
-
-    $plugin->schedule_task(
-        {
-            action      => $action,
-            pod         => $pod,
-            object_type => $object_type,
-            object_id   => $object->id
-        }
-    );
-
-Method for adding tasks to the queue
-
-=cut
-
-sub schedule_task {
-    my ( $self, $params ) = @_;
-
-    $self->validate_params( { required => [qw(action pod object_type object_id)], params => $params } );
-
-    my $action      = $params->{action};
-    my $pod         = $params->{pod};
-    my $object_type = $params->{object_type};
-    my $object_id   = $params->{object_id};
-    my $payload     = $params->{payload};
-
-    $payload = ""
-        unless $payload;
-
-    my $task_queue = $self->get_qualified_table_name('task_queue');
-
-    C4::Context->dbh->do(
-        qq{
-        INSERT INTO $task_queue
-            (  pod,     object_type,   object_id,   action,   status,  attempts,  payload )
-        VALUES
-            ( '$pod', '$object_type', $object_id, '$action', 'queued',        0, '$payload' );
-    }
-    );
-
-    return $self;
-}
-
 =head3 api_routes
 
 Method that returns the API routes to be merged into Koha's
