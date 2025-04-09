@@ -605,7 +605,25 @@ sub after_hold_action {
     return
         unless $req;
 
-    # FIXME: do stuff
+    my $pod    = $self->get_req_pod($req);
+    my $config = $self->pod_config($pod);
+
+    if ( $self->is_lending_req($req) ) {
+        if ( $action eq 'fill' || $action eq 'waiting' || $action eq 'transfer' ) {
+
+            if ( $req->status eq 'O_ITEM_REQUESTED' ) {
+
+                $self->get_queued_tasks->enqueue(
+                    {
+                        object_type => 'ill',
+                        object_id   => $req->id,
+                        action      => 'o_item_shipped',
+                        pod         => $pod,
+                    }
+                ) if $config->{lending}->{automatic_item_shipped};
+            }
+        }
+    }
 }
 
 =head3 _table_exists (helper)
