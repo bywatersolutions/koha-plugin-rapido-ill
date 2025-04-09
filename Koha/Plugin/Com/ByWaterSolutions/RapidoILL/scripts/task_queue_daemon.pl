@@ -21,9 +21,12 @@ use Getopt::Long;
 use Pod::Usage;
 use Try::Tiny qw(catch try);
 
+use Koha::Checkouts;
+
 use Koha::Script;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
+use RapidoILL::Exceptions;
 
 my $daemon_sleep = 1;
 my $verbose_logging;
@@ -82,8 +85,67 @@ sub run_tasks_batch {
 =cut
 
 sub dispatch_task {
-    my ($task) = @_;
+    my ($params) = @_;
 
+    my $plugin = $params->{plugin};
+    my $task   = $params->{task};
+
+    my $action_to_method = {
+
+        # 'o_final_checkin'   => \&o_final_checkin,
+        # 'o_item_shipped'    => \&o_item_shipped,
+        # 'o_cancel_request'  => \&o_cancel_request,
+        # 'b_item_in_transit' => \&b_item_in_transit,
+        # 'b_item_received'   => \&b_item_received,
+        'renewal' => \&renewal,
+        'DEFAULT' => \&default_handler,
+    };
+
+    my $action =
+        exists $action_to_method->{ $task->action }
+        ? $task->action
+        : 'DEFAULT';
+
+    try {
+        $action_to_method->{$action}->( $self, { task => $task, plugin => $plugin } );
+    } catch {
+        if ( $task->can_retry ) {
+            $task->retry( { error => "$_" } );
+        } else {
+            $task->error( { error => "$_" } );
+        }
+    };
+}
+
+=head3 default_handler
+
+Throws an exception.
+
+=cut
+
+sub default_handler {
+    my ( $self, $params ) = @_;
+    RapidoILL::Exception::UnhandledException->throw(
+        sprintf(
+            "No handler implemented for action [%s]",
+            $params->{task}->{action}
+        )
+    );
+}
+
+sub renewal {
+    my ( $self, $params ) = @_;
+
+    my $task     = $params->{task};
+    my $plugin   = $params->{plugin};
+    my $checkout = Koha::Checkouts->find( $task->object_id );
+
+    RapidoILL::Exception->throw( sprintf( "Invalid checkout_id passed [%s]", $task->object_id ) )
+        unless $checkout;
+
+    # notify renewal to pod
+    my $circId = $plugin->get_req_circ_id( $task->ill_request );
+    $plugin->get_client( $task->pod )->borrower_renew( { circId => $circId, dueDateTime => $checkout->date_due } );
 }
 
 =head1 NAME
