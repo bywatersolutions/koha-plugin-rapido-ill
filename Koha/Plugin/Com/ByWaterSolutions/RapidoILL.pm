@@ -493,6 +493,8 @@ sub after_circ_action {
     return
         if $req->borrowernumber != $checkout->borrowernumber;
 
+    my $pod = $self->get_req_pod($req);
+
     if ( $action eq 'checkout' ) {
 
         # FIXME: Should be handled through CirculateILL
@@ -512,7 +514,7 @@ sub after_circ_action {
                 object_type => 'circulation',
                 object_id   => $checkout->id,
                 action      => 'renewal',
-                pod         => $self->get_req_pod( $req ),
+                pod         => $pod,
             }
         );
 
