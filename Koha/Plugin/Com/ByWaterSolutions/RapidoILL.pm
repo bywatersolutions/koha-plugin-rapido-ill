@@ -1318,6 +1318,20 @@ sub debug_mode {
     return $self->configuration->{$pod_code}->{debug_mode} ? 1 : 0;
 }
 
+=head3 is_lending_req
+
+    if ( $plugin->is_lending_req($req) ) { ... }
+
+Returns true if the passed request is a lending one.
+
+=cut
+
+sub is_lending_req {
+    my ( $self, $req ) = @_;
+
+    return ( $req->status =~ /^B_/ ) ? 0 : 1;
+}
+
 =head3 get_req_pod
 
     my $pod = $plugin->get_req_pod( $req );
