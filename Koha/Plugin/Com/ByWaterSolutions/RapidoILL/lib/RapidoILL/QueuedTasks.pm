@@ -77,6 +77,7 @@ Returns the new I<RapidoILL::QueuedTask> object.
 
 sub enqueue {
     my ( $self, $attributes ) = @_;
+    $attributes->{status} = 'queued';
     return RapidoILL::QueuedTask->new($attributes)->store();
 }
 
