@@ -82,6 +82,7 @@ sub handle_from_action {
     my $status_to_method = {
         'DEFAULT'         => \&default_handler,
         'ITEM_IN_TRANSIT' => \&borrower_item_in_transit,
+        'ITEM_RECEIVED'   => \&borrower_item_received,
         'ITEM_SHIPPED'    => \&lender_item_shipped,
     };
 
@@ -337,6 +338,20 @@ sub borrower_receive_unshipped {
 =cut
 
 sub borrower_item_in_transit {
+    my ($self, $action) = @_;
+
+    # No action, this was triggered by us.
+
+    return;
+}
+
+=head3 borrower_item_received
+
+    $client->borrower_item_received( $action );
+
+=cut
+
+sub borrower_item_received {
     my ($self, $action) = @_;
 
     # No action, this was triggered by us.
