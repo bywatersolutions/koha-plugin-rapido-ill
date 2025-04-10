@@ -96,10 +96,10 @@ sub dispatch_task {
         # 'o_final_checkin'   => \&o_final_checkin,
         # 'o_item_shipped'    => \&o_item_shipped,
         # 'o_cancel_request'  => \&o_cancel_request,
-        # 'b_item_in_transit' => \&b_item_in_transit,
-        'b_item_received' => \&b_item_received,
-        'renewal'         => \&renewal,
-        'DEFAULT'         => \&default_handler,
+        'b_item_in_transit' => \&b_item_in_transit,
+        'b_item_received'   => \&b_item_received,
+        'renewal'           => \&renewal,
+        'DEFAULT'           => \&default_handler,
     };
 
     my $action =
@@ -133,6 +133,23 @@ sub default_handler {
             $params->{task}->{action}
         )
     );
+}
+
+=head3 b_item_in_transit
+
+    b_item_in_transit( { plugin => $plugin, task => $task } );
+
+Handle the b_item_in_transit action.
+
+=cut
+
+sub b_item_in_transit {
+    my ($params) = @_;
+
+    my $req = $params->{task}->ill_request;
+    my $pod = $params->{plugin}->get_req_pod($req);
+
+    $params->{plugin}->get_borrower_actions($pod)->item_in_transit( { request => $params->{request} } );
 }
 
 =head3 b_item_received
