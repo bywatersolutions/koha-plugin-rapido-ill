@@ -22,6 +22,7 @@ use Pod::Usage;
 use Try::Tiny qw(catch try);
 
 use Koha::Checkouts;
+use Koha::Database;
 
 use Koha::Script;
 
@@ -96,9 +97,9 @@ sub dispatch_task {
         # 'o_item_shipped'    => \&o_item_shipped,
         # 'o_cancel_request'  => \&o_cancel_request,
         # 'b_item_in_transit' => \&b_item_in_transit,
-        # 'b_item_received'   => \&b_item_received,
-        'renewal' => \&renewal,
-        'DEFAULT' => \&default_handler,
+        'b_item_received' => \&b_item_received,
+        'renewal'         => \&renewal,
+        'DEFAULT'         => \&default_handler,
     };
 
     my $action =
@@ -107,7 +108,7 @@ sub dispatch_task {
         : 'DEFAULT';
 
     try {
-        $action_to_method->{$action}->( $self, { task => $task, plugin => $plugin } );
+        $action_to_method->{$action}->( { task => $task, plugin => $plugin } );
         $task->success();
     } catch {
         if ( $task->can_retry ) {
@@ -125,12 +126,43 @@ Throws an exception.
 =cut
 
 sub default_handler {
-    my ( $self, $params ) = @_;
+    my ( $params ) = @_;
     RapidoILL::Exception::UnhandledException->throw(
         sprintf(
             "No handler implemented for action [%s]",
             $params->{task}->{action}
         )
+    );
+}
+
+=head3 b_item_received
+
+    b_item_received( { plugin => $plugin, task => $task } );
+
+Handle the b_item_received action.
+
+=cut
+
+sub b_item_received {
+    my ( $params ) = @_;
+
+    my $task   = $params->{task};
+    my $plugin = $params->{plugin};
+
+    Koha::Database->schema->storage->txn_do(
+        sub {
+
+            my $req = $task->ill_request();
+
+            $req->status('B_ITEM_RECEIVED')->store;
+
+            # notify Rapido. Throws an exception if failed
+            $plugin->get_client( $plugin->get_req_pod($req) )->borrower_item_received(
+                {
+                    circId => $plugin->get_req_circ_id($req),
+                }
+            );
+        }
     );
 }
 
@@ -143,7 +175,7 @@ Handle the renewal action.
 =cut
 
 sub renewal {
-    my ( $self, $params ) = @_;
+    my ( $params ) = @_;
 
     my $task     = $params->{task};
     my $plugin   = $params->{plugin};
