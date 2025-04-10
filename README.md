@@ -54,3 +54,24 @@ dev03-na:
   dev_mode: false
   default_retry_delay: 120
 ```
+
+## Setting the task queue daemon
+
+The task queue daemon will process any asynchronous tasks that are required.
+This will usually relate to circulation updates to be notified to the pod.
+
+To run it:
+
+```shell
+$ cp /var/lib/koha/<instance>/plugins/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/rapido_task_queue.service \
+     /etc/systemd/system/rapido_task_queue.service
+# set KOHA_INSTANCE to match what you need (default: kohadev)
+$ vim /etc/systemd/system/rapido_task_queue.service
+# reload unit files, including the new one
+$ systemctl daemon-reload
+# enable service
+$ systemctl enable rapido_task_queue.service
+Created symlink /etc/systemd/system/multi-user.target.wants/rapido_task_queue.service → /etc/systemd/system/rapido_task_queue.service
+# check the logs :-D
+$ journalctl -u rapido_task_queue.service -f
+```
