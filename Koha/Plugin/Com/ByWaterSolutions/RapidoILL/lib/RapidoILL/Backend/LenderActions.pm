@@ -77,10 +77,10 @@ sub handle_from_action {
     my ( $self, $action ) = @_;
 
     my $status_to_method = {
-        'FINAL_CHECKIN'   => \&final_checkin,
+        'FINAL_CHECKIN'   => \&lender_final_checkin,
         'ITEM_RECEIVED'   => \&borrower_item_received,
         'ITEM_IN_TRANSIT' => \&borrower_item_in_transit,
-        'ITEM_SHIPPED'    => \&item_shipped,
+        'ITEM_SHIPPED'    => \&lender_item_shipped,
         'DEFAULT'         => \&default_handler,
     };
 
@@ -208,7 +208,7 @@ sub borrower_item_in_transit {
 
 =cut
 
-sub final_checkin {
+sub lender_final_checkin {
     my ( $self, $action ) = @_;
 
     $action->ill_request->status('COMP')->store;
@@ -222,7 +222,7 @@ sub final_checkin {
 
 =cut
 
-sub item_shipped {
+sub lender_item_shipped {
     my ( $self, $action ) = @_;
 
     # This was triggered by us. No action
