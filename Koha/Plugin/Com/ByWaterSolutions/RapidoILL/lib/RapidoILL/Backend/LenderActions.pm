@@ -332,4 +332,29 @@ sub item_shipped {
     return;
 }
 
+=head3 final_checkin
+
+    $client->final_checkin( $req );
+
+=cut
+
+sub final_checkin {
+    my ( $self, $req ) = @_;
+
+    Koha::Database->schema->storage->txn_do(
+        sub {
+            my $circId = $self->{plugin}->get_req_circ_id($req);
+            my $pod    = $self->{plugin}->get_req_pod($req);
+
+            # update status
+            $req->status('O_ITEM_CHECKED_IN')->store;
+
+            # notify Rapido. Throws an exception if failed
+            $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, } );
+        }
+    );
+
+    return;
+}
+
 1;

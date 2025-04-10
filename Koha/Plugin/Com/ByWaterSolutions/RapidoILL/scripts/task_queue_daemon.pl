@@ -93,7 +93,7 @@ sub dispatch_task {
 
     my $action_to_method = {
 
-        # 'o_final_checkin'   => \&o_final_checkin,
+        'o_final_checkin'   => \&o_final_checkin,
         'o_item_shipped'    => \&o_item_shipped,
         'o_cancel_request'  => \&o_cancel_request,
         'b_item_in_transit' => \&b_item_in_transit,
@@ -133,6 +133,23 @@ sub default_handler {
             $params->{task}->{action}
         )
     );
+}
+
+=head3 o_final_checkin
+
+    o_final_checkin( { plugin => $plugin, task => $task } );
+
+Handle the o_final_checkin action.
+
+=cut
+
+sub o_final_checkin {
+    my ($params) = @_;
+
+    my $req = $params->{task}->ill_request;
+    my $pod = $params->{plugin}->get_req_pod($req);
+
+    $params->{plugin}->get_lender_actions($pod)->final_checkin($req);
 }
 
 =head3 o_item_shipped
