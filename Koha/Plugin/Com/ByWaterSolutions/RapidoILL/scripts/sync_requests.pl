@@ -24,7 +24,8 @@ use Text::Table;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 use RapidoILL::CircActions;
 
-use Koha::Script qw(-cron);
+use Koha::DateUtils qw(dt_from_string);
+use Koha::Script    qw(-cron);
 
 binmode( STDOUT, ':encoding(utf8)' );
 
@@ -58,11 +59,14 @@ sub print_usage {
 Valid options are:
 
     --pod <pod_code>      Only sync the specified pod circulation requests
-    --start_time <epoch>  Start time range (epoch) [OPTIONAL]
+    --start_time <epoch>  Start time range (epoch). [OPTIONAL]
     --end_time <epoch>    End time range (epoch) [OPTIONAL]
     --list_pods           Print configured pods and exit.
 
     --help|-h             Print this information and exit.
+
+--start_time will default to the stored last sync time if not passed. If this is not
+defined, it will fallback to 1742713250.
 
 _USAGE_
 }
@@ -88,6 +92,12 @@ unless ( scalar @{$pods} > 0 ) {
 
 my @rows;
 
+if (!$start_time) {
+    my $last_sync_time = $plugin->retrieve_data('last_circulation_sync_time');
+}
+
+my $now = dt_from_string();
+
 foreach my $pod_code ( @{$pods} ) {
 
     $plugin->sync_circ_requests(
@@ -98,5 +108,7 @@ foreach my $pod_code ( @{$pods} ) {
         }
     );
 }
+
+$plugin->store_data( { last_circulation_sync_time => $now->epoch() } );
 
 1;
