@@ -108,6 +108,7 @@ sub dispatch_task {
 
     try {
         $action_to_method->{$action}->( $self, { task => $task, plugin => $plugin } );
+        $task->success();
     } catch {
         if ( $task->can_retry ) {
             $task->retry( { error => "$_" } );

@@ -108,6 +108,22 @@ sub retry {
     return $self;
 }
 
+=head3 success
+
+    $task->success();
+
+Marks the task as successful.
+
+=cut
+
+sub success {
+    my ($self) = @_;
+
+    $self->set( { status => 'success', } )->store();
+
+    return $self;
+}
+
 =head2 Internal methods
 
 =head3 _type
