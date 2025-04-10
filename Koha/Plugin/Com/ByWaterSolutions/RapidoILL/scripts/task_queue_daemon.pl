@@ -95,7 +95,7 @@ sub dispatch_task {
 
         # 'o_final_checkin'   => \&o_final_checkin,
         # 'o_item_shipped'    => \&o_item_shipped,
-        # 'o_cancel_request'  => \&o_cancel_request,
+        'o_cancel_request'  => \&o_cancel_request,
         'b_item_in_transit' => \&b_item_in_transit,
         'b_item_received'   => \&b_item_received,
         'renewal'           => \&renewal,
@@ -133,6 +133,23 @@ sub default_handler {
             $params->{task}->{action}
         )
     );
+}
+
+=head3 o_cancel_request
+
+    o_cancel_request( { plugin => $plugin, task => $task } );
+
+Handle the o_cancel_request action.
+
+=cut
+
+sub o_cancel_request {
+    my ($params) = @_;
+
+    my $req = $params->{task}->ill_request;
+    my $pod = $params->{plugin}->get_req_pod($req);
+
+    $params->{plugin}->get_lender_actions($pod)->cancel_request($req);
 }
 
 =head3 b_item_in_transit

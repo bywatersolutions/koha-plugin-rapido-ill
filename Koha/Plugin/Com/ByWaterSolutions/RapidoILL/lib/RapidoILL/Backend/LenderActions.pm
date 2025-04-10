@@ -230,4 +230,43 @@ sub item_shipped {
     return;
 }
 
+=head3 cancel_request
+
+    $client->cancel_request( $req );
+
+=cut
+
+sub cancel_request {
+    my ( $self, $req ) = @_;
+
+    Koha::Database->schema->storage->txn_do(
+        sub {
+            my $attrs = $req->extended_attributes;
+
+            my $circId = $self->{plugin}->get_req_circ_id($req);
+            my $pod    = $self->{plugin}->get_req_pod($req);
+
+            my $patronName = $attrs->find( { type => 'patronName' } )->value;
+
+            # Cancel after the request status change, so the condition for the hook is not met
+            my $hold = Koha::Holds->find( $attrs->find( { type => 'hold_id' } )->value );
+            $hold->cancel
+                if $hold;
+
+            # notify Rapido. Throws an exception if failed
+            $self->{plugin}->get_client($pod)->lender_cancel(
+                {
+                    circId     => $circId,
+                    localBibId => $req->biblio_id,
+                    patronName => $patronName,
+                }
+            );
+
+            $req->status('O_ITEM_CANCELLED_BY_US')->store;
+        }
+    );
+
+    return;
+}
+
 1;
