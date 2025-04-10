@@ -269,4 +269,65 @@ sub cancel_request {
     return;
 }
 
+=head3 item_shipped
+
+    $client->item_shipped( $req );
+
+=cut
+
+sub item_shipped {
+    my ( $self, $req ) = @_;
+
+    my $circId = $self->{plugin}->get_req_circ_id($req);
+    my $pod    = $self->{plugin}->get_req_pod($req);
+
+    Koha::Database->schema->storage->txn_do(
+        sub {
+            my $attrs  = $req->extended_attributes;
+            my $itemId = $attrs->find( { type => 'itemId' } )->value;
+
+            my $item     = Koha::Items->find( { barcode => $itemId } );
+            my $patron   = Koha::Patrons->find( $req->borrowernumber );
+            my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
+
+            if ($checkout) {
+                if ( $checkout->borrowernumber != $req->borrowernumber ) {
+                    RapidoILL::Exception->throw(
+                        sprintf(
+                            "Request borrowernumber (%s) doesn't match the checkout borrowernumber (%s)",
+                            $checkout->borrowernumber, $req->borrowernumber
+                        )
+                    );
+                }
+
+                # else {} # The item is already checked out to the right patron
+            } else {    # no checkout, proceed
+                $checkout = $self->{plugin}->add_issue( { patron => $patron, barcode => $item->barcode } );
+            }
+
+            # record checkout_id
+            $self->{plugin}->add_or_update_attributes(
+                {
+                    request    => $req,
+                    attributes => { checkout_id => $checkout->id },
+                }
+            );
+
+            # update status
+            $req->status('O_ITEM_SHIPPED')->store;
+
+            # notify Rapido. Throws an exception if failed
+            $self->{plugin}->get_client($pod)->lender_shipped(
+                {
+                    callNumber  => $item->itemcallnumber,
+                    circId      => $circId,
+                    itemBarcode => $item->barcode,
+                }
+            );
+        }
+    );
+
+    return;
+}
+
 1;
