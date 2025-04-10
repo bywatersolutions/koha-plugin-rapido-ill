@@ -92,9 +92,8 @@ unless ( scalar @{$pods} > 0 ) {
 
 my @rows;
 
-if (!$start_time) {
-    my $last_sync_time = $plugin->retrieve_data('last_circulation_sync_time');
-}
+$start_time //= $plugin->retrieve_data('last_circulation_sync_time');
+$start_time //= 1742713250;
 
 my $now = dt_from_string();
 
