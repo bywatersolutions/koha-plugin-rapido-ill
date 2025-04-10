@@ -134,6 +134,14 @@ sub default_handler {
     );
 }
 
+=head3 renewal
+
+    renewal( { plugin => $plugin, task => $task } );
+
+Handle the renewal action.
+
+=cut
+
 sub renewal {
     my ( $self, $params ) = @_;
 
