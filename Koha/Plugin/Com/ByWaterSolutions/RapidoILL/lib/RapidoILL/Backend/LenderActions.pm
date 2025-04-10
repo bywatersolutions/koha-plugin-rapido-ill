@@ -24,6 +24,8 @@ use Try::Tiny qw(catch try);
 use Koha::Checkouts;
 use Koha::Database;
 use Koha::Items;
+use Koha::Holds;
+use Koha::Patrons;
 
 use RapidoILL::Exceptions;
 
