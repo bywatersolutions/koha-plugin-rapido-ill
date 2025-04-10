@@ -126,7 +126,7 @@ Throws an exception.
 =cut
 
 sub default_handler {
-    my ( $params ) = @_;
+    my ($params) = @_;
     RapidoILL::Exception::UnhandledException->throw(
         sprintf(
             "No handler implemented for action [%s]",
@@ -178,7 +178,7 @@ Handle the b_item_received action.
 =cut
 
 sub b_item_received {
-    my ( $params ) = @_;
+    my ($params) = @_;
 
     my $task   = $params->{task};
     my $plugin = $params->{plugin};
@@ -209,7 +209,7 @@ Handle the renewal action.
 =cut
 
 sub renewal {
-    my ( $params ) = @_;
+    my ($params) = @_;
 
     my $task     = $params->{task};
     my $plugin   = $params->{plugin};
