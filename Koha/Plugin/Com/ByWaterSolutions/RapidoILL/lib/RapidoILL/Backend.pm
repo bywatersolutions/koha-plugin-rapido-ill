@@ -199,7 +199,7 @@ sub status_graph {
             ui_method_name => 'Ship item',
             method         => 'item_shipped',
             next_actions   => [],
-            ui_method_icon => 'fa-send-o',
+            ui_method_icon => 'fa-solid fa-paper-plane',
         },
         O_ITEM_RECEIVED_DESTINATION => {
             prev_actions   => ['O_ITEM_SHIPPED'],
