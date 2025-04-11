@@ -700,6 +700,21 @@ sub api_routes {
     return $spec;
 }
 
+=head3 api_routes_v3
+
+Method that returns the API routes to be merged into Koha's
+
+=cut
+
+sub api_routes_v3 {
+    my ( $self, $args ) = @_;
+
+    my $spec_str = $self->mbf_read('openapiv3.json');
+    my $spec     = decode_json($spec_str);
+
+    return $spec;
+}
+
 =head3 api_namespace
 
 Method that returns the namespace for the plugin API to be put on
