@@ -24,9 +24,8 @@ dev03-na:
   default_notforloan:
   materials_specified: true
   default_materials_specified: Additional processing required (ILL)
-  no_barcode_central_itypes:
-    - 201
-    - 202
+  location_to_library:
+    RES_SHARE: CPL
   borrowing:
     automatic_item_in_transit: false
     automatic_item_receive: false
