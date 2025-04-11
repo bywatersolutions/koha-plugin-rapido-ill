@@ -94,10 +94,6 @@ sub verifypatron {
         my $expiration_date = dt_from_string( $patron->dateexpiry );
         my $agency_code     = $configuration->{$pod}->{library_to_location}->{ $patron->branchcode }
             // $configuration->{default_patron_agency};
-        my $central_patron_type =
-            ( exists $configuration->{local_to_central_patron_type}->{ $patron->categorycode } )
-            ? $configuration->{local_to_central_patron_type}->{ $patron->categorycode }
-            : 200;
 
         my $local_loans = $patron->checkouts->count;
         my $non_local_loans =
@@ -134,7 +130,7 @@ sub verifypatron {
             patronId          => $patron->borrowernumber . "",
             patronExpireDate  => $expiration_date->epoch(),
             patronAgencyCode  => $agency_code,
-            centralPatronType => $central_patron_type + 0,
+            centralPatronType => 0, # hardcoded 0 as in the docs
             localLoans        => $local_loans,
             nonLocalLoans     => $non_local_loans,
             patronName        => $THE_name,

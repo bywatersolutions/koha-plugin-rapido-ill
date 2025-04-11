@@ -168,13 +168,6 @@ sub configuration {
                 };
             }
 
-            # Reverse the local_to_central_patron_type key
-            my $local_to_central_patron_type = $configuration->{$pod}->{local_to_central_patron_type};
-            if ($local_to_central_patron_type) {
-                my %central_to_local_patron_type = reverse %{$local_to_central_patron_type};
-                $configuration->{$pod}->{central_to_local_patron_type} = \%central_to_local_patron_type;
-            }
-
             $configuration->{$pod}->{debt_blocks_holds}        //= 1;
             $configuration->{$pod}->{max_debt_blocks_holds}    //= 100;
             $configuration->{$pod}->{expiration_blocks_holds}  //= 1;
