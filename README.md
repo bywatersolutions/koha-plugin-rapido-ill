@@ -32,7 +32,6 @@ dev03-na:
   lending:
     automatic_final_checkin: false
     automatic_item_shipped: false
-    automatic_item_shipped_debug: false
   # Patron validation restrictions
   debt_blocks_holds: true
   max_debt_blocks_holds: 100
