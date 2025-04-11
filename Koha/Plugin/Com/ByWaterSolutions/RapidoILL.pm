@@ -767,14 +767,13 @@ sub add_virtual_record_and_item {
     my $req         = $args->{req};
 
     # values from configuration
-    my $marc_flavour              = C4::Context->preference('marcflavour');      # FIXME: do we need this?
-    my $framework_code            = $config->{default_marc_framework} || 'FA';
-    my $ccode                     = $config->{default_item_ccode};
-    my $location                  = $config->{default_location};
-    my $notforloan                = $config->{default_notforloan} // -1;
-    my $checkin_note              = $config->{default_checkin_note} || 'Additional processing required (ILL)';
-    my $no_barcode_central_itypes = $config->{no_barcode_central_itypes} // [];
-    my $item_type                 = $config->{default_item_type}         // 'ILL';
+    my $marc_flavour   = C4::Context->preference('marcflavour');      # FIXME: do we need this?
+    my $framework_code = $config->{default_marc_framework} || 'FA';
+    my $ccode          = $config->{default_item_ccode};
+    my $location       = $config->{default_location};
+    my $notforloan     = $config->{default_notforloan} // -1;
+    my $checkin_note   = $config->{default_checkin_note} || 'Additional processing required (ILL)';
+    my $item_type      = $config->{default_item_type} // 'ILL';
 
     my $materials;
 
