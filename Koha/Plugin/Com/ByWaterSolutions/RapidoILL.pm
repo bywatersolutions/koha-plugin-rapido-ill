@@ -198,7 +198,7 @@ sub install {
             qq{
             CREATE TABLE $task_queue (
                 `id`            INT(11) NOT NULL AUTO_INCREMENT,
-                `object_type`   ENUM('ill', 'circulation', 'holds') NOT NULL DEFAULT 'biblio',
+                `object_type`   ENUM('ill', 'circulation', 'holds') NOT NULL,
                 `object_id`     INT(11) NOT NULL DEFAULT 0,
                 `illrequest_id` BIGINT(20) UNSIGNED NULL DEFAULT NULL,
                 `payload`       TEXT DEFAULT NULL,
