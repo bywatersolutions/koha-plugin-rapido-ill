@@ -1,7 +1,9 @@
 const { dest, series, src } = require('gulp');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 const fs = require('fs');
-const run = require('gulp-run');
 const dateTime = require('node-datetime');
 const Vinyl = require('vinyl');
 const path = require('path');
@@ -127,17 +129,13 @@ function static( cb ) {
     }
 };
 
-function build() {
-    return run(`
-        mkdir dist ;
-        cp -r Koha dist/. ;
-        sed -i -e "s/1970-01-01/${today}/g" ${pm_file_path_full_dist} ;
-        cd dist ;
-        zip -r ../${release_filename} ./Koha ;
-        cd .. ;
-        rm -rf dist ;
-    `).exec();
-};
+async function build() {
+  await execPromise('mkdir -p dist');
+  await execPromise('cp -r Koha dist/.');
+  await execPromise(`sed -i -e "s/1970-01-01/${today}/g" ${pm_file_path_full_dist}`);
+  await execPromise(`cd dist && zip -r ../${release_filename} ./Koha`);
+  await execPromise('rm -rf dist');
+}
 
 exports.static = static;
 exports.build  = series( static, build );
