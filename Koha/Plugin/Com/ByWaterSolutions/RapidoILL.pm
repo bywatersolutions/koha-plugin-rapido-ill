@@ -468,15 +468,6 @@ sub new_ill_backend {
         plugin => $self,
     };
 
-    my $templates_path = $self->template_include_paths();
-
-    # FIXME: Adapt or remove if required on this backend
-    $args->{templates} = {
-        'INCDOCS_MIGRATE_IN'     => $templates_path . '/incdocs_migrate_in.tt',
-        'INCDOCS_STATUS_CHECK'   => $templates_path . '/incdocs_status_check.tt',
-        'INCDOCS_REQUEST_PLACED' => $templates_path . '/incdocs_request_placed.tt'
-    };
-
     return RapidoILL::Backend->new($args);
 }
 
@@ -665,6 +656,54 @@ sub after_hold_action {
         }
     }
 }
+
+=head3 notices_content
+
+Hook that adds data for using in notices.
+
+=cut
+
+sub notices_content {
+    my ( $self, $params ) = @_;
+    my $result = {};
+
+    if ( $params->{letter_code} eq 'HOLD_SLIP' ) {
+
+        my $ill_request = $self->get_ill_request_from_attribute(
+            {
+                type  => 'hold_id',
+                value => $params->{tables}->{reserves}->{reserve_id},
+            }
+        );
+
+        if ($ill_request) {
+            $result->{ill_request} = $ill_request;
+            my $extended_attributes = $ill_request->extended_attributes->search(
+                {
+                    type => [
+                        qw{
+                            author borrowerCode callNumber circ_action_id
+                            circId circStatus dateCreated dueDateTime
+                            itemAgencyCode itemBarcode itemId lastCircState
+                            lastUpdated lenderCode needBefore patronAgencyCode
+                            patronId patronName pickupLocation pod
+                            puaLocalServerCode title
+                        }
+                    ]
+                }
+            );
+
+            while ( my $attr = $extended_attributes->next ) {
+                $result->{ $attr->type } = $attr->value
+                    if $attr;
+            }
+        }
+    }
+
+    return $result;
+}
+
+=head2 Internal methods
 
 =head3 _table_exists (helper)
 
