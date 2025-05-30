@@ -2,7 +2,7 @@
 [% USE Asset %]
 
 [% PROCESS 'intra_html_helpers.inc' %]
-[% PROCESS rapido_docs_header incdocs_bc_items = [ { name => "Configuration", url => "#", active = 1 } ] %]
+[% PROCESS rapido_docs_header %]
 
   <style>
     .CodeMirror {

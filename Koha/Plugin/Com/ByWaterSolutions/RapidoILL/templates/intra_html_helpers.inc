@@ -17,7 +17,10 @@
                 <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
             [% END %]
             [% WRAPPER breadcrumb_item %]
-                <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=configure">Rapido ILL</a>
+                <a href="#">Rapido ILL</a>
+            [% END %]
+            [% WRAPPER breadcrumb_item bc_active=1 %]
+                <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=configure">Configuration</a>
             [% END %]
         [% END #/ WRAPPER breadcrumbs %]
     [% END #/ WRAPPER sub-header.inc %]
