@@ -111,8 +111,7 @@ if ( $list_pods + $help + $sync + $add + $delete + $update > 1 ) {
     exit 1;
 }
 
-$list_pods + $help + $sync + $add + $delete + $update my $plugin =
-    Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
 my $pods = $plugin->pods;
 
