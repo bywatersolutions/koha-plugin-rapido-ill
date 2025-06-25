@@ -48,7 +48,7 @@ my $keep_patron       = 0;
 my $result = GetOptions(
     'pod=s'             => \$pod,
     'sync'              => \$sync,
-    'add'               => \add,
+    'add'               => \$add,
     'delete'            => \$delete,
     'update'            => \$update,
     'list_pods'         => \$list_pods,
