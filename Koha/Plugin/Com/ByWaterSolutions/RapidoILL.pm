@@ -2115,13 +2115,19 @@ sub create_patron_hold {
                     }
                 );
 
+                my $status = 'B_ITEM_REQUESTED';
+
+                if ( $action->lastCircState eq 'ITEM_SHIPPED' ) {
+                    $status = 'B_ITEM_SHIPPED';
+                } # FIXME: What about other out of sync statuses?
+
                 # Create the request
                 $req = Koha::ILL::Request->new(
                     {
                         branchcode     => $pickup_location,
                         borrowernumber => $patron->id,
                         biblio_id      => undef,
-                        status         => 'B_ITEM_REQUESTED',
+                        status         => $status,
                         backend        => $self->ill_backend(),
                         placed         => \'NOW()',
                     }
