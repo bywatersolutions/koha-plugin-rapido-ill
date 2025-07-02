@@ -2000,7 +2000,7 @@ sub create_item_hold {
                 }
 
                 # Create the request
-                $req = Koha::ILL::Request->new(
+                my $req = Koha::ILL::Request->new(
                     {
                         branchcode     => $library_id,
                         borrowernumber => $patron_id,
@@ -2118,7 +2118,7 @@ sub create_patron_hold {
                 } # FIXME: What about other out of sync statuses?
 
                 # Create the request
-                $req = Koha::ILL::Request->new(
+                my $req = Koha::ILL::Request->new(
                     {
                         branchcode     => $pickup_location,
                         borrowernumber => $patron->id,
