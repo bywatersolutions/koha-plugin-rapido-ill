@@ -1977,8 +1977,6 @@ sub create_item_hold {
         title              => $action->title,
     };
 
-    my $req;
-
     return try {
 
         my $schema = Koha::Database->new->schema;
@@ -2055,13 +2053,13 @@ sub create_item_hold {
                         readonly      => 1
                     }
                 )->store;
+
+                return $req;
             }
         );
     } catch {
         return $_->rethrow;
     };
-
-    return $req;
 }
 
 =head3 create_patron_hold
@@ -2100,8 +2098,6 @@ sub create_patron_hold {
         puaLocalServerCode => $action->puaLocalServerCode,
         title              => $action->title,
     };
-
-    my $req;
 
     return try {
 
@@ -2142,13 +2138,13 @@ sub create_patron_hold {
                         request    => $req,
                     }
                 );
+
+                return $req;
             }
         );
     } catch {
         return $_->rethrow;
     };
-
-    return $req;
 }
 
 =head3 update_ill_request
