@@ -13,9 +13,6 @@ Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCircAction
 use strict;
 use warnings;
 
-# Suppress redefinition warnings when plugin is reloaded
-no warnings 'redefine';
-
 use base 'DBIx::Class::Core';
 
 =head1 TABLE: C<koha_plugin_com_bywatersolutions_rapidoill_circ_actions>
@@ -350,8 +347,8 @@ __PACKAGE__->add_columns(
 __PACKAGE__->set_primary_key("circ_action_id");
 
 
-# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-03-09 22:40:54
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:vMpNhW+f7iE1QcNxivwcXA
+# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-07-03 20:44:16
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:Y2BrOAI7ysJYK6UT1pqEsw
 
 sub koha_objects_class {
     'RapidoILL::CircActions';

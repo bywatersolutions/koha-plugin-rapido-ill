@@ -13,9 +13,6 @@ Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue
 use strict;
 use warnings;
 
-# Suppress redefinition warnings when plugin is reloaded
-no warnings 'redefine';
-
 use base 'DBIx::Class::Core';
 
 =head1 TABLE: C<koha_plugin_com_bywatersolutions_rapidoill_task_queue>
@@ -35,8 +32,7 @@ __PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_task_queue");
 =head2 object_type
 
   data_type: 'enum'
-  default_value: 'biblio'
-  extra: {list => ["biblio","item","circulation","holds"]}
+  extra: {list => ["ill","circulation","holds"]}
   is_nullable: 0
 
 =head2 object_id
@@ -44,6 +40,12 @@ __PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_task_queue");
   data_type: 'integer'
   default_value: 0
   is_nullable: 0
+
+=head2 illrequest_id
+
+  data_type: 'bigint'
+  extra: {unsigned => 1}
+  is_nullable: 1
 
 =head2 payload
 
@@ -53,8 +55,7 @@ __PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_task_queue");
 =head2 action
 
   data_type: 'enum'
-  default_value: 'modify'
-  extra: {list => ["create","modify","delete","renewal","checkin","checkout","fill","cancel","b_item_in_transit","b_item_received","o_cancel_request","o_final_checkin","o_item_shipped"]}
+  extra: {list => ["renewal","checkin","checkout","fill","cancel","b_item_in_transit","b_item_received","o_cancel_request","o_final_checkin","o_item_shipped"]}
   is_nullable: 0
 
 =head2 status
@@ -103,23 +104,20 @@ __PACKAGE__->add_columns(
   "object_type",
   {
     data_type => "enum",
-    default_value => "biblio",
-    extra => { list => ["biblio", "item", "circulation", "holds"] },
+    extra => { list => ["ill", "circulation", "holds"] },
     is_nullable => 0,
   },
   "object_id",
   { data_type => "integer", default_value => 0, is_nullable => 0 },
+  "illrequest_id",
+  { data_type => "bigint", extra => { unsigned => 1 }, is_nullable => 1 },
   "payload",
   { data_type => "text", is_nullable => 1 },
   "action",
   {
     data_type => "enum",
-    default_value => "modify",
     extra => {
       list => [
-        "create",
-        "modify",
-        "delete",
         "renewal",
         "checkin",
         "checkout",
@@ -175,8 +173,9 @@ __PACKAGE__->add_columns(
 __PACKAGE__->set_primary_key("id");
 
 
-# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-03-07 20:38:34
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:MG1LUG1lM+8VDh6TZd+d8A
+# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-07-03 20:44:16
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:jKQ2EVufU/vzHNpxs5sEWA
+
 
 sub koha_objects_class {
     'RapidoILL::QueuedTasks';
