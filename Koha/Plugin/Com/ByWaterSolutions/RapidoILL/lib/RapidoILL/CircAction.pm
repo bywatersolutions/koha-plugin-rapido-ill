@@ -17,6 +17,9 @@ package RapidoILL::CircAction;
 
 use Modern::Perl;
 
+# Suppress redefinition warnings when plugin is reloaded
+no warnings 'redefine';
+
 use Koha::ILL::Requests;
 use Koha::Items;
 

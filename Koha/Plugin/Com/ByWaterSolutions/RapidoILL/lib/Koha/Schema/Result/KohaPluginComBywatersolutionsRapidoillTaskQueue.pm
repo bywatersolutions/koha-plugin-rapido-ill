@@ -13,6 +13,9 @@ Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue
 use strict;
 use warnings;
 
+# Suppress redefinition warnings when plugin is reloaded
+no warnings 'redefine';
+
 use base 'DBIx::Class::Core';
 
 =head1 TABLE: C<koha_plugin_com_bywatersolutions_rapidoill_task_queue>

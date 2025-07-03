@@ -17,6 +17,9 @@ package RapidoILL::CircAction;
 
 use Modern::Perl;
 
+# Suppress redefinition warnings when plugin is reloaded
+no warnings 'redefine';
+
 use JSON qw(encode_json);
 use Koha::ILL::Requests;
 

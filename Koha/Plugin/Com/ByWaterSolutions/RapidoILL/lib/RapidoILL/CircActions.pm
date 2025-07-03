@@ -17,6 +17,9 @@ package RapidoILL::CircActions;
 
 use Modern::Perl;
 
+# Suppress redefinition warnings when plugin is reloaded
+no warnings 'redefine';
+
 use RapidoILL::CircAction;
 
 use base qw(Koha::Objects);
