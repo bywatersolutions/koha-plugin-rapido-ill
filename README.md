@@ -65,6 +65,21 @@ Created symlink /etc/systemd/system/multi-user.target.wants/rapido_task_queue.se
 $ journalctl -u rapido_task_queue.service -f
 ```
 
+## Cronjobs
+
+The plugin provides some scripts to be run regularly.
+
+### `sync_requests.pl`
+
+Suggested crontab entry:
+
+```bash
+INST=instance
+PERL5LIB=/usr/share/koha/lib
+# Run the sync_requests.pl script every 5 minutes
+*/5  * * * * ${INST}-koha cd /var/lib/koha/${INST}/plugins/; PERL5LIB=${PERL5LIB}:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl"
+```
+
 ## Notices
 
 The plugin implements the `notices_content` hook to make ILL-related information available to notices.
