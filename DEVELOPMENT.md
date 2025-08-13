@@ -21,14 +21,17 @@ ktd --name rapido --shell --run "cd /kohadevbox/koha && perl misc/devel/install_
 
 ### Testing
 ```bash
-# Set up environment
+# Get into KTD shell
+ktd --name rapido --shell
+
+# Inside KTD, set up environment and run tests
+cd /kohadevbox/plugins/rapido-ill
 export PERL5LIB=$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:.
 
-# Run all tests
+# Run tests (usual prove commands)
 prove -v t/ t/db_dependent/
-
-# Run specific tests
 prove -v t/db_dependent/RapidoILL.t
+prove -v t/00-load.t
 ```
 
 ## Key Architecture Points
@@ -107,11 +110,16 @@ systemctl enable rapido_task_queue.service
 
 ## Development Workflow
 
-1. **Make changes** to plugin code
-2. **Reinstall plugin**: `perl misc/devel/install_plugins.pl`
-3. **Run tests**: `prove -v t/ t/db_dependent/`
-4. **Test in browser** if needed
-5. **Commit changes** with descriptive messages
+```bash
+# Get into KTD shell
+ktd --name rapido --shell
+
+# Inside KTD:
+cd /kohadevbox/koha && perl misc/devel/install_plugins.pl  # Reinstall plugin
+cd /kohadevbox/plugins/rapido-ill                          # Go to plugin dir
+export PERL5LIB=$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:.
+prove -v t/ t/db_dependent/                                # Run tests
+```
 
 ## Packaging Notes
 
