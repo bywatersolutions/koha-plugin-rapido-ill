@@ -72,7 +72,7 @@ jobs:
         ktd --name rapidotest --shell --run "
           cd /kohadevbox/plugins/${{ env.GITHUB_REPO }} &&
           export PERL5LIB=\$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. &&
-          prove -v t/ t/db_dependent/
+          prove -v -r -s t/
         "
 
     - name: Show logs on failure

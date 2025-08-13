@@ -13,12 +13,12 @@ cd /kohadevbox/plugins/rapido-ill
 export PERL5LIB=$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:.
 
 # Run tests (usual prove commands)
-prove -v t/ t/db_dependent/                    # All tests
-prove -v t/                                    # Unit tests only
-prove -v t/db_dependent/                       # Database-dependent only
-prove -v t/db_dependent/RapidoILL.t            # Main plugin test
-prove -v t/db_dependent/RapidoILL/             # Task queue tests
-prove -v t/RapidoILL/                          # RapidoILL utility tests
+prove -v -r -s t/                          # All tests (recursive + shuffle)
+prove -v t/                                # Unit tests only
+prove -v t/db_dependent/                   # Database-dependent only
+prove -v t/db_dependent/RapidoILL.t        # Main plugin test
+prove -v t/db_dependent/RapidoILL/         # Task queue tests
+prove -v t/RapidoILL/                      # RapidoILL utility tests
 ```
 
 ## Test Structure
@@ -83,3 +83,4 @@ Tests run automatically on push/PR using the same KTD environment.
 - Use proper transaction isolation in database-dependent tests
 - Follow Koha's standard test patterns and naming conventions
 - Test::NoWarnings automatically adds one test per file for warning detection
+- **Use `prove -r -s t/` for best testing**: recursive finds all tests, shuffle ensures independence
