@@ -268,7 +268,8 @@ sub install {
                 `illrequest_id`        BIGINT(20) UNSIGNED NULL DEFAULT NULL,
                 `timestamp`            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (`circ_action_id`),
-                KEY `circId` (`circId`)
+                KEY `circId` (`circId`),
+                UNIQUE KEY `unique_circ_status_state` (`circId`, `pod`, `circStatus`, `lastCircState`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         }
         );
@@ -431,6 +432,39 @@ sub upgrade {
                 ADD COLUMN `illrequest_id` BIGINT(20) UNSIGNED NULL DEFAULT NULL AFTER `object_id`;
         }
         );
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "0.3.10";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        # Add unique constraint to prevent race condition duplicates
+        # This implements step 3.2 from IMPLEMENTATION_PLAN.md
+        # The constraint ensures no duplicate records with the same (circId, pod, circStatus, lastCircState)
+        # while allowing legitimate status progressions (same circId with different statuses)
+
+        # First check if constraint already exists to avoid errors on re-run
+        my $constraint_exists = $dbh->selectrow_array(
+            qq{
+            SELECT COUNT(*)
+            FROM information_schema.TABLE_CONSTRAINTS
+            WHERE CONSTRAINT_SCHEMA = DATABASE()
+            AND TABLE_NAME = ?
+            AND CONSTRAINT_NAME = 'unique_circ_status_state'
+            AND CONSTRAINT_TYPE = 'UNIQUE'
+        }, undef, $circ_actions
+        );
+
+        unless ($constraint_exists) {
+            $dbh->do(
+                qq{
+                ALTER TABLE $circ_actions
+                ADD CONSTRAINT unique_circ_status_state
+                UNIQUE (circId, pod, circStatus, lastCircState)
+            }
+            );
+        }
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
@@ -2115,7 +2149,7 @@ sub create_patron_hold {
 
                 if ( $action->lastCircState eq 'ITEM_SHIPPED' ) {
                     $status = 'B_ITEM_SHIPPED';
-                } # FIXME: What about other out of sync statuses?
+                }    # FIXME: What about other out of sync statuses?
 
                 # Create the request
                 my $req = Koha::ILL::Request->new(
