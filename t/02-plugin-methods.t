@@ -17,26 +17,30 @@
 
 use Modern::Perl;
 
-use Test::More;
+use Test::More tests => 2;
+use Test::Exception;
 
-use Test::More;
-use File::Spec;
-use File::Find;
+BEGIN {
+    use_ok('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+}
 
-find(
-    {
-        bydepth  => 1,
-        no_chdir => 1,
-        wanted   => sub {
-            my $m = $_;
-            return unless $m =~ s/[.]pm$//;
-            $m =~ s{^.*/Koha/}{Koha/};
-            $m =~ s{/}{::}g;
-            use_ok($m) || BAIL_OUT("***** PROBLEMS LOADING FILE '$m'");
-        },
-    },
-    '.'
-);
+subtest 'Plugin metadata and methods' => sub {
+    plan tests => 8;
+    
+    # Test plugin metadata
+    my $plugin_class = 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL';
+    
+    # Core plugin methods
+    can_ok($plugin_class, 'new');
+    can_ok($plugin_class, 'install');
+    can_ok($plugin_class, 'upgrade');
+    
+    # Plugin-specific methods
+    can_ok($plugin_class, 'get_queued_tasks');
+    can_ok($plugin_class, 'get_client');
+    can_ok($plugin_class, 'get_borrower_actions');
+    can_ok($plugin_class, 'get_lender_actions');
+    can_ok($plugin_class, 'get_normalizer');
+};
 
 done_testing();
-

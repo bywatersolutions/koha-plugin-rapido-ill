@@ -1,5 +1,7 @@
 # koha-plugin-rapido-ill
 
+[![CI](https://github.com/bywatersolutions/koha-plugin-rapido-ill/actions/workflows/main.yml/badge.svg)](https://github.com/bywatersolutions/koha-plugin-rapido-ill/actions/workflows/main.yml)
+
 ## Plugin configuration
 
 The plugin configuration is an HTML text area in which a *YAML* structure is pasted. The available options
