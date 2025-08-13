@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/bywatersolutions/koha-plugin-rapido-ill/actions/workflows/main.yml/badge.svg)](https://github.com/bywatersolutions/koha-plugin-rapido-ill/actions/workflows/main.yml)
 
+## For Developers
+
+**Quick development setup and testing**: See [DEVELOPMENT.md](DEVELOPMENT.md) for KTD setup, testing commands, architecture notes, and troubleshooting.
+
 ## Plugin configuration
 
 The plugin configuration is an HTML text area in which a *YAML* structure is pasted. The available options
@@ -176,6 +180,8 @@ For example:
 ```
 
 ## Development
+
+**Quick development setup and testing**: See [DEVELOPMENT.md](DEVELOPMENT.md) for KTD setup, testing commands, architecture notes, and troubleshooting.
 
 ### Architecture Overview
 

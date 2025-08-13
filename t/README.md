@@ -2,6 +2,20 @@
 
 This directory contains tests for the Rapido ILL plugin.
 
+## Quick Testing Commands
+
+```bash
+# In KTD environment - set up first:
+export PERL5LIB=$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:.
+
+# Run all tests
+prove -v t/ t/db_dependent/
+
+# Run specific test files
+prove -v t/db_dependent/RapidoILL.t
+prove -v t/00-load.t
+```
+
 ## Test Structure
 
 ### Unit Tests (`t/`)
@@ -37,7 +51,7 @@ prove -v t/db_dependent/RapidoILL.t
 ### In GitHub Actions
 
 Tests are automatically run on:
-- Push to main branch
+- Push to any branch
 - Pull requests to main branch
 - Daily scheduled runs
 - Tagged releases
@@ -63,9 +77,23 @@ Database-dependent tests use Koha's testing framework:
 - **Mocking**: Uses Koha's mocking utilities for system preferences
 - **dev_mode**: Tests set `dev_mode: true` to disable external API calls
 
+### Important Testing Notes:
+- **Test counting**: Each `subtest` counts as 1 test, regardless of internal tests
+- **Naming convention**: Use class-based names (`RapidoILL.t` for main class)
+- **Method organization**: Group tests by method (`configuration() tests`)
+- **Configuration**: Always use `dev_mode: true` in test configs
+
 ## Requirements
 
 - Koha Testing Docker (KTD) environment
 - Plugin installed via `misc/devel/install_plugins.pl`
 - Proper PERL5LIB setup to include plugin libraries
 - Database access for db_dependent tests
+
+## Troubleshooting
+
+### Common Issues:
+- **Module not found**: Check PERL5LIB includes plugin lib directory
+- **Database errors**: Ensure plugin is installed and schema is registered
+- **Test plan errors**: Remember each subtest counts as 1 test
+- **External API calls**: Use `dev_mode: true` in test configurations
