@@ -69,18 +69,61 @@ $ journalctl -u rapido_task_queue.service -f
 
 ## Cronjobs
 
-The plugin provides some scripts to be run regularly.
+The plugin provides scripts that need to be run regularly via cron to synchronize data with Rapido pods.
 
-### `sync_requests.pl`
+### Setting up sync_requests.pl
 
-Suggested crontab entry:
+The `sync_requests.pl` script synchronizes request data between Koha and the Rapido pod. It should be run every 5 minutes for each configured pod.
+
+#### Crontab Setup
+
+1. **Edit the crontab for your Koha instance user**:
+   ```bash
+   sudo -u <instance>-koha crontab -e
+   ```
+
+2. **Add entries for each pod** (replace variables as needed):
+   ```bash
+   # Rapido ILL sync - runs every 5 minutes for each pod
+   */5 * * * * cd /var/lib/koha/<instance>/plugins; PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod <pod_name>
+   ```
+
+#### Variables to Replace
+
+- `<instance>`: Your Koha instance name (e.g., `kohadev`, `library`, `production`)
+- `<pod_name>`: The pod identifier from your configuration (e.g., `dev03-na`, `prod-eu`)
+
+#### Complete Example
+
+For a Koha instance named `library` with two pods (`dev03-na` and `prod-eu`):
 
 ```bash
-INST=instance
-PERL5LIB=/usr/share/koha/lib
-# Run the sync_requests.pl script every 5 minutes
-*/5  * * * * ${INST}-koha cd /var/lib/koha/${INST}/plugins/; PERL5LIB=${PERL5LIB}:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl"
+# Edit crontab
+sudo -u library-koha crontab -e
+
+# Add these lines:
+# Rapido ILL sync for dev03-na pod - every 5 minutes
+*/5 * * * * cd /var/lib/koha/library/plugins; PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod dev03-na
+
+# Rapido ILL sync for prod-eu pod - every 5 minutes  
+*/5 * * * * cd /var/lib/koha/library/plugins; PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod prod-eu
 ```
+
+#### Optional Parameters
+
+- `--start_time <timestamp>`: Start synchronization from a specific Unix timestamp
+- `--pod <pod_name>`: Specify which pod to synchronize (required)
+
+#### Monitoring
+
+Check the Koha logs for sync activity:
+```bash
+tail -f /var/log/koha/<instance>/plack-intranet-error.log | grep -i rapido
+```
+
+#### Sample Cron File
+
+A sample cron configuration file (`cron.sample`) is available in the plugin source code for reference. This file contains examples and detailed comments but is not included in the packaged plugin.
 
 ## Notices
 
