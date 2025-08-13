@@ -1,0 +1,36 @@
+# Sample crontab entries for Rapido ILL plugin
+# 
+# This file provides examples for setting up cron jobs for the Rapido ILL plugin.
+# DO NOT copy this file directly - customize it for your environment.
+#
+# To use:
+# 1. Replace <instance> with your Koha instance name
+# 2. Replace <pod_name> with your actual pod identifiers from the plugin configuration
+# 3. Add the customized entries to your Koha instance user's crontab:
+#    sudo -u <instance>-koha crontab -e
+#
+# Variables to customize:
+# <instance>  - Your Koha instance name (e.g., kohadev, library, production)
+# <pod_name>  - Pod identifier from plugin config (e.g., dev03-na, prod-eu)
+
+# Rapido ILL sync - runs every 5 minutes for each configured pod
+# Replace <instance> and <pod_name> with your actual values
+
+# Example for a single pod:
+*/5 * * * * cd /var/lib/koha/<instance>/plugins; PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod <pod_name>
+
+# Example for multiple pods (add one line per pod):
+*/5 * * * * cd /var/lib/koha/<instance>/plugins; PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod dev03-na
+*/5 * * * * cd /var/lib/koha/<instance>/plugins; PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod prod-eu
+
+# Example with start_time parameter (useful for initial sync from a specific point):
+# */5 * * * * cd /var/lib/koha/<instance>/plugins; PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --start_time 1751297363 --pod <pod_name>
+
+# Real-world example for instance 'library' with pod 'dev03-na':
+# */5 * * * * cd /var/lib/koha/library/plugins; PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod dev03-na
+
+# Notes:
+# - Each pod requires its own cron entry
+# - The script should run as the Koha instance user (<instance>-koha)
+# - Monitor logs at /var/log/koha/<instance>/plack-intranet-error.log
+# - Use --start_time parameter only for initial setup or recovery
