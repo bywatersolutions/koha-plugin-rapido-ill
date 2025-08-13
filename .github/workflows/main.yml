@@ -46,15 +46,11 @@ jobs:
         git clone https://gitlab.com/koha-community/koha-testing-docker.git
         cd koha-testing-docker
         cp env/defaults.env .env
-        echo "DEBUG: .env file created at $(pwd)/.env"
-        ls -la .env
         echo "$(pwd)/bin" >> $GITHUB_PATH
 
     - name: Launch KTD instance with plugins support
       run: |
         cd ../koha-testing-docker
-        echo "DEBUG: Current directory: $(pwd)"
-        echo "DEBUG: .env file exists: $(ls -la .env 2>/dev/null || echo 'NOT FOUND')"
         export LOCAL_USER_ID=$(id -u)
         export KTD_HOME=$(pwd)
         ktd --name rapidotest --plugins up -d
@@ -76,7 +72,7 @@ jobs:
         ktd --name rapidotest --shell --run "
           cd /kohadevbox/plugins/${{ env.GITHUB_REPO }} &&
           export PERL5LIB=\$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. &&
-          prove -v t/
+          prove -v t/ t/db_dependent/
         "
 
     - name: Show logs on failure
