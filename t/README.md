@@ -25,6 +25,7 @@ prove -v t/db_dependent/RapidoILL.t   # Specific test
 - `00-load.t` - Module loading tests
 - `01-constraint.t` - Database constraint and object tests
 - `02-plugin-methods.t` - Plugin method availability tests
+- `StringNormalizer.t` - Tests for RapidoILL::StringNormalizer utility class
 
 ### Database-Dependent Tests (`t/db_dependent/`)
 - `RapidoILL.t` - Tests for Koha::Plugin::Com::ByWaterSolutions::RapidoILL class methods
