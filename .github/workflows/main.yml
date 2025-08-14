@@ -22,7 +22,7 @@ jobs:
 
     - name: Get Koha Version Branch Name
       id: koha-version
-      uses: "bywatersolutions/github-action-koha-get-version-by-label@master"
+      uses: "bywatersolutions/github-action-koha-get-version-by-label@v2"
       with:
         version-label: "${{ matrix.koha-version }}"
 
@@ -118,7 +118,7 @@ jobs:
 
     - name: Get Koha Version Branch Name
       id: koha-version-oldstable
-      uses: "bywatersolutions/github-action-koha-get-version-by-label@master"
+      uses: "bywatersolutions/github-action-koha-get-version-by-label@v2"
       with:
         version-label: "oldstable"
 
@@ -157,7 +157,7 @@ jobs:
     name: Keep Alive
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Check age and push commit if needed
       run: |
         LAST_COMMIT=$( git --no-pager log -1 --format=%ct )
