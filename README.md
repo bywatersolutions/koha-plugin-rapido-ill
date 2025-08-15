@@ -183,6 +183,37 @@ For example:
 
 **Quick development setup and testing**: See [DEVELOPMENT.md](DEVELOPMENT.md) for KTD setup, testing commands, architecture notes, and troubleshooting.
 
+### Mock API Testing
+
+For development and testing without connecting to real Rapido services, use the included mock API:
+
+**Quick Start:**
+```bash
+# 1. Bootstrap testing environment (sets up plugin + sample data)
+cd /kohadevbox/plugins/rapido-ill/scripts
+./bootstrap_rapido_testing.pl
+
+# 2. Start mock Rapido API
+./mock_rapido_api.pl --port=3001 --scenario=borrowing
+
+# 3. Test all endpoints
+./test_all_endpoints.sh
+```
+
+**Mock API Features:**
+- **Spec-compliant**: Matches official Rapido API specification exactly
+- **Configurable scenarios**: borrowing, lending, mixed workflows  
+- **Dynamic timestamps**: Uses DateTime for realistic data
+- **Complete endpoints**: Authentication, circulation requests, actions
+- **Workflow progression**: Simulates real ILL state transitions
+
+**Testing Documentation:**
+- [CURL_TESTING_GUIDE.md](CURL_TESTING_GUIDE.md) - Complete curl-based testing guide
+- `scripts/test_all_endpoints.sh` - Automated test script
+- `scripts/bootstrap_rapido_testing.pl` - Environment setup
+
+The mock API allows full plugin development and testing without requiring access to Rapido services.
+
 ### Architecture Overview
 
 The Rapido ILL plugin follows Koha's standard object-oriented patterns for database interaction and plugin development.
