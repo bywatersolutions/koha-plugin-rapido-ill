@@ -114,22 +114,22 @@ Global logger instance for the plugin and its components
 =cut
 
 sub logger {
-    my ( $self ) = @_;
-    
+    my ($self) = @_;
+
     # Create a singleton logger instance
     state $logger;
-    
+
     unless ($logger) {
-        eval {
-            $logger = Koha::Logger->get({ interface => 'api', category => 'rapidoill' });
-        };
-        if ($@) {
+        try {
+            $logger = Koha::Logger->get( { interface => 'api', category => 'rapidoill' } );
+        } catch {
+
             # Fallback if Koha::Logger fails
-            warn "Failed to initialize Koha::Logger: $@";
-            return undef;
-        }
+            warn "Failed to initialize Koha::Logger: $_";
+            return;
+        };
     }
-    
+
     return $logger;
 }
 

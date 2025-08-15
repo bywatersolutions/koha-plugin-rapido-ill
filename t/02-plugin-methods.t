@@ -42,5 +42,3 @@ subtest 'Plugin metadata and methods' => sub {
     can_ok($plugin_class, 'get_lender_actions');
     can_ok($plugin_class, 'get_normalizer');
 };
-
-done_testing();

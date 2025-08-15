@@ -103,8 +103,8 @@ Access to the plugin's logger instance
 =cut
 
 sub logger {
-    my ( $self ) = @_;
-    
+    my ($self) = @_;
+
     return $self->plugin ? $self->plugin->logger : undef;
 }
 
@@ -118,7 +118,7 @@ sub post_request {
     my ( $self, $args ) = @_;
 
     my $endpoint = $self->{base_url} . $args->{endpoint};
-    
+
     my $request = POST(
         $endpoint,
         'Authorization' => "Bearer " . $self->get_token,
@@ -130,21 +130,22 @@ sub post_request {
     );
 
     if ( $self->logger ) {
-        $self->logger->info("Making POST request to " . $endpoint);
-        
+        $self->logger->info( "Making POST request to " . $endpoint );
+
         if ( $self->{debug_mode} ) {
-            $self->logger->debug("POST request to " . $endpoint);
-            $self->logger->debug("Request data: " . encode_json($args->{data})) if exists $args->{data};
+            $self->logger->debug( "POST request to " . $endpoint );
+            $self->logger->debug( "Request data: " . encode_json( $args->{data} ) ) if exists $args->{data};
         }
     }
 
     my $response = $self->ua->request($request);
-    
+
     if ( $self->logger ) {
         if ( $response->is_success ) {
-            $self->logger->info("POST request successful: " . $response->code . " " . $response->message);
+            $self->logger->info( "POST request successful: " . $response->code . " " . $response->message );
         } else {
-            $self->logger->error("POST request failed: " . $response->code . " " . $response->message . " to " . $endpoint);
+            $self->logger->error(
+                "POST request failed: " . $response->code . " " . $response->message . " to " . $endpoint );
         }
     }
 
@@ -161,7 +162,7 @@ sub put_request {
     my ( $self, $args ) = @_;
 
     my $endpoint = $self->{base_url} . $args->{endpoint};
-    
+
     my $request = PUT(
         $endpoint,
         'Authorization' => "Bearer " . $self->get_token,
@@ -171,21 +172,22 @@ sub put_request {
     );
 
     if ( $self->logger ) {
-        $self->logger->info("Making PUT request to " . $endpoint);
-        
+        $self->logger->info( "Making PUT request to " . $endpoint );
+
         if ( $self->{debug_mode} ) {
-            $self->logger->debug("PUT request to " . $endpoint);
-            $self->logger->debug("Request data: " . encode_json($args->{data}));
+            $self->logger->debug( "PUT request to " . $endpoint );
+            $self->logger->debug( "Request data: " . encode_json( $args->{data} ) );
         }
     }
 
     my $response = $self->ua->request($request);
-    
+
     if ( $self->logger ) {
         if ( $response->is_success ) {
-            $self->logger->info("PUT request successful: " . $response->code . " " . $response->message);
+            $self->logger->info( "PUT request successful: " . $response->code . " " . $response->message );
         } else {
-            $self->logger->error("PUT request failed: " . $response->code . " " . $response->message . " to " . $endpoint);
+            $self->logger->error(
+                "PUT request failed: " . $response->code . " " . $response->message . " to " . $endpoint );
         }
     }
 
@@ -233,20 +235,21 @@ sub get_request {
     );
 
     if ( $self->logger ) {
-        $self->logger->info("Making GET request to " . $uri->as_string);
-        
+        $self->logger->info( "Making GET request to " . $uri->as_string );
+
         if ( $self->{debug_mode} ) {
-            $self->logger->debug("GET request to " . $uri->as_string);
+            $self->logger->debug( "GET request to " . $uri->as_string );
         }
     }
 
     my $response = $self->ua->request($request);
-    
+
     if ( $self->logger ) {
         if ( $response->is_success ) {
-            $self->logger->info("GET request successful: " . $response->code . " " . $response->message);
+            $self->logger->info( "GET request successful: " . $response->code . " " . $response->message );
         } else {
-            $self->logger->error("GET request failed: " . $response->code . " " . $response->message . " to " . $uri->as_string);
+            $self->logger->error(
+                "GET request failed: " . $response->code . " " . $response->message . " to " . $uri->as_string );
         }
     }
 
@@ -263,7 +266,7 @@ sub delete_request {
     my ( $self, $args ) = @_;
 
     my $endpoint = $self->{base_url} . $args->{endpoint};
-    
+
     my $request = DELETE(
         $endpoint,
         'Authorization' => "Bearer " . $self->get_token,
@@ -271,20 +274,21 @@ sub delete_request {
     );
 
     if ( $self->logger ) {
-        $self->logger->info("Making DELETE request to " . $endpoint);
-        
+        $self->logger->info( "Making DELETE request to " . $endpoint );
+
         if ( $self->{debug_mode} ) {
-            $self->logger->debug("DELETE request to " . $endpoint);
+            $self->logger->debug( "DELETE request to " . $endpoint );
         }
     }
 
     my $response = $self->ua->request($request);
-    
+
     if ( $self->logger ) {
         if ( $response->is_success ) {
-            $self->logger->info("DELETE request successful: " . $response->code . " " . $response->message);
+            $self->logger->info( "DELETE request successful: " . $response->code . " " . $response->message );
         } else {
-            $self->logger->error("DELETE request failed: " . $response->code . " " . $response->message . " to " . $endpoint);
+            $self->logger->error(
+                "DELETE request failed: " . $response->code . " " . $response->message . " to " . $endpoint );
         }
     }
 
@@ -337,7 +341,7 @@ sub refresh_token {
     my ($self) = @_;
 
     if ( $self->logger ) {
-        $self->logger->info("Refreshing OAuth2 token for " . $self->{base_url});
+        $self->logger->info( "Refreshing OAuth2 token for " . $self->{base_url} );
     }
 
     my $ua      = $self->{ua};
@@ -349,7 +353,7 @@ sub refresh_token {
     unless ( $response->code eq '200' ) {
         my $error_msg = "OAuth2 authentication failed: " . $response_content->{error_description};
         if ( $self->logger ) {
-            $self->logger->error($error_msg . " (HTTP " . $response->code . ")");
+            $self->logger->error( $error_msg . " (HTTP " . $response->code . ")" );
         }
         RapidoILL::Exception::OAuth2::AuthError->throw(
             "Authentication error: " . $response_content->{error_description} );
@@ -360,7 +364,8 @@ sub refresh_token {
         DateTime->now()->add( seconds => $response_content->{expires_in} );
 
     if ( $self->logger ) {
-        $self->logger->info("OAuth2 token refreshed successfully, expires in " . $response_content->{expires_in} . " seconds");
+        $self->logger->info(
+            "OAuth2 token refreshed successfully, expires in " . $response_content->{expires_in} . " seconds" );
     }
 
     return $self;

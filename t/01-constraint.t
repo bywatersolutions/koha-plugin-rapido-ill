@@ -70,5 +70,3 @@ subtest 'Constraint logic validation' => sub {
     is($constraint_fields->[1], 'pod', 'Second constraint field is pod');
     is($constraint_fields->[2], 'circStatus', 'Third constraint field is circStatus');
 };
-
-done_testing();
