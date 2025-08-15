@@ -68,10 +68,10 @@ my $plugin_config = {
         client_id => 'mock_client',
         client_secret => 'mock_secret',
         server_code => '11747',
-        partners_library_id => 'MPL',
+        partners_library_id => 'MPL',  # Valid KTD branch code
         partners_category => 'ILL',
         default_item_type => 'ILL',
-        default_patron_agency => 'MPL',
+        default_patron_agency => 'ffyh',  # This is the agency code, not branch code
         default_location => '',
         default_checkin_note => 'Additional processing required (ILL)',
         default_hold_note => 'Placed by ILL',
@@ -81,7 +81,7 @@ my $plugin_config = {
         materials_specified => JSON::true,
         default_materials_specified => 'Additional processing required (ILL)',
         location_to_library => {
-            RES_SHARE => 'MPL'
+            ffyh => 'MPL'
         },
         borrowing => {
             automatic_item_in_transit => JSON::false,
@@ -142,8 +142,51 @@ if ($@) {
     print "   You may need to configure the plugin manually through the web interface\n";
 }
 
-# Step 3: Create sample mock API configuration
-print "\n3. Creating mock API configuration...\n";
+# Step 3: Setup ILL prerequisites
+print "\n3. Setting up ILL prerequisites...\n";
+
+eval {
+    my $dbh = DBI->connect(
+        "DBI:mysql:database=koha_kohadev;host=db",
+        "root",
+        "password",
+        { RaiseError => 1, AutoCommit => 1 }
+    );
+    
+    # Enable ILL Module
+    my $ill_pref_sth = $dbh->prepare(
+        "INSERT INTO systempreferences (variable, value, explanation, type) 
+         VALUES ('ILLModule', '1', 'If ON, enables the interlibrary loans module.', 'YesNo')
+         ON DUPLICATE KEY UPDATE value = '1'"
+    );
+    $ill_pref_sth->execute();
+    print "   ✓ ILL Module enabled\n";
+    
+    # Create ILL item type
+    my $itemtype_sth = $dbh->prepare(
+        "INSERT IGNORE INTO itemtypes (itemtype, description, rentalcharge, notforloan, imageurl, summary, checkinmsg, checkinmsgtype, sip_media_type, hideinopac, searchcategory) 
+         VALUES ('ILL', 'Interlibrary Loan', 0.00, 0, '', '', '', 'message', '001', 0, '')"
+    );
+    $itemtype_sth->execute();
+    print "   ✓ ILL item type created\n";
+    
+    # Create ILL patron category
+    my $category_sth = $dbh->prepare(
+        "INSERT IGNORE INTO categories (categorycode, description, enrolmentperiod, upperagelimit, dateofbirthrequired, enrolmentfee, overduenoticerequired, reservefee, hidelostitems, category_type) 
+         VALUES ('ILL', 'Interlibrary Loan', 99, 999, 0, 0.00, 0, 0.00, 0, 'A')"
+    );
+    $category_sth->execute();
+    print "   ✓ ILL patron category created\n";
+    
+    $dbh->disconnect;
+};
+
+if ($@) {
+    print "   ✗ ILL prerequisites setup failed: $@\n";
+}
+
+# Step 4: Create sample mock API configuration
+print "\n4. Creating mock API configuration...\n";
 
 my $mock_config_path = "/kohadevbox/plugins/rapido-ill/scripts/mock_config.json";
 if (-f $mock_config_path) {
@@ -153,8 +196,8 @@ if (-f $mock_config_path) {
     print "   ✓ Mock API will create configuration on first run\n";
 }
 
-# Step 4: Set up environment
-print "\n4. Setting up environment...\n";
+# Step 5: Set up environment
+print "\n5. Setting up environment...\n";
 
 # Create a helper script for running sync
 my $sync_helper = '#!/bin/bash
@@ -212,8 +255,8 @@ write_file('/kohadevbox/plugins/rapido-ill/scripts/test_mock_api.sh', $test_help
 system('chmod +x /kohadevbox/plugins/rapido-ill/scripts/test_mock_api.sh');
 print "   ✓ Created API test script: test_mock_api.sh\n";
 
-# Step 5: Verify KTD sample data
-print "\n5. Verifying KTD sample data...\n";
+# Step 6: Verify KTD sample data
+print "\n6. Verifying KTD sample data...\n";
 
 eval {
     my $dbh = DBI->connect(
@@ -251,6 +294,55 @@ eval {
 
 if ($@) {
     print "   ⚠ Could not verify sample data: $@\n";
+}
+
+# Step 7: Validate plugin configuration
+print "\n7. Validating plugin configuration...\n";
+
+eval {
+    # Create a temporary validation script
+    my $validation_script = '/tmp/validate_config.pl';
+    open my $fh, '>', $validation_script or die "Cannot create validation script: $!";
+    print $fh q{
+        use lib '/usr/share/koha/lib';
+        use lib '/kohadevbox/plugins/rapido-ill/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib';
+        use C4::Context;
+        use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
+        
+        # Clear cached preferences
+        C4::Context->clear_syspref_cache();
+        
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $config_check = $plugin->check_configuration();
+        
+        if (@$config_check) {
+            print "ERRORS:" . scalar(@$config_check) . "\n";
+            foreach my $error (@$config_check) {
+                print "  - " . $error->{code} . "\n";
+            }
+        } else {
+            print "OK\n";
+        }
+    };
+    close $fh;
+    
+    my $config_result = `cd /kohadevbox/plugins/rapido-ill && perl $validation_script 2>/dev/null`;
+    unlink $validation_script;
+    
+    if ($config_result =~ /^OK/) {
+        print "   ✅ Plugin configuration is valid\n";
+    } elsif ($config_result =~ /^ERRORS:/) {
+        print "   ⚠ Configuration issues found:\n";
+        print $config_result;
+        print "   The plugin may still work but some features might be limited\n";
+    } else {
+        print "   ⚠ Could not validate configuration\n";
+        print "   You can manually test with: check_configuration() method\n";
+    }
+};
+
+if ($@) {
+    print "   ⚠ Could not validate configuration: $@\n";
 }
 
 # Final instructions

@@ -131,9 +131,10 @@ sub create_default_config {
                         author => "Heylin, Clinton",
                         patronId => "23529000445172",
                         patronName => "Tanya Daniels",
-                        patronAgencyCode => "MPL",
-                        lenderCode => "FRL",
-                        pickupLocation => "MPL",
+                        patronAgencyCode => "11747",  # We are the borrower
+                        borrowerCode => "11747",      # We are the borrower
+                        lenderCode => "famaf",          # famaf is the lender
+                        pickupLocation => "ffyh",
                         dateCreated => DateTime->now->subtract(hours => 2)->iso8601 . 'Z',
                         lastUpdated => DateTime->now->subtract(hours => 2)->iso8601 . 'Z',
                         needBefore => "2025-09-14T23:59:59Z"
@@ -152,9 +153,10 @@ sub create_default_config {
                         author => "Heylin, Clinton",
                         patronId => "23529000445172",
                         patronName => "Tanya Daniels",
-                        patronAgencyCode => "MPL",
-                        lenderCode => "FRL",
-                        pickupLocation => "MPL",
+                        patronAgencyCode => "11747",  # We are the borrower
+                        borrowerCode => "11747",      # We are the borrower
+                        lenderCode => "famaf",          # famaf is the lender
+                        pickupLocation => "ffyh",
                         dateCreated => DateTime->now->subtract(hours => 2)->iso8601 . 'Z',
                         lastUpdated => DateTime->now->subtract(hours => 1)->iso8601 . 'Z',
                         needBefore => "2025-09-14T23:59:59Z"
@@ -173,9 +175,10 @@ sub create_default_config {
                         author => "Heylin, Clinton",
                         patronId => "23529000445172",
                         patronName => "Tanya Daniels",
-                        patronAgencyCode => "MPL",
-                        lenderCode => "FRL",
-                        pickupLocation => "MPL",
+                        patronAgencyCode => "11747",  # We are the borrower
+                        borrowerCode => "11747",      # We are the borrower
+                        lenderCode => "famaf",          # famaf is the lender
+                        pickupLocation => "ffyh",
                         dateCreated => DateTime->now->subtract(hours => 2)->iso8601 . 'Z',
                         lastUpdated => DateTime->now->iso8601 . 'Z',
                         needBefore => DateTime->now->add(days => 30)->iso8601 . 'Z',
@@ -195,8 +198,8 @@ sub create_default_config {
                         author => "Kernighan, Brian W",
                         patronId => "23529000152273",
                         patronName => "Marcus Welch",
-                        patronAgencyCode => "FRL",
-                        borrowerCode => "FRL",
+                        patronAgencyCode => "famaf",
+                        borrowerCode => "famaf",
                         callNumber => "005.133 KER",
                         dateCreated => DateTime->now->subtract(hours => 3)->iso8601 . 'Z',
                         lastUpdated => DateTime->now->subtract(hours => 3)->iso8601 . 'Z',
@@ -216,8 +219,8 @@ sub create_default_config {
                         author => "Kernighan, Brian W",
                         patronId => "23529000152273",
                         patronName => "Marcus Welch",
-                        patronAgencyCode => "FRL",
-                        borrowerCode => "FRL",
+                        patronAgencyCode => "famaf",
+                        borrowerCode => "famaf",
                         callNumber => "005.133 KER",
                         dateCreated => DateTime->now->subtract(hours => 3)->iso8601 . 'Z',
                         lastUpdated => DateTime->now->subtract(hours => 2)->iso8601 . 'Z',
@@ -238,8 +241,8 @@ sub create_default_config {
                         author => "Kernighan, Brian W", 
                         patronId => "23529000152273",
                         patronName => "Marcus Welch",
-                        patronAgencyCode => "FRL",
-                        borrowerCode => "FRL",
+                        patronAgencyCode => "famaf",
+                        borrowerCode => "famaf",
                         callNumber => "005.133 KER",
                         dateCreated => DateTime->now->subtract(hours => 3)->iso8601 . 'Z',
                         lastUpdated => DateTime->now->iso8601 . 'Z',
@@ -259,9 +262,9 @@ sub create_default_config {
                         author => "Kernighan, Brian W",
                         patronId => "23529000105040",
                         patronName => "Eva Dillon",
-                        patronAgencyCode => "MPL",
-                        lenderCode => "CPL",
-                        pickupLocation => "MPL",
+                        patronAgencyCode => "ffyh",
+                        lenderCode => "psico",
+                        pickupLocation => "ffyh",
                         dateCreated => DateTime->now->subtract(hours => 5)->iso8601 . 'Z',
                         lastUpdated => DateTime->now->subtract(hours => 2)->iso8601 . 'Z'
                     },
@@ -275,8 +278,8 @@ sub create_default_config {
                         author => "Conway, Damian",
                         patronId => "23529001000463",
                         patronName => "Edna Acosta",
-                        patronAgencyCode => "FPL",
-                        borrowerCode => "FPL",
+                        patronAgencyCode => "famaf",
+                        borrowerCode => "famaf",
                         callNumber => "005.133 CON",
                         dateCreated => DateTime->now->subtract(hours => 4)->iso8601 . 'Z',
                         lastUpdated => DateTime->now->subtract(hours => 4)->iso8601 . 'Z'
@@ -403,7 +406,7 @@ get '/view/broker/circ/circrequests' => sub ($c) {
             $rapido_item->{patronAgencyCode} = $item->{patronAgencyCode};
             $rapido_item->{pickupLocation} = $item->{pickupLocation} ? 
                 $item->{pickupLocation} . ':' . $item->{pickupLocation} . ' Library' : 
-                'MPL:Midtown Public Library';
+                'ffyh:Facultad de Filosofía y Humanidades';
             $rapido_item->{title} = $item->{title};
             $rapido_item->{author} = $item->{author};
         }
@@ -413,6 +416,46 @@ get '/view/broker/circ/circrequests' => sub ($c) {
     
     # Return array directly (per spec - no wrapper object)
     $c->render(json => \@rapido_format);
+};
+
+# Locals endpoint: GET /view/broker/locals
+get '/view/broker/locals' => sub ($c) {
+    app->log->info("Locals endpoint called");
+    
+    # Return agency list for sync_agencies
+    my $locals_data = [
+        {
+            localCode => "11747",  # Our server code
+            agencyList => [
+                {
+                    agencyCode => "ffyh",
+                    description => "Facultad de Filosofía y Humanidades",
+                    requiresPasscode => Mojo::JSON->false,
+                    visitingCheckoutAllowed => Mojo::JSON->true
+                },
+                {
+                    agencyCode => "famaf", 
+                    description => "Facultad de Matemática, Astronomía, Física y Computación",
+                    requiresPasscode => Mojo::JSON->false,
+                    visitingCheckoutAllowed => Mojo::JSON->true
+                },
+                {
+                    agencyCode => "derecho",
+                    description => "Facultad de Derecho y Ciencias Sociales", 
+                    requiresPasscode => Mojo::JSON->false,
+                    visitingCheckoutAllowed => Mojo::JSON->true
+                },
+                {
+                    agencyCode => "psico",
+                    description => "Facultad de Psicología", 
+                    requiresPasscode => Mojo::JSON->false,
+                    visitingCheckoutAllowed => Mojo::JSON->true
+                }
+            ]
+        }
+    ];
+    
+    $c->render(json => $locals_data);
 };
 
 # Lender cancel: POST /view/broker/circ/{circId}/lendercancel
@@ -488,13 +531,13 @@ get '/debug/formats' => sub ($c) {
     
     my $verbose_example = {
         %$concise_example,
-        puaAgencyCode => "MPL",
+        puaAgencyCode => "ffyh",
         circStatus => "PATRON_HOLD", 
         itemBarcode => "3999900000001",
-        itemAgencyCode => "FRL",
+        itemAgencyCode => "famaf",
         callNumber => "005.133 KER",
         patronName => "Tanya Daniels",
-        patronAgencyCode => "MPL",
+        patronAgencyCode => "ffyh",
         pickupLocation => "RES_SHARE:Polaris Resource Sharing Library",
         title => "E Street shuffle",
         author => "Heylin, Clinton",
