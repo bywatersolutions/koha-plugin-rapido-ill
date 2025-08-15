@@ -1,6 +1,6 @@
-# Rapido ILL Plugin - Development Notes
+# Rapido ILL Plugin - Development Guide
 
-Quick reference for development setup and common tasks.
+Comprehensive development documentation for the Rapido ILL plugin, including setup, testing, and architecture notes.
 
 ## Quick Start
 
@@ -19,7 +19,98 @@ ktd --name rapido --wait-ready 120
 ktd --name rapido --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
 ```
 
-### Testing
+### Mock Rapido API for Development
+
+For development and testing without connecting to real Rapido services, use the included mock API that matches the official Rapido specification exactly.
+
+#### Quick Mock API Setup
+
+```bash
+# 1. Get into KTD shell
+ktd --name rapido --shell
+
+# 2. Navigate to plugin directory
+cd /kohadevbox/plugins/rapido-ill/scripts
+
+# 3. Bootstrap testing environment (sets up plugin + sample data)
+./bootstrap_rapido_testing.pl
+
+# 4. Start mock Rapido API
+./mock_rapido_api.pl --port=3001 --scenario=borrowing
+
+# 5. Test all endpoints
+./test_all_endpoints.sh
+```
+
+#### Mock API Features
+
+- **Spec-compliant**: Matches official Rapido API specification exactly
+- **Configurable scenarios**: borrowing, lending, mixed workflows  
+- **Dynamic timestamps**: Uses DateTime for realistic Unix epoch timestamps
+- **Complete endpoints**: Authentication, circulation requests, actions
+- **Workflow progression**: Simulates real ILL state transitions
+- **JSON configuration**: Automatic generation with realistic KTD sample data
+
+#### Mock API Usage Examples
+
+```bash
+# Start API with specific scenario
+./mock_rapido_api.pl --port=3001 --scenario=borrowing &
+
+# Test authentication
+curl -s -X POST http://localhost:3001/view/broker/auth | jq
+
+# Test circulation requests (concise format)
+curl -s "http://localhost:3001/view/broker/circ/circrequests?startTime=1742713250&endTime=1755205695" | jq
+
+# Test circulation requests (verbose format)
+curl -s "http://localhost:3001/view/broker/circ/circrequests?startTime=1742713250&endTime=1755205695&content=verbose" | jq
+
+# Switch scenarios
+curl -s -X POST http://localhost:3001/control/scenario/lending | jq
+
+# Test action endpoints
+curl -s -X POST http://localhost:3001/view/broker/circ/CIRC001/lendercancel | jq
+```
+
+#### Testing Documentation
+
+- **[CURL_TESTING_GUIDE.md](CURL_TESTING_GUIDE.md)** - Complete step-by-step testing guide
+- **`scripts/test_all_endpoints.sh`** - Automated test script
+- **`scripts/bootstrap_rapido_testing.pl`** - Environment setup
+- **`scripts/run_sync.sh`** - Integration testing with sync_requests.pl
+
+#### Mock API Configuration
+
+The mock API uses JSON configuration files with automatic generation:
+
+```bash
+# Configuration is automatically created on first run
+# Located at: scripts/mock_config.json
+
+# View current configuration
+cat scripts/mock_config.json | jq
+
+# Reset configuration (will regenerate on next start)
+rm scripts/mock_config.json
+```
+
+### Testing with Real Plugin Integration
+
+```bash
+# Test sync script with mock API
+cd /kohadevbox/plugins/rapido-ill/scripts
+./mock_rapido_api.pl --port=3001 --scenario=borrowing &
+
+# Run actual sync script against mock API
+cd /kohadevbox/plugins/rapido-ill
+export PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:.
+perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod mock-pod
+```
+
+## Standard Testing
+
+### Unit and Integration Tests
 ```bash
 # Get into KTD shell
 ktd --name rapido --shell
