@@ -259,6 +259,7 @@ sub install {
                 `patronId`             VARCHAR(191) NULL DEFAULT NULL,
                 `patronName`           VARCHAR(191) NULL DEFAULT NULL,
                 `pickupLocation`       VARCHAR(191) NULL DEFAULT NULL,
+                `puaAgencyCode`        VARCHAR(191) NULL DEFAULT NULL,
                 `puaLocalServerCode`   VARCHAR(191) NULL DEFAULT NULL,
                 `title`                LONGTEXT DEFAULT NULL,
                 `dateCreated`          INT UNSIGNED NOT NULL,
@@ -292,6 +293,21 @@ sub upgrade {
     my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
     my $task_queue       = $self->get_qualified_table_name('task_queue');
     my $circ_actions     = $self->get_qualified_table_name('circ_actions');
+
+    $new_version = "0.3.12";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        # Add puaAgencyCode column if it doesn't exist (for existing installations)
+        unless ( $self->_column_exists( $circ_actions, 'puaAgencyCode' ) ) {
+            $dbh->do(
+                "ALTER TABLE $circ_actions
+                ADD COLUMN `puaAgencyCode` VARCHAR(191) NULL DEFAULT NULL
+                AFTER `pickupLocation`"
+            );
+        }
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
 
     return 1;
 }
@@ -577,6 +593,23 @@ sub _table_exists {
         C4::Context->dbh->{PrintError} = 0;
         C4::Context->dbh->{RaiseError} = 1;
         C4::Context->dbh->do(qq{SELECT * FROM $table WHERE 1 = 0 });
+    };
+    return 1 unless $@;
+    return 0;
+}
+
+=head3 _column_exists (helper)
+
+Method to check if a column exists in a table in Koha.
+
+=cut
+
+sub _column_exists {
+    my ( $self, $table, $column ) = @_;
+    eval {
+        C4::Context->dbh->{PrintError} = 0;
+        C4::Context->dbh->{RaiseError} = 1;
+        C4::Context->dbh->do(qq{SELECT $column FROM $table WHERE 1 = 0 });
     };
     return 1 unless $@;
     return 0;
