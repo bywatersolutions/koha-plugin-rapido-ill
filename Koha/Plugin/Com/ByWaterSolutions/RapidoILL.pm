@@ -67,7 +67,7 @@ BEGIN {
     Koha::Database->schema( { new => 1 } );
 }
 
-our $VERSION = "0.3.12";
+our $VERSION = "0.3.13";
 
 our $metadata = {
     name            => 'RapidoILL',
