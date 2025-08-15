@@ -19,10 +19,9 @@ use Modern::Perl;
 
 use base qw(Class::Accessor);
 
-__PACKAGE__->mk_accessors(qw( ua access_token dev_mode ));
+__PACKAGE__->mk_accessors(qw( ua access_token dev_mode plugin ));
 
 use DateTime;
-use DDP;
 use HTTP::Request::Common qw(DELETE GET POST PUT);
 use JSON                  qw(decode_json encode_json);
 use LWP::UserAgent;
@@ -97,6 +96,18 @@ sub new {
     return $self;
 }
 
+=head3 logger
+
+Access to the plugin's logger instance
+
+=cut
+
+sub logger {
+    my ( $self ) = @_;
+    
+    return $self->plugin ? $self->plugin->logger : undef;
+}
+
 =head3 post_request
 
 Generic request for POST
@@ -116,8 +127,9 @@ sub post_request {
         : undef
     );
 
-    if ( $self->{debug_mode} ) {
-        warn p($request);
+    if ( $self->{debug_mode} && $self->logger ) {
+        $self->logger->debug("POST request to " . $self->{base_url} . $args->{endpoint});
+        $self->logger->debug("Request data: " . encode_json($args->{data})) if exists $args->{data};
     }
 
     return $self->ua->request($request);
@@ -140,8 +152,9 @@ sub put_request {
         'Content'       => encode_json( $args->{data} )
     );
 
-    if ( $self->{debug_mode} ) {
-        warn p($request);
+    if ( $self->{debug_mode} && $self->logger ) {
+        $self->logger->debug("PUT request to " . $self->{base_url} . $args->{endpoint});
+        $self->logger->debug("Request data: " . encode_json($args->{data}));
     }
 
     return $self->ua->request($request);
@@ -187,8 +200,8 @@ sub get_request {
         'Content-Type'  => "application/json"
     );
 
-    if ( $self->{debug_mode} ) {
-        warn p($request);
+    if ( $self->{debug_mode} && $self->logger ) {
+        $self->logger->debug("GET request to " . $uri->as_string);
     }
 
     return $self->ua->request($request);
@@ -209,8 +222,8 @@ sub delete_request {
         'Accept'        => "application/json",
     );
 
-    if ( $self->{debug_mode} ) {
-        warn p($request);
+    if ( $self->{debug_mode} && $self->logger ) {
+        $self->logger->debug("DELETE request to " . $self->{base_url} . $args->{endpoint});
     }
 
     return $self->ua->request($request);

@@ -39,6 +39,7 @@ use Koha::ILL::Request::Attributes;
 use Koha::Items;
 use Koha::ItemTypes;
 use Koha::Libraries;
+use Koha::Logger;
 use Koha::Patron::Categories;
 use Koha::Patrons;
 use Koha::Schema;
@@ -104,6 +105,32 @@ sub new {
     my $self = $class->SUPER::new($args);
 
     return $self;
+}
+
+=head3 logger
+
+Global logger instance for the plugin and its components
+
+=cut
+
+sub logger {
+    my ( $self ) = @_;
+    
+    # Create a singleton logger instance
+    state $logger;
+    
+    unless ($logger) {
+        eval {
+            $logger = Koha::Logger->get({ interface => 'api', category => 'rapidoill' });
+        };
+        if ($@) {
+            # Fallback if Koha::Logger fails
+            warn "Failed to initialize Koha::Logger: $@";
+            return undef;
+        }
+    }
+    
+    return $logger;
 }
 
 =head3 configure
@@ -1187,6 +1214,7 @@ sub get_ua {
                 client_secret  => $configuration->{client_secret},
                 base_url       => $configuration->{base_url},
                 debug_requests => $configuration->{debug_requests},
+                plugin         => $self,
             }
         );
     }
