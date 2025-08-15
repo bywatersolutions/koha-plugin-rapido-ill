@@ -121,6 +121,7 @@ The plugin includes comprehensive test coverage across multiple areas:
 - **`t/01-constraint.t`** - CircAction and CircActions object tests
 - **`t/02-plugin-methods.t`** - Plugin metadata and core method tests
 - **`t/03-logger-integration.t`** - Koha::Logger integration and plugin-level logging tests
+- **`t/04-backend-templates.t`** - Backend action-template correspondence tests
 
 **Component Tests (t/RapidoILL/):**
 - **`t/RapidoILL/OAuth2.t`** - OAuth2 authentication and HTTP request logging tests
@@ -180,6 +181,12 @@ prove -v t/db_dependent/RapidoILL.t
 - CircAction workflow management
 - Plugin metadata and method validation
 - Configuration parsing and validation
+
+**Backend-Template Correspondence:**
+- Dynamic status graph analysis and method extraction
+- Backend method implementation verification
+- UI action template file existence validation
+- Code-template reference consistency checking
 
 ## Key Architecture Points
 
@@ -246,6 +253,7 @@ Koha/Plugin/Com/ByWaterSolutions/RapidoILL/
     ├── 01-constraint.t             # CircAction object tests
     ├── 02-plugin-methods.t         # Plugin metadata and methods
     ├── 03-logger-integration.t     # Koha::Logger integration tests
+    ├── 04-backend-templates.t      # Backend action-template correspondence tests
     ├── RapidoILL/
     │   ├── OAuth2.t                # OAuth2 authentication and logging tests
     │   └── StringNormalizer.t      # String normalization tests
