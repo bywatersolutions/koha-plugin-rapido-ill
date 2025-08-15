@@ -62,9 +62,9 @@ dev03-na:
   max_debt_blocks_holds: 100
   expiration_blocks_holds: true
   restriction_blocks_holds: true
-  # Debugging
-  debug_mode: false
-  debug_requests: false
+  # Debugging and logging
+  debug_mode: false        # Enable general debug logging
+  debug_requests: false    # Enable HTTP request debug logging (requires log4perl.conf setup)
   dev_mode: false
   default_retry_delay: 120
 ```
@@ -136,6 +136,91 @@ sudo -u library-koha crontab -e
 **Monitoring:**
 ```bash
 tail -f /var/log/koha/<instance>/plack-intranet-error.log | grep -i rapido
+```
+
+### Logging Configuration
+
+The plugin uses Koha::Logger for professional logging. To enable debug logging, you need to configure both the plugin and Koha's log4perl configuration.
+
+#### Plugin Configuration
+
+Enable debug logging in the plugin configuration:
+
+```yaml
+---
+dev03-na:
+  # ... other configuration ...
+  debug_requests: true    # Enable HTTP request debug logging
+  debug_mode: true       # Enable general debug logging
+```
+
+#### Koha log4perl.conf Configuration
+
+Add the following to your Koha instance's `log4perl.conf` file (usually located at `/etc/koha/sites/<instance>/log4perl.conf`):
+
+```perl
+# RapidoILL Plugin Logging
+log4perl.logger.rapidoill = DEBUG, RAPIDOILL
+log4perl.appender.RAPIDOILL = Log::Log4perl::Appender::File
+log4perl.appender.RAPIDOILL.filename = /var/log/koha/<instance>/rapidoill.log
+log4perl.appender.RAPIDOILL.mode = append
+log4perl.appender.RAPIDOILL.layout = Log::Log4perl::Layout::PatternLayout
+log4perl.appender.RAPIDOILL.layout.ConversionPattern = [%d] [%p] %m %l %n
+log4perl.appender.RAPIDOILL.utf8 = 1
+```
+
+Replace `<instance>` with your actual Koha instance name.
+
+**Important:** After modifying `log4perl.conf`, restart your Koha services:
+
+```bash
+# For systemd-based installations
+sudo systemctl restart koha-common
+
+# Or restart specific services
+sudo systemctl restart apache2
+sudo systemctl restart koha-indexer
+```
+
+#### Log Levels
+
+You can adjust the log level as needed:
+- `DEBUG` - All debug messages (verbose)
+- `INFO` - Informational messages
+- `WARN` - Warning messages only
+- `ERROR` - Error messages only
+
+#### Log File Rotation
+
+Consider setting up log rotation for the RapidoILL log file:
+
+```bash
+# Add to /etc/logrotate.d/koha-rapidoill
+/var/log/koha/*/rapidoill.log {
+    daily
+    missingok
+    rotate 52
+    compress
+    delaycompress
+    notifempty
+    create 640 <instance>-koha <instance>-koha
+    postrotate
+        systemctl reload apache2 > /dev/null 2>&1 || true
+    endscript
+}
+```
+
+#### Viewing Logs
+
+Monitor RapidoILL activity:
+
+```bash
+# Follow RapidoILL logs
+tail -f /var/log/koha/<instance>/rapidoill.log
+
+# Search for specific activity
+grep "POST request" /var/log/koha/<instance>/rapidoill.log
+grep "sync_requests" /var/log/koha/<instance>/rapidoill.log
 ```
 
 **Sample Cron File:**
