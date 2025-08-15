@@ -29,9 +29,10 @@ This script sets up everything needed to test the Rapido ILL plugin:
 
 1. Installs the plugin in Koha
 2. Configures the plugin with mock API settings
-3. Creates sample configuration with KTD-compatible data
-4. Sets up database permissions
-5. Provides instructions for running tests
+3. Sets up ILL prerequisites (ILLModule, IllLog, item types, patron categories)
+4. Creates sample configuration with KTD-compatible data
+5. Sets up database permissions and helper scripts
+6. Provides instructions for running tests
 
 Run this after starting a fresh KTD environment.
 
@@ -161,6 +162,15 @@ eval {
     );
     $ill_pref_sth->execute();
     print "   ✓ ILL Module enabled\n";
+    
+    # Enable ILL Logging
+    my $ill_log_sth = $dbh->prepare(
+        "INSERT INTO systempreferences (variable, value, explanation, type) 
+         VALUES ('IllLog', '1', 'If ON, log ILL activity.', 'YesNo')
+         ON DUPLICATE KEY UPDATE value = '1'"
+    );
+    $ill_log_sth->execute();
+    print "   ✓ ILL Logging enabled\n";
     
     # Create ILL item type
     my $itemtype_sth = $dbh->prepare(
