@@ -1738,7 +1738,7 @@ sub sync_agencies {
 
 =head3 sync_circ_requests
 
-    my $result = $self->sync_circ_requests(
+    my $results = $self->sync_circ_requests(
         {
             pod       => $pod,
           [ startTime => $startTime,
@@ -1746,7 +1746,26 @@ sub sync_agencies {
         }
     );
 
-Syncs circulation requests from the specified I<pod>.
+Syncs circulation requests from the specified I<pod> and returns processing results.
+
+Returns a hashref with the following structure:
+
+    {
+        processed => 5,           # Total requests processed
+        created   => 2,           # New ILL requests created
+        updated   => 2,           # Existing requests updated
+        skipped   => 1,           # Duplicate requests skipped
+        errors    => 0,           # Processing errors
+        messages  => [            # Detailed processing messages
+            {
+                type    => 'created',
+                circId  => 'CIRC001',
+                message => 'Created ILL request 123',
+                ill_request_id => 123
+            },
+            # ... more messages
+        ]
+    }
 
 TODO: Add state parameter.
 
@@ -1760,6 +1779,15 @@ sub sync_circ_requests {
     my $startTime = $params->{startTime} // "1700000000";
     my $endTime   = $params->{endTime}   // time();
 
+    my $results = {
+        processed => 0,
+        created   => 0,
+        updated   => 0,
+        skipped   => 0,
+        errors    => 0,
+        messages  => [],
+    };
+
     my $reqs = $self->get_client( $params->{pod} )->circulation_requests(
         {
             startTime => $startTime,
@@ -1768,6 +1796,8 @@ sub sync_circ_requests {
             state     => [ 'ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED' ],
         }
     );
+
+    $results->{processed} = scalar @{$reqs};
 
     foreach my $data ( @{$reqs} ) {
 
@@ -1783,22 +1813,30 @@ sub sync_circ_requests {
                 $schema->txn_do(
                     sub {
                         if ( $data->{circStatus} eq 'CANCELED' || $data->{circStatus} eq 'COMPLETED' ) {
-                            $self->rapido_warn(
-                                sprintf(
-                                    "ERROR:\tA finished request with circStatus='%s' lastCircState='%s' was found with no recorded ILL request. ",
-                                    $data->{circStatus}, $data->{lastCircState}
-                                )
+                            my $msg = sprintf(
+                                "A finished request with circStatus='%s' lastCircState='%s' was found with no recorded ILL request.",
+                                $data->{circStatus}, $data->{lastCircState}
                             );
+                            $self->logger->warn($msg);
+                            push @{ $results->{messages} },
+                                { type => 'warning', circId => $data->{circId}, message => $msg };
                         } else {
                             my $req = $self->add_ill_request($action);
                             $action->illrequest_id( $req->id );
                             $action->store();
-                            $self->rapido_warn(
-                                sprintf(
-                                    "SUCCESS:\tNew action recorded circStatus='%s' lastCircState='%s'. A new ILL request has been created (%s).",
-                                    $data->{circStatus}, $data->{lastCircState}, $req->id
-                                )
+                            my $msg = sprintf(
+                                "New ILL request created: circId=%s, circStatus='%s', lastCircState='%s', ill_request_id=%s",
+                                $data->{circId}, $data->{circStatus}, $data->{lastCircState}, $req->id
                             );
+                            $self->logger->info($msg);
+                            $results->{created}++;
+                            my $req_id = $req->id;
+                            push @{ $results->{messages} }, {
+                                type           => 'created',
+                                circId         => $data->{circId},
+                                message        => "Created ILL request $req_id",
+                                ill_request_id => $req_id
+                            };
                         }
                     }
                 );
@@ -1810,19 +1848,49 @@ sub sync_circ_requests {
                     sub {
                         $action->set( { illrequest_id => $prev_action->illrequest_id } )->store();
                         $self->update_ill_request($action);
-                        $self->rapido_warn(
-                            sprintf(
-                                "SUCCESS:\tAction update recorded circStatus='%s' lastCircState='%s'. ILL request has been updated (%s).",
-                                $data->{circStatus}, $data->{lastCircState}, $prev_action->illrequest_id
-                            )
+                        my $msg = sprintf(
+                            "ILL request updated: circId=%s, circStatus='%s', lastCircState='%s', ill_request_id=%s",
+                            $data->{circId}, $data->{circStatus}, $data->{lastCircState}, $prev_action->illrequest_id
                         );
+                        $self->logger->info($msg);
+                        $results->{updated}++;
+                        my $prev_req_id = $prev_action->illrequest_id;
+                        push @{ $results->{messages} }, {
+                            type           => 'updated',
+                            circId         => $data->{circId},
+                            message        => "Updated ILL request $prev_req_id",
+                            ill_request_id => $prev_req_id
+                        };
                     }
                 );
             }    # else / no action required
         } catch {
-            $self->rapido_warn( sprintf( "ERROR:\tError processing circId=%s: %s", $data->{circId}, $_ ) );
+            my $error = $_;
+
+            # Check if this is a duplicate entry error
+            if ( $error =~ /Duplicate entry.*for key|already exists/ ) {
+                my $msg = sprintf( "Skipping duplicate circId=%s (already processed)", $data->{circId} );
+                $self->logger->debug($msg);
+                $results->{skipped}++;
+                push @{ $results->{messages} }, {
+                    type    => 'skipped',
+                    circId  => $data->{circId},
+                    message => "Already processed (duplicate)"
+                };
+            } else {
+                my $msg = sprintf( "Error processing circId=%s: %s", $data->{circId}, $error );
+                $self->logger->error($msg);
+                $results->{errors}++;
+                push @{ $results->{messages} }, {
+                    type    => 'error',
+                    circId  => $data->{circId},
+                    message => $error
+                };
+            }
         };
     }
+
+    return $results;
 }
 
 =head3 add_ill_request
