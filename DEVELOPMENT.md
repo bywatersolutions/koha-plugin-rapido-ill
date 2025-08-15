@@ -124,7 +124,7 @@ The plugin includes comprehensive test coverage across multiple areas:
 - **`t/04-backend-templates.t`** - Backend action-template correspondence tests
 
 **Component Tests (t/RapidoILL/):**
-- **`t/RapidoILL/OAuth2.t`** - OAuth2 authentication and HTTP request logging tests
+- **`t/RapidoILL/APIHttpClient.t`** - APIHttpClient authentication and HTTP request logging tests
 - **`t/RapidoILL/StringNormalizer.t`** - String normalization and validation tests
 
 **Database-Dependent Tests (t/db_dependent/):**
@@ -152,7 +152,7 @@ prove -v t/RapidoILL/          # Component tests only
 
 # Run individual tests
 prove -v t/03-logger-integration.t
-prove -v t/RapidoILL/OAuth2.t
+prove -v t/RapidoILL/APIHttpClient.t
 prove -v t/db_dependent/RapidoILL.t
 ```
 
@@ -160,12 +160,12 @@ prove -v t/db_dependent/RapidoILL.t
 
 **Logging Integration:**
 - Plugin-level Koha::Logger integration
-- OAuth2 HTTP request logging (info, error, debug levels)
+- APIHttpClient HTTP request logging (info, error, debug levels)
 - Logger singleton behavior and error handling
 - Debug mode configuration testing
 
 **Authentication & HTTP:**
-- OAuth2 token management and refresh
+- APIHttpClient token management and refresh
 - HTTP request methods (POST, GET, PUT, DELETE)
 - Request/response logging and error handling
 - Mock API integration testing
@@ -205,7 +205,7 @@ prove -v t/db_dependent/RapidoILL.t
 ### Testing Patterns
 - **Database-dependent tests**: Use transaction isolation (`txn_begin`/`txn_rollback`)
 - **Test counting**: Each `subtest` = 1 test (not internal test count)
-- **Naming**: Class-based (`RapidoILL.t` for main class) or feature-based (`OAuth2.t`)
+- **Naming**: Class-based (`RapidoILL.t` for main class) or feature-based (`APIHttpClient.t`)
 - **Structure**: Method-based subtests (`configuration() tests`) or feature-based (`Logging tests`)
 - **Mocking**: Use `Test::MockObject` for external dependencies (Koha::Logger, HTTP responses)
 - **Logger testing**: Mock logger to verify calls are made, don't test Koha::Logger internals
@@ -240,7 +240,7 @@ Koha/Plugin/Com/ByWaterSolutions/RapidoILL/
 ├── lib/
 │   ├── RapidoILL/
 │   │   ├── Backend.pm              # ILL backend
-│   │   ├── OAuth2.pm               # OAuth2 authentication with logging
+│   │   ├── APIHttpClient.pm        # OAuth2-enabled HTTP client with logging
 │   │   ├── Client.pm               # API client
 │   │   ├── StringNormalizer.pm     # String normalization utilities
 │   │   ├── QueuedTask.pm           # Individual task object
@@ -255,7 +255,7 @@ Koha/Plugin/Com/ByWaterSolutions/RapidoILL/
     ├── 03-logger-integration.t     # Koha::Logger integration tests
     ├── 04-backend-templates.t      # Backend action-template correspondence tests
     ├── RapidoILL/
-    │   ├── OAuth2.t                # OAuth2 authentication and logging tests
+    │   ├── APIHttpClient.t         # APIHttpClient authentication and logging tests
     │   └── StringNormalizer.t      # String normalization tests
     └── db_dependent/
         ├── RapidoILL.t             # Main plugin database tests

@@ -1189,26 +1189,28 @@ sub get_ill_request {
     return $req;
 }
 
-=head3 get_ua
+=head3 get_http_client
 
-    my $us = $plugin->get_ua($pod);
+    my $client = $plugin->get_http_client($pod);
 
-This method retrieves a user agent object for contacting a given I<$pod>.
+Returns an authenticated HTTP client for the specified pod. The client handles
+OAuth2 authentication and provides methods for making HTTP requests to the
+Rapido ILL API.
 
 =cut
 
-sub get_ua {
+sub get_http_client {
     my ( $self, $pod ) = @_;
 
     RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
         unless $pod;
 
-    require RapidoILL::OAuth2;
+    require RapidoILL::APIHttpClient;
 
     my $configuration = $self->configuration->{$pod};
 
-    unless ( $self->{_oauth2}->{$pod} ) {
-        $self->{_oauth2}->{$pod} = RapidoILL::OAuth2->new(
+    unless ( $self->{_http_clients}->{$pod} ) {
+        $self->{_http_clients}->{$pod} = RapidoILL::APIHttpClient->new(
             {
                 client_id      => $configuration->{client_id},
                 client_secret  => $configuration->{client_secret},
@@ -1219,7 +1221,20 @@ sub get_ua {
         );
     }
 
-    return $self->{_oauth2}->{$pod};
+    return $self->{_http_clients}->{$pod};
+}
+
+=head3 get_ua
+
+    my $client = $plugin->get_ua($pod);
+
+Deprecated method. Use get_http_client() instead.
+
+=cut
+
+sub get_ua {
+    my ( $self, $pod ) = @_;
+    return $self->get_http_client($pod);
 }
 
 =head3 get_client

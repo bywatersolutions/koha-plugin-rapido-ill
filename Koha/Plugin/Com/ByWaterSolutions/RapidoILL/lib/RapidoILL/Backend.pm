@@ -481,7 +481,7 @@ sub item_recalled {
 
         return try {
 
-            my $response = $self->{plugin}->get_ua($centralCode)->post_request(
+            my $response = $self->{plugin}->get_http_client($centralCode)->post_request(
                 {
                     endpoint    => "/innreach/v2/circ/recall/$trackingId/$centralCode",
                     centralCode => $centralCode,
@@ -789,7 +789,7 @@ sub return_uncirculated {
     my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
     my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
 
-    my $response = $self->{plugin}->get_ua($centralCode)->post_request(
+    my $response = $self->{plugin}->get_http_client($centralCode)->post_request(
         {
             endpoint    => "/innreach/v2/circ/returnuncirculated/$trackingId/$centralCode",
             centralCode => $centralCode,
@@ -892,7 +892,7 @@ sub claims_returned {
     my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
     my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
 
-    my $response = $self->{plugin}->get_ua($centralCode)->post_request(
+    my $response = $self->{plugin}->get_http_client($centralCode)->post_request(
         {
             endpoint    => "/innreach/v2/circ/claimsreturned/$trackingId/$centralCode",
             centralCode => $centralCode,

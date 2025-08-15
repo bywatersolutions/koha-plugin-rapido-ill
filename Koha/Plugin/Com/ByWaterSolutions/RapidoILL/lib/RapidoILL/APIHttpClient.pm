@@ -1,4 +1,4 @@
-package RapidoILL::OAuth2;
+package RapidoILL::APIHttpClient;
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,15 +30,19 @@ use URI          ();
 
 use RapidoILL::Exceptions;
 
-=head1 RapidoILL::OAuth2
+=head1 RapidoILL::APIHttpClient
 
-A class implementing the a user agent for connecting to Rapido ILL central servers.
+An OAuth2-enabled HTTP client for the Rapido ILL API.
+
+This class provides authenticated HTTP communication with Rapido ILL central servers.
+It handles OAuth2 token management (acquisition, refresh, expiration checking) and 
+HTTP request execution with proper authentication headers.
 
 =head2 Class methods
 
 =head3 new
 
-    my $ua = RapidoILL::OAuth2->new(
+    my $client = RapidoILL::APIHttpClient->new(
         {
             client_id      => 'a_client_id',
             client_secret  => 'a_client_secret',
@@ -47,7 +51,7 @@ A class implementing the a user agent for connecting to Rapido ILL central serve
         }
     );
 
-Constructor for the user agent class.
+Constructor for the authenticated HTTP client.
 
 =cut
 

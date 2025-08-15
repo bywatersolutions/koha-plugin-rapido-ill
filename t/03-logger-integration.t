@@ -53,7 +53,7 @@ subtest 'Plugin logger method' => sub {
     is( $logger, $logger2, 'Logger method returns same instance (singleton)' );
 };
 
-subtest 'OAuth2 gets plugin reference for logger access' => sub {
+subtest 'APIHttpClient gets plugin reference for logger access' => sub {
     plan tests => 4;
 
     # Mock Koha::Logger
@@ -82,21 +82,21 @@ subtest 'OAuth2 gets plugin reference for logger access' => sub {
         }
     );
 
-    # Mock OAuth2 to avoid HTTP requests
-    my $oauth2_mock = Test::MockModule->new('RapidoILL::OAuth2');
-    $oauth2_mock->mock( 'refresh_token', sub { return 1; } );
+    # Mock APIHttpClient to avoid HTTP requests
+    my $client_mock = Test::MockModule->new('RapidoILL::APIHttpClient');
+    $client_mock->mock( 'refresh_token', sub { return 1; } );
 
-    # Test OAuth2 instantiation with plugin reference
+    # Test APIHttpClient instantiation with plugin reference
     lives_ok {
-        my $oauth2 = $plugin->get_ua('test-pod');
-        isa_ok( $oauth2, 'RapidoILL::OAuth2', 'OAuth2 instance created' );
+        my $client = $plugin->get_http_client('test-pod');
+        isa_ok( $client, 'RapidoILL::APIHttpClient', 'APIHttpClient instance created' );
 
-        # Test that OAuth2 has plugin reference
-        is( $oauth2->plugin, $plugin, 'OAuth2 has plugin reference' );
+        # Test that APIHttpClient has plugin reference
+        is( $client->plugin, $plugin, 'APIHttpClient has plugin reference' );
 
-        # Test that OAuth2 can access logger through plugin
-        ok( $oauth2->can('logger'), 'OAuth2 has logger method' );
+        # Test that APIHttpClient can access logger through plugin
+        ok( $client->can('logger'), 'APIHttpClient has logger method' );
 
     }
-    'OAuth2 instantiation with plugin reference works';
+    'APIHttpClient instantiation with plugin reference works';
 };

@@ -57,7 +57,7 @@ sub new {
     my $self = {
         pod           => $pod,
         configuration => $params->{plugin}->configuration->{$pod},
-        ua            => $params->{plugin}->get_ua($pod),
+        ua            => $params->{plugin}->get_http_client($pod),
         plugin        => $params->{plugin},
     };
 
