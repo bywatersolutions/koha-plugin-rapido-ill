@@ -294,7 +294,7 @@ sub upgrade {
     my $task_queue       = $self->get_qualified_table_name('task_queue');
     my $circ_actions     = $self->get_qualified_table_name('circ_actions');
 
-    $new_version = "0.3.12";
+    my $new_version = "0.3.12";
     if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
 
         # Add puaAgencyCode column if it doesn't exist (for existing installations)
