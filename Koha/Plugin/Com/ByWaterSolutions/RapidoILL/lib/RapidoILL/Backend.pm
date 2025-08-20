@@ -379,7 +379,8 @@ sub item_shipped {
     my $itemId = $attrs->find( { type => 'itemId' } )->value;
 
     my $item = Koha::Items->find( { barcode => $itemId } );
-
+    my $duedate = $attrs->find( {type => 'dueDate' } )->value;
+    
     return try {
         Koha::Database->schema->storage->txn_do(
             sub {
