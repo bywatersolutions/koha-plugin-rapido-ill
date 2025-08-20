@@ -45,6 +45,50 @@
                 }
             ]
         },
+        "borrowing_in_transit": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC001",
+                    "circStatus": "ITEM_IN_TRANSIT",
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "itemBarcode": "3999900000001",
+                    "itemId": "3999900000001",
+                    "lastUpdated": "2025-08-15T13:43:56Z",
+                    "lenderCode": "famaf",
+                    "needBefore": "2025-09-14T11:43:56Z",
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "23529000445172",
+                    "patronName": "Tanya Daniels",
+                    "pickupLocation": "MPL",
+                    "requestId": "REQ001",
+                    "title": "E Street shuffle"
+                }
+            ]
+        },
+        "borrowing_final_checkin": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC001",
+                    "circStatus": "ITEM_RECEIVED",
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "itemBarcode": "3999900000001",
+                    "itemId": "3999900000001",
+                    "lastUpdated": "2025-08-15T15:43:56Z",
+                    "lenderCode": "famaf",
+                    "needBefore": "2025-09-14T11:43:56Z",
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "23529000445172",
+                    "patronName": "Tanya Daniels",
+                    "pickupLocation": "MPL",
+                    "requestId": "REQ001",
+                    "title": "E Street shuffle"
+                }
+            ]
+        },
         "borrowing_shipped": {
             "data": [
                 {
@@ -175,7 +219,7 @@
     },
     "scenarios": {
         "borrowing": {
-            "description": "Typical borrowing workflow",
+            "description": "Complete borrowing workflow",
             "sequence": [
                 {
                     "endpoint": "circulation_requests",
@@ -188,6 +232,14 @@
                 {
                     "endpoint": "circulation_requests",
                     "response": "borrowing_received"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_in_transit"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_final_checkin"
                 }
             ]
         },

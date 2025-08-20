@@ -28,18 +28,30 @@ Based on the official Rapido API specification (page 15 of "Rapido via APIs.pdf"
 2. *(Lender ships it - they report `ITEM_SHIPPED`)*
 3. `ITEM_RECEIVED` - We receive the shipped item
 4. `ITEM_IN_TRANSIT` - We send the item back to lender
+5. *(Lender receives it back - they report `ITEM_RECEIVED` via FINAL_CHECKIN)*
 
 ### Mock API Scenarios:
 
-#### Borrowing Scenario:
+#### Borrowing Scenario (Complete Workflow):
 - `borrowing_initial`: `PATRON_HOLD` - Item on hold for patron
 - `borrowing_shipped`: `ITEM_SHIPPED` - Lender shipped the item
 - `borrowing_received`: `ITEM_RECEIVED` - We received the item
+- `borrowing_in_transit`: `ITEM_IN_TRANSIT` - We sent item back to lender
+- `borrowing_final_checkin`: `ITEM_RECEIVED` - Lender received item back (FINAL_CHECKIN)
 
 #### Lending Scenario:
 - `lending_initial`: `ITEM_HOLD` - We hold item for lending
 - `lending_shipped`: `ITEM_SHIPPED` - We shipped item to borrower
 - `lending_received`: `ITEM_RECEIVED` - We received item back from borrower
+
+### Circulation Controls:
+
+From the official specification, circulation controls trigger state changes:
+- `FINAL_CHECKIN` - Lender receives returned item (results in `ITEM_RECEIVED`)
+- `ITEM_IN_TRANSIT` - Borrower returns item to lender
+- `ITEM_RECEIVED` - Item received at destination
+- `ITEM_SHIPPED` - Item shipped to borrower
+- And others as defined in the Rapido API specification
 
 **Note**: States like `PENDING_CHECKOUT`, `ITEM_CHECKED_OUT`, and `ITEM_RETURNED` are NOT part of the official Rapido specification and should not be used.
 
