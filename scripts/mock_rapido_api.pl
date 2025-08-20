@@ -34,6 +34,11 @@ Circulation Requests: GET /view/broker/circ/circrequests
 Lender Actions: POST /view/broker/circ/{circId}/lendercancel, /lendershipped
 Borrower Actions: POST /view/broker/circ/{circId}/itemreceived, /itemreturned
 
+Additional endpoints:
+Status: GET /status
+Scenarios: GET /scenarios (list available test scenarios)
+Control: POST /control/scenario/{name}, POST /control/reset
+
 =cut
 
 # Command line options
@@ -69,13 +74,13 @@ my $api_state = {
 # List available scenarios
 sub list_scenarios {
     my ($config_file) = @_;
-    
+
     print "Mock Rapido API - Available Scenarios\n";
     print "=" x 40 . "\n\n";
-    
+
     # Load config to get scenarios
     my $config = {};
-    if (-f $config_file) {
+    if ( -f $config_file ) {
         open my $fh, '<', $config_file or die "Cannot open $config_file: $!";
         my $json_text = do { local $/; <$fh> };
         close $fh;
@@ -84,42 +89,42 @@ sub list_scenarios {
         print "Config file '$config_file' not found!\n";
         return;
     }
-    
+
     my $scenarios = $config->{scenarios} || {};
-    
-    if (!%$scenarios) {
+
+    if ( !%$scenarios ) {
         print "No scenarios found in config file.\n";
         return;
     }
-    
+
     print "Usage: perl mock_rapido_api.pl --scenario=SCENARIO_NAME\n\n";
-    
+
     # Display scenarios
-    for my $scenario_name (sort keys %$scenarios) {
-        my $scenario = $scenarios->{$scenario_name};
+    for my $scenario_name ( sort keys %$scenarios ) {
+        my $scenario    = $scenarios->{$scenario_name};
         my $description = $scenario->{description} || 'No description';
-        my $steps = @{$scenario->{sequence} || []};
-        
+        my $steps       = @{ $scenario->{sequence} || [] };
+
         printf "%-20s %s (%d steps)\n", $scenario_name, $description, $steps;
-        
+
         # Show sequence details
-        if ($scenario->{sequence}) {
-            for my $i (0 .. $#{$scenario->{sequence}}) {
+        if ( $scenario->{sequence} ) {
+            for my $i ( 0 .. $#{ $scenario->{sequence} } ) {
                 my $step = $scenario->{sequence}[$i];
                 printf "  %d. %s -> %s\n", $i + 1, $step->{endpoint}, $step->{response};
             }
         }
         print "\n";
     }
-    
+
     # Display available response data
     my $responses = $config->{responses} || {};
     if (%$responses) {
         print "Available Response Data:\n";
         print "-" x 25 . "\n";
-        for my $response_name (sort keys %$responses) {
+        for my $response_name ( sort keys %$responses ) {
             my $response = $responses->{$response_name};
-            my $count = @{$response->{data} || []};
+            my $count    = @{ $response->{data} || [] };
             printf "%-25s %d records\n", $response_name, $count;
         }
     }
@@ -130,6 +135,7 @@ sub load_config {
     my $config = {};
 
     if ( -f $config_file ) {
+
         # Load existing config
         eval {
             open my $fh, '<', $config_file or die "Cannot open $config_file: $!";
@@ -448,8 +454,73 @@ get '/status' => sub ($c) {
                 'POST /view/broker/circ/{circId}/lendercancel',
                 'POST /view/broker/circ/{circId}/lendershipped',
                 'POST /view/broker/circ/{circId}/itemreceived',
-                'POST /view/broker/circ/{circId}/itemreturned'
+                'POST /view/broker/circ/{circId}/itemreturned',
+                'GET /status',
+                'GET /scenarios'
             ]
+        }
+    );
+};
+
+# Scenarios endpoint - retrieve available scenarios as JSON
+get '/scenarios' => sub ($c) {
+    my $config    = load_config();
+    my $scenarios = $config->{scenarios} || {};
+    my $responses = $config->{responses} || {};
+
+    # Build detailed scenario information
+    my $scenario_details = {};
+
+    for my $scenario_name ( keys %$scenarios ) {
+        my $scenario = $scenarios->{$scenario_name};
+        my $sequence = $scenario->{sequence} || [];
+
+        # Get details for each step
+        my @steps = ();
+        for my $i ( 0 .. $#$sequence ) {
+            my $step          = $sequence->[$i];
+            my $response_name = $step->{response};
+            my $response_data = $responses->{$response_name} || {};
+            my $record_count  = @{ $response_data->{data} || [] };
+
+            push @steps, {
+                step_number  => $i + 1,
+                endpoint     => $step->{endpoint},
+                response     => $response_name,
+                record_count => $record_count
+            };
+        }
+
+        $scenario_details->{$scenario_name} = {
+            description => $scenario->{description} || 'No description',
+            step_count  => scalar(@$sequence),
+            steps       => \@steps
+        };
+    }
+
+    # Build response data summary
+    my $response_summary = {};
+    for my $response_name ( keys %$responses ) {
+        my $response = $responses->{$response_name};
+        $response_summary->{$response_name} = {
+            record_count  => @{ $response->{data} || [] },
+            sample_fields => []
+        };
+
+        # Get sample field names from first record
+        if ( $response->{data} && @{ $response->{data} } > 0 ) {
+            my $first_record = $response->{data}[0];
+            $response_summary->{$response_name}{sample_fields} = [ sort keys %$first_record ];
+        }
+    }
+
+    $c->render(
+        json => {
+            scenarios        => $scenario_details,
+            responses        => $response_summary,
+            current_scenario => $api_state->{current_scenario} || 'none',
+            total_scenarios  => scalar( keys %$scenarios ),
+            total_responses  => scalar( keys %$responses )
         }
     );
 };
