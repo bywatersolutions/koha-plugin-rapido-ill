@@ -81,6 +81,7 @@ sub handle_from_action {
 
     my $status_to_method = {
         'DEFAULT'         => \&default_handler,
+        'FINAL_CHECKIN'   => \&borrower_final_checkin,
         'ITEM_IN_TRANSIT' => \&borrower_item_in_transit,
         'ITEM_RECEIVED'   => \&borrower_item_received,
         'ITEM_SHIPPED'    => \&lender_item_shipped,
@@ -341,6 +342,27 @@ sub borrower_item_in_transit {
     my ($self, $action) = @_;
 
     # No action, this was triggered by us.
+
+    return;
+}
+
+=head3 borrower_final_checkin
+
+    $client->borrower_final_checkin( $action );
+
+Handle FINAL_CHECKIN from borrower perspective - the lender has received
+the item back and completed the transaction.
+
+=cut
+
+sub borrower_final_checkin {
+    my ($self, $action) = @_;
+
+    # The lender has received the item back and completed the transaction
+    # From the borrower's perspective, this means the request is complete
+    my $req = $action->ill_request;
+    $req->status('B_ITEM_CHECKED_IN');
+    $req->status('COMP')->store;
 
     return;
 }
