@@ -40,7 +40,7 @@ Run this after starting a fresh KTD environment.
 
 # Command line options
 my $mock_port = 3001;
-my $help = 0;
+my $help      = 0;
 
 GetOptions(
     'mock-port=i' => \$mock_port,
@@ -54,7 +54,7 @@ print "=== Rapido ILL Plugin Testing Bootstrap ===\n\n";
 # Step 1: Install the plugin
 print "1. Installing Rapido ILL plugin...\n";
 my $install_result = system("cd /kohadevbox/koha && perl misc/devel/install_plugins.pl 2>/dev/null");
-if ($install_result == 0) {
+if ( $install_result == 0 ) {
     print "   ✓ Plugin installed successfully\n";
 } else {
     print "   ⚠ Plugin installation had warnings (this is normal)\n";
@@ -63,47 +63,67 @@ if ($install_result == 0) {
 # Step 2: Configure the plugin with mock API settings
 print "\n2. Configuring plugin for mock API testing...\n";
 
+# Get all existing branches (excluding our created Rapido agencies) for location mapping
+my $dbh_branches = DBI->connect(
+    "DBI:mysql:database=koha_kohadev;host=db",
+    "root",
+    "password",
+    { RaiseError => 1, AutoCommit => 1 }
+);
+
+my $branch_sth =
+    $dbh_branches->prepare("SELECT branchcode FROM branches WHERE branchcode != 'RAPIDO' ORDER BY branchcode");
+$branch_sth->execute();
+
+my %location_to_library = ();
+while ( my ($branchcode) = $branch_sth->fetchrow_array() ) {
+    $location_to_library{$branchcode} = $branchcode;    # 1:1 mapping
+}
+$dbh_branches->disconnect();
+
 my $plugin_config = {
     'mock-pod' => {
-        base_url => "http://localhost:$mock_port",
-        client_id => 'mock_client',
-        client_secret => 'mock_secret',
-        server_code => '11747',
-        partners_library_id => 'MPL',  # Valid KTD branch code
-        partners_category => 'ILL',
-        default_item_type => 'ILL',
-        default_patron_agency => 'ffyh',  # This is the agency code, not branch code
-        default_location => '',
-        default_checkin_note => 'Additional processing required (ILL)',
-        default_hold_note => 'Placed by ILL',
-        default_marc_framework => 'FA',
-        default_item_ccode => 'RAPIDO',
-        default_notforloan => '',
-        materials_specified => JSON::true,
+        base_url                    => "http://localhost:$mock_port",
+        client_id                   => 'mock_client',
+        client_secret               => 'mock_secret',
+        server_code                 => '11747',
+        partners_library_id         => 'RAPIDO',                              # Use RAPIDO branch for agency patrons
+        partners_category           => 'ILL',
+        default_item_type           => 'ILL',
+        default_patron_agency       => 'ffyh',                                # This is the agency code, not branch code
+        default_location            => '',
+        default_checkin_note        => 'Additional processing required (ILL)',
+        default_hold_note           => 'Placed by ILL',
+        default_marc_framework      => 'FA',
+        default_item_ccode          => 'RAPIDO',
+        default_notforloan          => '',
+        materials_specified         => 1,
         default_materials_specified => 'Additional processing required (ILL)',
-        location_to_library => {
-            ffyh => 'MPL'
-        },
-        borrowing => {
-            automatic_item_in_transit => JSON::false,
-            automatic_item_receive => JSON::false
+        location_to_library         => \%location_to_library,
+        borrowing                   => {
+            automatic_item_in_transit => 0,
+            automatic_item_receive    => 0
         },
         lending => {
-            automatic_final_checkin => JSON::false,
-            automatic_item_shipped => JSON::false
+            automatic_final_checkin => 0,
+            automatic_item_shipped  => 0
         },
-        debt_blocks_holds => JSON::true,
-        max_debt_blocks_holds => 100,
-        expiration_blocks_holds => JSON::true,
-        restriction_blocks_holds => JSON::true,
-        debug_mode => JSON::true,
-        debug_requests => JSON::true,
-        dev_mode => JSON::false,
-        default_retry_delay => 120
+        debt_blocks_holds        => 1,
+        max_debt_blocks_holds    => 100,
+        expiration_blocks_holds  => 1,
+        restriction_blocks_holds => 1,
+        debug_mode               => 1,
+        debug_requests           => 1,
+        dev_mode                 => 0,
+        default_retry_delay      => 120
     }
 };
 
 my $yaml_config = YAML::XS::Dump($plugin_config);
+
+# Clean up the YAML to use proper boolean values
+$yaml_config =~ s/: 1$/: true/gm;
+$yaml_config =~ s/: 0$/: false/gm;
 
 # Update plugin configuration in database
 eval {
@@ -113,20 +133,20 @@ eval {
         "password",
         { RaiseError => 1, AutoCommit => 1 }
     );
-    
+
     my $sth = $dbh->prepare(
         "UPDATE plugin_data SET plugin_value = ? 
          WHERE plugin_class = 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL' 
          AND plugin_key = 'configuration'"
     );
-    
+
     $sth->execute($yaml_config);
-    
-    if ($sth->rows > 0) {
+
+    if ( $sth->rows > 0 ) {
         print "   ✓ Plugin configuration updated\n";
     } else {
         print "   ⚠ Plugin configuration not found, creating new entry\n";
-        
+
         my $insert_sth = $dbh->prepare(
             "INSERT INTO plugin_data (plugin_class, plugin_key, plugin_value) 
              VALUES ('Koha::Plugin::Com::ByWaterSolutions::RapidoILL', 'configuration', ?)"
@@ -134,7 +154,7 @@ eval {
         $insert_sth->execute($yaml_config);
         print "   ✓ Plugin configuration created\n";
     }
-    
+
     $dbh->disconnect;
 };
 
@@ -153,7 +173,7 @@ eval {
         "password",
         { RaiseError => 1, AutoCommit => 1 }
     );
-    
+
     # Enable ILL Module
     my $ill_pref_sth = $dbh->prepare(
         "INSERT INTO systempreferences (variable, value, explanation, type) 
@@ -162,7 +182,7 @@ eval {
     );
     $ill_pref_sth->execute();
     print "   ✓ ILL Module enabled\n";
-    
+
     # Enable ILL Logging
     my $ill_log_sth = $dbh->prepare(
         "INSERT INTO systempreferences (variable, value, explanation, type) 
@@ -171,7 +191,7 @@ eval {
     );
     $ill_log_sth->execute();
     print "   ✓ ILL Logging enabled\n";
-    
+
     # Create ILL item type
     my $itemtype_sth = $dbh->prepare(
         "INSERT IGNORE INTO itemtypes (itemtype, description, rentalcharge, notforloan, imageurl, summary, checkinmsg, checkinmsgtype, sip_media_type, hideinopac, searchcategory) 
@@ -179,7 +199,7 @@ eval {
     );
     $itemtype_sth->execute();
     print "   ✓ ILL item type created\n";
-    
+
     # Create ILL patron category
     my $category_sth = $dbh->prepare(
         "INSERT IGNORE INTO categories (categorycode, description, enrolmentperiod, upperagelimit, dateofbirthrequired, enrolmentfee, overduenoticerequired, reservefee, hidelostitems, category_type) 
@@ -187,7 +207,15 @@ eval {
     );
     $category_sth->execute();
     print "   ✓ ILL patron category created\n";
-    
+
+    # Create RAPIDO branch for agency patrons
+    my $rapido_branch_sth = $dbh->prepare(
+        "INSERT IGNORE INTO branches (branchcode, branchname, branchaddress1, branchcity, branchzip, branchcountry, branchphone, branchemail, branchurl, issuing, branchip, branchnotes, pickup_location, public) 
+         VALUES ('RAPIDO', 'Rapido ILL Central Hub', 'Rapido ILL Network', 'Virtual', '0000', 'Network', '+00-000-0000000', 'rapido\@ill.network', 'https://rapido.ill.network', 1, '', 'Central hub for Rapido ILL agency patrons', 0, 0)"
+    );
+    $rapido_branch_sth->execute();
+    print "   ✓ Created RAPIDO branch for agency patrons\n";
+
     $dbh->disconnect;
 };
 
@@ -195,19 +223,66 @@ if ($@) {
     print "   ✗ ILL prerequisites setup failed: $@\n";
 }
 
-# Step 4: Create sample mock API configuration
-print "\n4. Creating mock API configuration...\n";
+# Step 4: Create agencies for mock API data
+print "\n4. Creating agencies for mock API testing...\n";
+
+# Agencies used in mock API responses that need patrons
+my @mock_agencies = (
+    {
+        agency_id    => 'famaf',
+        description  => 'Facultad de Matemática, Astronomía, Física y Computación',
+        local_server => 'famaf'
+    },
+    {
+        agency_id    => 'derecho',
+        description  => 'Facultad de Derecho y Ciencias Sociales',
+        local_server => 'derecho'
+    },
+    {
+        agency_id    => 'psico',
+        description  => 'Facultad de Psicología',
+        local_server => 'psico'
+    },
+    {
+        agency_id    => 'ffyh',
+        description  => 'Facultad de Filosofía y Humanidades',
+        local_server => 'ffyh'
+    }
+);
+
+foreach my $agency (@mock_agencies) {
+    my $cmd =
+          "cd /kohadevbox/plugins/rapido-ill && "
+        . "PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. "
+        . "perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/manage_agencies.pl "
+        . "--pod mock-pod --add "
+        . "--agency_id '$agency->{agency_id}' "
+        . "--local_server '$agency->{local_server}' "
+        . "--description '$agency->{description}' "
+        . "--visiting_checkout 2>/dev/null";
+
+    my $result = system($cmd);
+    if ( $result == 0 ) {
+        print "   ✓ Created agency: $agency->{agency_id} - $agency->{description}\n";
+    } else {
+        print "   ⚠ Agency $agency->{agency_id} may already exist or creation failed\n";
+    }
+}
+
+# Step 5: Create sample mock API configuration
+print "\n5. Creating mock API configuration...\n";
 
 my $mock_config_path = "/kohadevbox/plugins/rapido-ill/scripts/mock_config.json";
-if (-f $mock_config_path) {
+if ( -f $mock_config_path ) {
     print "   ✓ Mock API configuration already exists\n";
 } else {
+
     # The mock API will create its own config on first run
     print "   ✓ Mock API will create configuration on first run\n";
 }
 
-# Step 5: Set up environment
-print "\n5. Setting up environment...\n";
+# Step 6: Set up environment
+print "\n6. Setting up environment...\n";
 
 # Create a helper script for running sync
 my $sync_helper = '#!/bin/bash
@@ -224,7 +299,7 @@ echo "Running sync for mock-pod..."
 perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod mock-pod "$@"
 ';
 
-write_file('/kohadevbox/plugins/rapido-ill/scripts/run_sync.sh', $sync_helper);
+write_file( '/kohadevbox/plugins/rapido-ill/scripts/run_sync.sh', $sync_helper );
 system('chmod +x /kohadevbox/plugins/rapido-ill/scripts/run_sync.sh');
 print "   ✓ Created sync helper script: run_sync.sh\n";
 
@@ -261,12 +336,12 @@ echo ""
 echo "=== Mock API Test Complete ==="
 ';
 
-write_file('/kohadevbox/plugins/rapido-ill/scripts/test_mock_api.sh', $test_helper);
+write_file( '/kohadevbox/plugins/rapido-ill/scripts/test_mock_api.sh', $test_helper );
 system('chmod +x /kohadevbox/plugins/rapido-ill/scripts/test_mock_api.sh');
 print "   ✓ Created API test script: test_mock_api.sh\n";
 
-# Step 6: Verify KTD sample data
-print "\n6. Verifying KTD sample data...\n";
+# Step 7: Verify KTD sample data
+print "\n7. Verifying KTD sample data...\n";
 
 eval {
     my $dbh = DBI->connect(
@@ -275,29 +350,33 @@ eval {
         "password",
         { RaiseError => 1, AutoCommit => 1 }
     );
-    
+
     # Check for sample patrons
-    my $patron_sth = $dbh->prepare("SELECT cardnumber, firstname, surname FROM borrowers WHERE cardnumber IN ('23529000445172', '23529000152273', '23529000105040') LIMIT 3");
+    my $patron_sth = $dbh->prepare(
+        "SELECT cardnumber, firstname, surname FROM borrowers WHERE cardnumber IN ('23529000445172', '23529000152273', '23529000105040') LIMIT 3"
+    );
     $patron_sth->execute();
     my $patron_count = 0;
-    while (my $row = $patron_sth->fetchrow_hashref) {
+    while ( my $row = $patron_sth->fetchrow_hashref ) {
         $patron_count++;
         print "   ✓ Found patron: $row->{firstname} $row->{surname} ($row->{cardnumber})\n";
     }
-    
+
     # Check for sample items
-    my $item_sth = $dbh->prepare("SELECT i.barcode, b.title FROM items i JOIN biblio b ON i.biblionumber = b.biblionumber WHERE i.barcode IN ('3999900000001', '3999900000018', '3999900000021') LIMIT 3");
+    my $item_sth = $dbh->prepare(
+        "SELECT i.barcode, b.title FROM items i JOIN biblio b ON i.biblionumber = b.biblionumber WHERE i.barcode IN ('3999900000001', '3999900000018', '3999900000021') LIMIT 3"
+    );
     $item_sth->execute();
     my $item_count = 0;
-    while (my $row = $item_sth->fetchrow_hashref) {
+    while ( my $row = $item_sth->fetchrow_hashref ) {
         $item_count++;
-        my $short_title = substr($row->{title}, 0, 30) . (length($row->{title}) > 30 ? "..." : "");
+        my $short_title = substr( $row->{title}, 0, 30 ) . ( length( $row->{title} ) > 30 ? "..." : "" );
         print "   ✓ Found item: $row->{barcode} - $short_title\n";
     }
-    
+
     $dbh->disconnect;
-    
-    if ($patron_count == 0 || $item_count == 0) {
+
+    if ( $patron_count == 0 || $item_count == 0 ) {
         print "   ⚠ Some sample data missing - mock API will still work but with placeholder data\n";
     }
 };
@@ -306,8 +385,8 @@ if ($@) {
     print "   ⚠ Could not verify sample data: $@\n";
 }
 
-# Step 7: Validate plugin configuration
-print "\n7. Validating plugin configuration...\n";
+# Step 8: Validate plugin configuration
+print "\n8. Validating plugin configuration...\n";
 
 eval {
     # Create a temporary validation script
@@ -335,13 +414,13 @@ eval {
         }
     };
     close $fh;
-    
+
     my $config_result = `cd /kohadevbox/plugins/rapido-ill && perl $validation_script 2>/dev/null`;
     unlink $validation_script;
-    
-    if ($config_result =~ /^OK/) {
+
+    if ( $config_result =~ /^OK/ ) {
         print "   ✅ Plugin configuration is valid\n";
-    } elsif ($config_result =~ /^ERRORS:/) {
+    } elsif ( $config_result =~ /^ERRORS:/ ) {
         print "   ⚠ Configuration issues found:\n";
         print $config_result;
         print "   The plugin may still work but some features might be limited\n";
