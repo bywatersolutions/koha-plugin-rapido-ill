@@ -209,6 +209,75 @@
                 }
             ]
         },
+        "borrowing_cancel_initial": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC006",
+                    "circStatus": "CREATED",
+                    "lastCircState": "PATRON_HOLD",
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "itemBarcode": "",
+                    "itemId": "3999900000002",
+                    "lastUpdated": "2025-08-15T09:43:56Z",
+                    "lenderCode": "famaf",
+                    "needBefore": null,
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "",
+                    "patronName": "",
+                    "pickupLocation": "MPL:Midtown Public Library:Metro Library System",
+                    "requestId": "REQ006",
+                    "title": "Music History Anthology"
+                }
+            ]
+        },
+        "borrowing_site_cancel": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC006",
+                    "circStatus": "CANCELED",
+                    "lastCircState": "BORROWING_SITE_CANCEL",
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "itemBarcode": "",
+                    "itemId": "3999900000002",
+                    "lastUpdated": "2025-08-15T16:43:56Z",
+                    "lenderCode": "famaf",
+                    "needBefore": null,
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "",
+                    "patronName": "",
+                    "pickupLocation": "MPL:Midtown Public Library:Metro Library System",
+                    "requestId": "REQ006",
+                    "title": "Music History Anthology"
+                }
+            ]
+        },
+        "lending_cancel_initial": {
+            "data": [
+                {
+                    "author": "Kernighan, Brian W",
+                    "borrowerCode": "derecho",
+                    "lenderCode": "11747",
+                    "callNumber": "005.133 KER",
+                    "circId": "CIRC005",
+                    "circStatus": "CREATED",
+                    "lastCircState": "ITEM_HOLD",
+                    "dateCreated": "2025-08-15T08:43:56Z",
+                    "itemBarcode": "3999900000020",
+                    "itemId": "3999900000020",
+                    "lastUpdated": "2025-08-15T08:43:56Z",
+                    "needBefore": null,
+                    "patronAgencyCode": "derecho",
+                    "patronId": "",
+                    "patronName": "",
+                    "requestId": "REQ005",
+                    "title": "Advanced Programming Techniques"
+                }
+            ]
+        },
         "owning_site_cancel": {
             "data": [
                 {
@@ -357,7 +426,33 @@
             "sequence": [
                 {
                     "endpoint": "circulation_requests",
+                    "response": "borrowing_cancel_initial"
+                },
+                {
+                    "endpoint": "circulation_requests",
                     "response": "borrowing_site_cancel"
+                }
+            ]
+        },
+        "borrowing_cancellation": {
+            "description": "Complete borrowing cancellation workflow",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_cancel_initial"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_site_cancel"
+                }
+            ]
+        },
+        "lending_cancellation": {
+            "description": "Complete lending cancellation workflow",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "lending_cancel_initial"
                 },
                 {
                     "endpoint": "circulation_requests", 

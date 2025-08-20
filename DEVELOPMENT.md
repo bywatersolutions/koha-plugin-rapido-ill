@@ -75,6 +75,16 @@ Note: Lender cancellations result in `COMPLETED` status, not `CANCELED`, in the 
 3. `ACTIVE` ← `ITEM_IN_TRANSIT` - Borrower returns item to us
 4. `COMPLETED` ← `FINAL_CHECKIN` - We receive item back
 
+#### Cancellation Workflows:
+
+**Borrowing Cancellation (2 Steps):**
+1. `CREATED` ← `PATRON_HOLD` - Initial borrowing request
+2. `CANCELED` ← `BORROWING_SITE_CANCEL` - Borrower cancels request
+
+**Lending Cancellation (2 Steps):**
+1. `CREATED` ← `ITEM_HOLD` - Initial lending request
+2. `COMPLETED` ← `OWNING_SITE_CANCEL` - Lender cancels request
+
 #### Lending Scenario:
 - `lending_initial`: `circStatus: CREATED, lastCircState: ITEM_HOLD`
 - `lending_shipped`: `circStatus: ACTIVE, lastCircState: ITEM_SHIPPED`
@@ -82,7 +92,13 @@ Note: Lender cancellations result in `COMPLETED` status, not `CANCELED`, in the 
 - `lending_final_checkin`: `circStatus: COMPLETED, lastCircState: FINAL_CHECKIN`
 
 #### Cancellation Scenarios:
+
+**Borrowing Cancellation (2 Steps):**
+- `borrowing_cancel_initial`: `circStatus: CREATED, lastCircState: PATRON_HOLD`
 - `borrowing_site_cancel`: `circStatus: CANCELED, lastCircState: BORROWING_SITE_CANCEL`
+
+**Lending Cancellation (2 Steps):**
+- `lending_cancel_initial`: `circStatus: CREATED, lastCircState: ITEM_HOLD`
 - `owning_site_cancel`: `circStatus: COMPLETED, lastCircState: OWNING_SITE_CANCEL`
 
 **Note**: States like `PENDING_CHECKOUT`, `ITEM_CHECKED_OUT`, and `ITEM_RETURNED` are NOT part of the official Rapido specification and should not be used.
