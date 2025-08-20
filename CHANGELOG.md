@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Separate class tests remain in subdirectories (RapidoILL/ClassName.t)
 - Improved logging throughout the codebase with proper Koha::Logger integration
 - Enhanced error handling and validation in database operations
+- CI schedule changed from daily to twice monthly (1st and 15th of each month)
 
 ### Fixed
 - [#54] Remove debug output from OAuth2 requests
