@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.15] - 2025-08-20
+
+### Added
+- borrower_final_checkin method to handle FINAL_CHECKIN from borrower perspective
+- Paper trail functionality in borrower_final_checkin (sets B_ITEM_CHECKED_IN before COMP)
+- Comprehensive test suite for BorrowerActions and LenderActions backend methods
+- Integration tests for complete 5-step borrowing workflow with real mock API data
+- Mock Rapido API with configurable scenarios for testing (borrowing, lending, cancellations)
+- GET /scenarios endpoint for programmatic access to available test scenarios
+- --list-scenarios CLI parameter for mock API to display available scenarios
+
+### Fixed
+- FINAL_CHECKIN handling in borrowing requests (previously threw UnhandledException)
+- Complete borrowing workflow now works end-to-end without exceptions
+- BorrowerActions now properly handles FINAL_CHECKIN circulation control
+
 ## [0.3.14] - 2025-08-20
 
 ### Added
