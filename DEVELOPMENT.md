@@ -6,6 +6,9 @@ Comprehensive development documentation for the Rapido ILL plugin, including set
 
 Based on the official Rapido API specification (page 15 of "Rapido via APIs.pdf"), the valid circulation states are:
 
+### CircActions Table:
+The `CircActions` table serves as a log of status updates pulled from the Rapido central server. The `lastCircState` field contains the circulation control or state that was reported, including both states and controls like `FINAL_CHECKIN`.
+
 ### Valid Circulation States:
 - `ITEM_HOLD` - Item is on hold
 - `PATRON_HOLD` - Item is on hold for a patron  
@@ -13,6 +16,13 @@ Based on the official Rapido API specification (page 15 of "Rapido via APIs.pdf"
 - `ITEM_RECEIVED` - Item has been received
 - `ITEM_SHIPPED` - Item has been shipped
 - `ITEM_LOST` - Item is lost
+
+### Circulation Controls (also stored in lastCircState):
+- `FINAL_CHECKIN` - Lender receives returned item (results in `ITEM_RECEIVED` circStatus)
+- `ITEM_IN_TRANSIT` - Borrower returns item to lender
+- `ITEM_RECEIVED` - Item received at destination
+- `ITEM_SHIPPED` - Item shipped to borrower
+- And others as defined in the Rapido API specification
 
 ### Workflow Understanding:
 
@@ -33,25 +43,20 @@ Based on the official Rapido API specification (page 15 of "Rapido via APIs.pdf"
 ### Mock API Scenarios:
 
 #### Borrowing Scenario (Complete Workflow):
-- `borrowing_initial`: `PATRON_HOLD` - Item on hold for patron
-- `borrowing_shipped`: `ITEM_SHIPPED` - Lender shipped the item
-- `borrowing_received`: `ITEM_RECEIVED` - We received the item
-- `borrowing_in_transit`: `ITEM_IN_TRANSIT` - We sent item back to lender
-- `borrowing_final_checkin`: `ITEM_RECEIVED` - Lender received item back (FINAL_CHECKIN)
+- `borrowing_initial`: `circStatus: PATRON_HOLD, lastCircState: PATRON_HOLD`
+- `borrowing_shipped`: `circStatus: ITEM_SHIPPED, lastCircState: ITEM_SHIPPED`
+- `borrowing_received`: `circStatus: ITEM_RECEIVED, lastCircState: ITEM_RECEIVED`
+- `borrowing_in_transit`: `circStatus: ITEM_IN_TRANSIT, lastCircState: ITEM_IN_TRANSIT`
+- `borrowing_final_checkin`: `circStatus: ITEM_RECEIVED, lastCircState: FINAL_CHECKIN`
 
 #### Lending Scenario:
-- `lending_initial`: `ITEM_HOLD` - We hold item for lending
-- `lending_shipped`: `ITEM_SHIPPED` - We shipped item to borrower
-- `lending_received`: `ITEM_RECEIVED` - We received item back from borrower
+- `lending_initial`: `circStatus: ITEM_HOLD, lastCircState: ITEM_HOLD`
+- `lending_shipped`: `circStatus: ITEM_SHIPPED, lastCircState: ITEM_SHIPPED`
+- `lending_received`: `circStatus: ITEM_RECEIVED, lastCircState: ITEM_RECEIVED`
 
-### Circulation Controls:
-
-From the official specification, circulation controls trigger state changes:
-- `FINAL_CHECKIN` - Lender receives returned item (results in `ITEM_RECEIVED`)
-- `ITEM_IN_TRANSIT` - Borrower returns item to lender
-- `ITEM_RECEIVED` - Item received at destination
-- `ITEM_SHIPPED` - Item shipped to borrower
-- And others as defined in the Rapido API specification
+### Data Structure:
+- `circStatus` - The current circulation status
+- `lastCircState` - The circulation control/state that triggered this update (logged from Rapido server)
 
 **Note**: States like `PENDING_CHECKOUT`, `ITEM_CHECKED_OUT`, and `ITEM_RETURNED` are NOT part of the official Rapido specification and should not be used.
 
