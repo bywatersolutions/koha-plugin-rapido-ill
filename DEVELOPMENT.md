@@ -42,21 +42,30 @@ The `CircActions` table serves as a log of status updates pulled from the Rapido
 
 ### Mock API Scenarios:
 
+### Data Structure:
+Based on real Rapido API data, the structure uses:
+- `circStatus` - High-level circulation status: `CREATED`, `ACTIVE`, `COMPLETED`, `CANCELED`
+- `lastCircState` - The specific circulation control/state that triggered this update
+
+### Real Rapido Status Patterns:
+- `lastCircState: "ITEM_HOLD"` → `circStatus: "CREATED"` (new request)
+- `lastCircState: "ITEM_SHIPPED"` → `circStatus: "ACTIVE"` (in progress)
+- `lastCircState: "ITEM_RECEIVED"` → `circStatus: "ACTIVE"` (in progress)
+- `lastCircState: "ITEM_IN_TRANSIT"` → `circStatus: "ACTIVE"` (in progress)
+- `lastCircState: "FINAL_CHECKIN"` → `circStatus: "COMPLETED"` (finished)
+- `lastCircState: "BORROWING_SITE_CANCEL"` → `circStatus: "CANCELED"` (cancelled)
+
 #### Borrowing Scenario (Complete Workflow):
-- `borrowing_initial`: `circStatus: PATRON_HOLD, lastCircState: PATRON_HOLD`
-- `borrowing_shipped`: `circStatus: ITEM_SHIPPED, lastCircState: ITEM_SHIPPED`
-- `borrowing_received`: `circStatus: ITEM_RECEIVED, lastCircState: ITEM_RECEIVED`
-- `borrowing_in_transit`: `circStatus: ITEM_IN_TRANSIT, lastCircState: ITEM_IN_TRANSIT`
-- `borrowing_final_checkin`: `circStatus: ITEM_RECEIVED, lastCircState: FINAL_CHECKIN`
+- `borrowing_initial`: `circStatus: CREATED, lastCircState: PATRON_HOLD`
+- `borrowing_shipped`: `circStatus: ACTIVE, lastCircState: ITEM_SHIPPED`
+- `borrowing_received`: `circStatus: ACTIVE, lastCircState: ITEM_RECEIVED`
+- `borrowing_in_transit`: `circStatus: ACTIVE, lastCircState: ITEM_IN_TRANSIT`
+- `borrowing_final_checkin`: `circStatus: COMPLETED, lastCircState: FINAL_CHECKIN`
 
 #### Lending Scenario:
-- `lending_initial`: `circStatus: ITEM_HOLD, lastCircState: ITEM_HOLD`
-- `lending_shipped`: `circStatus: ITEM_SHIPPED, lastCircState: ITEM_SHIPPED`
-- `lending_received`: `circStatus: ITEM_RECEIVED, lastCircState: ITEM_RECEIVED`
-
-### Data Structure:
-- `circStatus` - The current circulation status
-- `lastCircState` - The circulation control/state that triggered this update (logged from Rapido server)
+- `lending_initial`: `circStatus: CREATED, lastCircState: ITEM_HOLD`
+- `lending_shipped`: `circStatus: ACTIVE, lastCircState: ITEM_SHIPPED`
+- `lending_received`: `circStatus: COMPLETED, lastCircState: ITEM_RECEIVED`
 
 **Note**: States like `PENDING_CHECKOUT`, `ITEM_CHECKED_OUT`, and `ITEM_RETURNED` are NOT part of the official Rapido specification and should not be used.
 
