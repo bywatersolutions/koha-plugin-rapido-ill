@@ -16,7 +16,7 @@
                     "borrowerCode": "11747",
                     "patronId": "23529000445172",
                     "patronName": "Tanya Daniels",
-                    "pickupLocation": "ffyh",
+                    "pickupLocation": "MPL",
                     "requestId": "REQ001",
                     "title": "E Street shuffle"
                 }
@@ -39,7 +39,7 @@
                     "borrowerCode": "11747",
                     "patronId": "23529000445172",
                     "patronName": "Tanya Daniels",
-                    "pickupLocation": "ffyh",
+                    "pickupLocation": "MPL",
                     "requestId": "REQ001",
                     "title": "E Street shuffle"
                 }
@@ -61,7 +61,7 @@
                     "borrowerCode": "11747",
                     "patronId": "23529000445172",
                     "patronName": "Tanya Daniels",
-                    "pickupLocation": "ffyh",
+                    "pickupLocation": "MPL",
                     "requestId": "REQ001",
                     "title": "E Street shuffle"
                 }
@@ -149,7 +149,7 @@
                     "borrowerCode": "11747",
                     "patronId": "23529000105040",
                     "patronName": "Eva Dillon",
-                    "pickupLocation": "ffyh",
+                    "pickupLocation": "MPL",
                     "requestId": "REQ003",
                     "title": "The C programming language"
                 },
