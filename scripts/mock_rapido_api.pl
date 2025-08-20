@@ -354,7 +354,7 @@ get '/view/broker/circ/circrequests' => sub ($c) {
     
     app->log->info("Circulation requests called (call #$call_num)");
     app->log->info("  startTime: $start_time, endTime: $end_time");
-    app->log->info("  states: " . join(',', @states));
+    app->log->info("  states: [" . join(', ', @states) . "]");
     app->log->info("  content: $content, timeTarget: $time_target");
     
     # Try to get response from scenario
