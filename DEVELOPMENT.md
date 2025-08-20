@@ -2,6 +2,47 @@
 
 Comprehensive development documentation for the Rapido ILL plugin, including setup, testing, and architecture notes.
 
+## Official Rapido Circulation States
+
+Based on the official Rapido API specification (page 15 of "Rapido via APIs.pdf"), the valid circulation states are:
+
+### Valid Circulation States:
+- `ITEM_HOLD` - Item is on hold
+- `PATRON_HOLD` - Item is on hold for a patron  
+- `ITEM_IN_TRANSIT` - Item is in transit (borrower → lender return)
+- `ITEM_RECEIVED` - Item has been received
+- `ITEM_SHIPPED` - Item has been shipped
+- `ITEM_LOST` - Item is lost
+
+### Workflow Understanding:
+
+#### Lending Perspective (We are the lender):
+1. `ITEM_HOLD` - We hold the item for lending
+2. `ITEM_SHIPPED` - We ship the item to borrower
+3. *(Borrower receives it - they report `ITEM_RECEIVED`)*
+4. *(Borrower returns it - they report `ITEM_IN_TRANSIT`)*
+5. `ITEM_RECEIVED` - We receive the item back from borrower
+
+#### Borrowing Perspective (We are the borrower):
+1. `PATRON_HOLD` - Item on hold for our patron
+2. *(Lender ships it - they report `ITEM_SHIPPED`)*
+3. `ITEM_RECEIVED` - We receive the shipped item
+4. `ITEM_IN_TRANSIT` - We send the item back to lender
+
+### Mock API Scenarios:
+
+#### Borrowing Scenario:
+- `borrowing_initial`: `PATRON_HOLD` - Item on hold for patron
+- `borrowing_shipped`: `ITEM_SHIPPED` - Lender shipped the item
+- `borrowing_received`: `ITEM_RECEIVED` - We received the item
+
+#### Lending Scenario:
+- `lending_initial`: `ITEM_HOLD` - We hold item for lending
+- `lending_shipped`: `ITEM_SHIPPED` - We shipped item to borrower
+- `lending_received`: `ITEM_RECEIVED` - We received item back from borrower
+
+**Note**: States like `PENDING_CHECKOUT`, `ITEM_CHECKED_OUT`, and `ITEM_RETURNED` are NOT part of the official Rapido specification and should not be used.
+
 ## Quick Start
 
 ### KTD Setup

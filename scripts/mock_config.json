@@ -67,7 +67,7 @@
                 }
             ]
         },
-        "lending_checkout": {
+        "lending_shipped": {
             "data": [
                 {
                     "author": "Kernighan, Brian W",
@@ -75,7 +75,7 @@
                     "lenderCode": "11747",
                     "callNumber": "005.133 KER",
                     "circId": "CIRC002",
-                    "circStatus": "ITEM_CHECKED_OUT",
+                    "circStatus": "ITEM_SHIPPED",
                     "dateCreated": "2025-08-15T08:43:56Z",
                     "dueDateTime": "2025-09-07T11:43:56Z",
                     "itemBarcode": "3999900000018",
@@ -98,7 +98,7 @@
                     "lenderCode": "11747",
                     "callNumber": "005.133 KER",
                     "circId": "CIRC002",
-                    "circStatus": "PENDING_CHECKOUT",
+                    "circStatus": "ITEM_HOLD",
                     "dateCreated": "2025-08-15T08:43:56Z",
                     "itemBarcode": "3999900000018",
                     "itemId": "3999900000018",
@@ -112,7 +112,7 @@
                 }
             ]
         },
-        "lending_returned": {
+        "lending_received": {
             "data": [
                 {
                     "author": "Kernighan, Brian W",
@@ -120,7 +120,7 @@
                     "lenderCode": "11747",
                     "callNumber": "005.133 KER",
                     "circId": "CIRC002",
-                    "circStatus": "ITEM_RETURNED",
+                    "circStatus": "ITEM_RECEIVED",
                     "dateCreated": "2025-08-15T08:43:56Z",
                     "itemBarcode": "3999900000018",
                     "itemId": "3999900000018",
@@ -159,7 +159,7 @@
                     "lenderCode": "11747",
                     "callNumber": "005.133 CON",
                     "circId": "CIRC004",
-                    "circStatus": "PENDING_CHECKOUT",
+                    "circStatus": "ITEM_HOLD",
                     "dateCreated": "2025-08-15T07:43:56Z",
                     "itemBarcode": "3999900000019",
                     "itemId": "3999900000019",
@@ -200,11 +200,11 @@
                 },
                 {
                     "endpoint": "circulation_requests",
-                    "response": "lending_checkout"
+                    "response": "lending_shipped"
                 },
                 {
                     "endpoint": "circulation_requests",
-                    "response": "lending_returned"
+                    "response": "lending_received"
                 }
             ]
         },
