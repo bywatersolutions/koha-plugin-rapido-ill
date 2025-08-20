@@ -22,6 +22,7 @@ mock_rapido_api_working.pl [options]
    --port=N             Port to run on (default: 3000)
    --config=FILE        Configuration file (default: mock_config.json)
    --scenario=NAME      Load predefined scenario (borrowing|lending|mixed)
+   --list-scenarios, -l List all available scenarios and exit
    --help              This help message
 
 =head1 DESCRIPTION
@@ -36,19 +37,27 @@ Borrower Actions: POST /view/broker/circ/{circId}/itemreceived, /itemreturned
 =cut
 
 # Command line options
-my $port        = 3000;
-my $config_file = 'mock_config.json';
-my $scenario    = '';
-my $help        = 0;
+my $port           = 3000;
+my $config_file    = 'mock_config.json';
+my $scenario       = '';
+my $help           = 0;
+my $list_scenarios = 0;
 
 GetOptions(
-    'port=i'     => \$port,
-    'config=s'   => \$config_file,
-    'scenario=s' => \$scenario,
-    'help|?'     => \$help,
+    'port=i'           => \$port,
+    'config=s'         => \$config_file,
+    'scenario=s'       => \$scenario,
+    'list-scenarios|l' => \$list_scenarios,
+    'help|?'           => \$help,
 ) or pod2usage(2);
 
 pod2usage(1) if $help;
+
+# Handle list-scenarios option
+if ($list_scenarios) {
+    list_scenarios($config_file);
+    exit 0;
+}
 
 # Global state for tracking requests and responses
 my $api_state = {
@@ -56,6 +65,65 @@ my $api_state = {
     call_count => {},
     scenarios  => {},
 };
+
+# List available scenarios
+sub list_scenarios {
+    my ($config_file) = @_;
+    
+    print "Mock Rapido API - Available Scenarios\n";
+    print "=" x 40 . "\n\n";
+    
+    # Load config to get scenarios
+    my $config = {};
+    if (-f $config_file) {
+        open my $fh, '<', $config_file or die "Cannot open $config_file: $!";
+        my $json_text = do { local $/; <$fh> };
+        close $fh;
+        $config = decode_json($json_text);
+    } else {
+        print "Config file '$config_file' not found!\n";
+        return;
+    }
+    
+    my $scenarios = $config->{scenarios} || {};
+    
+    if (!%$scenarios) {
+        print "No scenarios found in config file.\n";
+        return;
+    }
+    
+    print "Usage: perl mock_rapido_api.pl --scenario=SCENARIO_NAME\n\n";
+    
+    # Display scenarios
+    for my $scenario_name (sort keys %$scenarios) {
+        my $scenario = $scenarios->{$scenario_name};
+        my $description = $scenario->{description} || 'No description';
+        my $steps = @{$scenario->{sequence} || []};
+        
+        printf "%-20s %s (%d steps)\n", $scenario_name, $description, $steps;
+        
+        # Show sequence details
+        if ($scenario->{sequence}) {
+            for my $i (0 .. $#{$scenario->{sequence}}) {
+                my $step = $scenario->{sequence}[$i];
+                printf "  %d. %s -> %s\n", $i + 1, $step->{endpoint}, $step->{response};
+            }
+        }
+        print "\n";
+    }
+    
+    # Display available response data
+    my $responses = $config->{responses} || {};
+    if (%$responses) {
+        print "Available Response Data:\n";
+        print "-" x 25 . "\n";
+        for my $response_name (sort keys %$responses) {
+            my $response = $responses->{$response_name};
+            my $count = @{$response->{data} || []};
+            printf "%-25s %d records\n", $response_name, $count;
+        }
+    }
+}
 
 # Load configuration from JSON file
 sub load_config {
