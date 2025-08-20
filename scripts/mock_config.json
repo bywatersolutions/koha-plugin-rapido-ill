@@ -209,6 +209,52 @@
                 }
             ]
         },
+        "owning_site_cancel": {
+            "data": [
+                {
+                    "author": "Kernighan, Brian W",
+                    "borrowerCode": "derecho",
+                    "lenderCode": "11747",
+                    "callNumber": "005.133 KER",
+                    "circId": "CIRC005",
+                    "circStatus": "COMPLETED",
+                    "lastCircState": "OWNING_SITE_CANCEL",
+                    "dateCreated": "2025-08-15T08:43:56Z",
+                    "itemBarcode": "3999900000020",
+                    "itemId": "3999900000020",
+                    "lastUpdated": "2025-08-15T14:43:56Z",
+                    "needBefore": null,
+                    "patronAgencyCode": "derecho",
+                    "patronId": "",
+                    "patronName": "",
+                    "requestId": "REQ005",
+                    "title": "Advanced Programming Techniques"
+                }
+            ]
+        },
+        "borrowing_site_cancel": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC006",
+                    "circStatus": "CANCELED",
+                    "lastCircState": "BORROWING_SITE_CANCEL",
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "itemBarcode": "",
+                    "itemId": "3999900000002",
+                    "lastUpdated": "2025-08-15T16:43:56Z",
+                    "lenderCode": "famaf",
+                    "needBefore": null,
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "",
+                    "patronName": "",
+                    "pickupLocation": "MPL:Midtown Public Library:Metro Library System",
+                    "requestId": "REQ006",
+                    "title": "Music History Anthology"
+                }
+            ]
+        },
         "mixed_requests": {
             "data": [
                 {
@@ -303,6 +349,19 @@
                 {
                     "endpoint": "circulation_requests",
                     "response": "mixed_requests"
+                }
+            ]
+        },
+        "cancellations": {
+            "description": "Various cancellation scenarios",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_site_cancel"
+                },
+                {
+                    "endpoint": "circulation_requests", 
+                    "response": "owning_site_cancel"
                 }
             ]
         }

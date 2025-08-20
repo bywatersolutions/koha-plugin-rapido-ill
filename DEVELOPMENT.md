@@ -53,7 +53,14 @@ Based on real Rapido API data, the structure uses:
 - `lastCircState: "ITEM_RECEIVED"` → `circStatus: "ACTIVE"` (in progress)
 - `lastCircState: "ITEM_IN_TRANSIT"` → `circStatus: "ACTIVE"` (in progress)
 - `lastCircState: "FINAL_CHECKIN"` → `circStatus: "COMPLETED"` (finished)
-- `lastCircState: "BORROWING_SITE_CANCEL"` → `circStatus: "CANCELED"` (cancelled)
+- `lastCircState: "BORROWING_SITE_CANCEL"` → `circStatus: "CANCELED"` (borrower cancelled)
+- `lastCircState: "OWNING_SITE_CANCEL"` → `circStatus: "COMPLETED"` (lender cancelled)
+
+### Cancellation Patterns:
+- **BORROWING_SITE_CANCEL**: Borrower cancels request → `circStatus: "CANCELED"`
+- **OWNING_SITE_CANCEL**: Lender cancels request → `circStatus: "COMPLETED"`
+
+Note: Lender cancellations result in `COMPLETED` status, not `CANCELED`, in the real Rapido system.
 
 #### Borrowing Scenario (Complete Workflow):
 - `borrowing_initial`: `circStatus: CREATED, lastCircState: PATRON_HOLD`
@@ -73,6 +80,10 @@ Based on real Rapido API data, the structure uses:
 - `lending_shipped`: `circStatus: ACTIVE, lastCircState: ITEM_SHIPPED`
 - `lending_in_transit`: `circStatus: ACTIVE, lastCircState: ITEM_IN_TRANSIT`
 - `lending_final_checkin`: `circStatus: COMPLETED, lastCircState: FINAL_CHECKIN`
+
+#### Cancellation Scenarios:
+- `borrowing_site_cancel`: `circStatus: CANCELED, lastCircState: BORROWING_SITE_CANCEL`
+- `owning_site_cancel`: `circStatus: COMPLETED, lastCircState: OWNING_SITE_CANCEL`
 
 **Note**: States like `PENDING_CHECKOUT`, `ITEM_CHECKED_OUT`, and `ITEM_RETURNED` are NOT part of the official Rapido specification and should not be used.
 
