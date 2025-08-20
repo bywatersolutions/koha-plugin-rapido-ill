@@ -135,7 +135,7 @@ post '/view/broker/auth' => sub ($c) {
 get '/view/broker/circ/circrequests' => sub ($c) {
     my $start_time  = $c->param('startTime') || '';
     my $end_time    = $c->param('endTime')   || '';
-    my @states      = $c->every_param('state');
+    my @states      = $c->req->param('state');
     my $content     = $c->param('content')    || 'concise';        # Default to concise per spec
     my $time_target = $c->param('timeTarget') || 'lastUpdated';    # Default per spec
 
