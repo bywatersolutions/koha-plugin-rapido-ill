@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.14] - 2025-08-20
 
 ### Added
 - [#54] Comprehensive unit tests for logger integration
@@ -38,12 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced README with development workflow information
 - Documented proper test file organization conventions
 
-## [0.3.13] - 2024-08-XX
+## [0.3.13] - 2024-08-13
 
 ### Fixed
 - [#53] Fix typo in codebase
 
-## [0.3.12] - 2024-08-XX
+## [0.3.12] - 2024-08-13
 
 ### Fixed
 - [#53] Fix database schema: add missing puaAgencyCode column
