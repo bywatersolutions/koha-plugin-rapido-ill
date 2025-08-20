@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#58] Rename RapidoILL::OAuth2 to RapidoILL::APIHttpClient for better clarity
 - [#59] Improve sync_requests.pl output and use proper logging
 - [#60] Reorganize test file structure following Koha conventions
+- GitHub release badge and GPL v3 license badge to README
 - Comprehensive Exception tests covering all 17 exception classes
 - Backend template correspondence tests
 - Comprehensive development documentation

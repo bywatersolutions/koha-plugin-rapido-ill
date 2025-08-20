@@ -1,6 +1,8 @@
 # Koha Plugin: Rapido ILL
 
 [![CI](https://github.com/bywatersolutions/koha-plugin-rapido-ill/actions/workflows/main.yml/badge.svg)](https://github.com/bywatersolutions/koha-plugin-rapido-ill/actions/workflows/main.yml)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/bywatersolutions/koha-plugin-rapido-ill)](https://github.com/bywatersolutions/koha-plugin-rapido-ill/releases)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ## Introduction
 
