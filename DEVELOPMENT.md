@@ -31,7 +31,7 @@ The `CircActions` table serves as a log of status updates pulled from the Rapido
 2. `ITEM_SHIPPED` - We ship the item to borrower
 3. *(Borrower receives it - they report `ITEM_RECEIVED`)*
 4. *(Borrower returns it - they report `ITEM_IN_TRANSIT`)*
-5. `ITEM_RECEIVED` - We receive the item back from borrower
+5. `FINAL_CHECKIN` - We receive the item back from borrower
 
 #### Borrowing Perspective (We are the borrower):
 1. `PATRON_HOLD` - Item on hold for our patron
@@ -62,10 +62,17 @@ Based on real Rapido API data, the structure uses:
 - `borrowing_in_transit`: `circStatus: ACTIVE, lastCircState: ITEM_IN_TRANSIT`
 - `borrowing_final_checkin`: `circStatus: COMPLETED, lastCircState: FINAL_CHECKIN`
 
+#### Lending Workflow (Complete 4 Steps):
+1. `CREATED` ← `ITEM_HOLD` - We hold item for lending
+2. `ACTIVE` ← `ITEM_SHIPPED` - We ship item to borrower
+3. `ACTIVE` ← `ITEM_IN_TRANSIT` - Borrower returns item to us
+4. `COMPLETED` ← `FINAL_CHECKIN` - We receive item back
+
 #### Lending Scenario:
 - `lending_initial`: `circStatus: CREATED, lastCircState: ITEM_HOLD`
 - `lending_shipped`: `circStatus: ACTIVE, lastCircState: ITEM_SHIPPED`
-- `lending_received`: `circStatus: COMPLETED, lastCircState: ITEM_RECEIVED`
+- `lending_in_transit`: `circStatus: ACTIVE, lastCircState: ITEM_IN_TRANSIT`
+- `lending_final_checkin`: `circStatus: COMPLETED, lastCircState: FINAL_CHECKIN`
 
 **Note**: States like `PENDING_CHECKOUT`, `ITEM_CHECKED_OUT`, and `ITEM_RETURNED` are NOT part of the official Rapido specification and should not be used.
 
