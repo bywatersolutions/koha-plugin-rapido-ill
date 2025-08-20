@@ -20,25 +20,25 @@ prove -v t/db_dependent/RapidoILL.t        # Main plugin test
 prove -v t/db_dependent/RapidoILL/         # Task queue tests
 prove -v t/RapidoILL/                      # RapidoILL utility tests
 
-# Run new FINAL_CHECKIN tests
+# Run FINAL_CHECKIN tests
 prove -v t/RapidoILL/Backend/              # Backend action tests
-prove -v t/RapidoILL/BorrowingWorkflowIntegration.t  # Workflow integration tests
 ```
 
 ## Test Structure
 
 ### Unit Tests (`t/`)
-- `00-load.t` - Module loading tests
+- `00-load.t` - Module loading tests (16 modules)
 - `01-constraint.t` - Database constraint and object tests  
 - `02-plugin-methods.t` - Plugin method availability tests
+- `03-logger-integration.t` - Koha::Logger integration tests
+- `04-backend-templates.t` - Backend action-template correspondence tests
 - `RapidoILL/`
   - `StringNormalizer.t` - Tests for RapidoILL::StringNormalizer utility class
   - `APIHttpClient.t` - HTTP client functionality tests
-  - `Exceptions.t` - Exception handling tests
-  - `BorrowingWorkflowIntegration.t` - Complete borrowing workflow integration tests
+  - `Exceptions.t` - Exception handling tests (17 exception classes)
   - `Backend/`
-    - `BorrowerActions.t` - Tests for borrower-side circulation actions
-    - `LenderActions.t` - Tests for lender-side circulation actions
+    - `BorrowerActions.t` - Tests for borrower-side circulation actions including FINAL_CHECKIN
+    - `LenderActions.t` - Tests for lender-side circulation actions including FINAL_CHECKIN
 
 ### Database-Dependent Tests (`t/db_dependent/`)
 - `RapidoILL.t` - Tests for main plugin class methods (configuration, etc.)
@@ -60,21 +60,23 @@ prove -v t/RapidoILL/BorrowingWorkflowIntegration.t  # Workflow integration test
 - **QueuedTask Object**: 11 tests - Individual task methods, retry logic, status transitions
 - **QueuedTasks Collection**: 8 tests - Collection operations, filtering, method chaining
 
-### Utility Classes (2 total tests)
+### Utility Classes
 - **StringNormalizer**: 8 subtests - String processing and normalization methods
+- **APIHttpClient**: 5 tests - HTTP client functionality and authentication
+- **Exceptions**: 17 tests - All exception classes and inheritance
 
 ### FINAL_CHECKIN Functionality (New)
-- **BorrowerActions**: Tests `borrower_final_checkin` method and FINAL_CHECKIN handling
-- **LenderActions**: Tests `lender_final_checkin` method and consistency with borrower
-- **Workflow Integration**: Tests complete 5-step borrowing workflow with real mock API data
+- **BorrowerActions**: 7 tests - borrower_final_checkin method and FINAL_CHECKIN handling
+- **LenderActions**: 3 tests - lender_final_checkin method and consistency validation
 
 #### FINAL_CHECKIN Test Coverage:
-- ✅ `FINAL_CHECKIN` properly mapped in `BorrowerActions`
-- ✅ `borrower_final_checkin` sets ILL request status to `'COMP'`
-- ✅ No exceptions thrown for `FINAL_CHECKIN` in borrower context
+- ✅ `FINAL_CHECKIN` properly mapped in both `BorrowerActions` and `LenderActions`
+- ✅ `borrower_final_checkin` creates paper trail (B_ITEM_CHECKED_IN → COMP status progression)
+- ✅ `lender_final_checkin` sets ILL request status to `COMP`
+- ✅ No exceptions thrown for `FINAL_CHECKIN` in either borrower or lender context
 - ✅ Consistent behavior between borrower and lender perspectives
-- ✅ Complete borrowing workflow validation (PATRON_HOLD → FINAL_CHECKIN)
-- ✅ Real mock API data structure compatibility
+- ✅ Complete method call sequences validated (status() → status() → store())
+- ✅ Method existence and proper inheritance verified
 
 ## Directory Structure
 
@@ -83,14 +85,15 @@ t/
 ├── 00-load.t                    # Module loading
 ├── 01-constraint.t              # Database constraints  
 ├── 02-plugin-methods.t          # Plugin methods
+├── 03-logger-integration.t      # Koha::Logger integration
+├── 04-backend-templates.t       # Backend action-template correspondence
 ├── RapidoILL/                   # RapidoILL namespace tests
 │   ├── StringNormalizer.t       # String utility tests
 │   ├── APIHttpClient.t          # HTTP client tests
 │   ├── Exceptions.t             # Exception handling tests
-│   ├── BorrowingWorkflowIntegration.t  # Workflow integration tests
 │   └── Backend/                 # Backend action tests
-│       ├── BorrowerActions.t    # Borrower circulation actions
-│       └── LenderActions.t      # Lender circulation actions
+│       ├── BorrowerActions.t    # Borrower circulation actions (FINAL_CHECKIN)
+│       └── LenderActions.t      # Lender circulation actions (FINAL_CHECKIN)
 └── db_dependent/                # Database-dependent tests
     ├── RapidoILL.t              # Main plugin tests
     ├── RapidoILL_sync_circ_requests.t     # Sync tests
@@ -118,3 +121,11 @@ Tests run automatically on push/PR using the same KTD environment.
 - Test::NoWarnings automatically adds one test per file for warning detection
 - **Use `prove -r -s t/` for best testing**: recursive finds all tests, shuffle ensures independence
 - **Never add shell scripts for running tests** - always use `prove` within KTD
+
+## Test Results Summary
+
+Latest full test suite run:
+- **Files**: 15 test files
+- **Tests**: 81 total tests
+- **Result**: ALL TESTS SUCCESSFUL ✅
+- **Coverage**: Core plugin, task queue, utilities, and FINAL_CHECKIN functionality

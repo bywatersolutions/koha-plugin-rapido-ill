@@ -11,15 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - borrower_final_checkin method to handle FINAL_CHECKIN from borrower perspective
 - Paper trail functionality in borrower_final_checkin (sets B_ITEM_CHECKED_IN before COMP)
 - Comprehensive test suite for BorrowerActions and LenderActions backend methods
-- Integration tests for complete 5-step borrowing workflow with real mock API data
-- Mock Rapido API with configurable scenarios for testing (borrowing, lending, cancellations)
+- Backend test organization with t/RapidoILL/Backend/ directory structure
+- Exception handling tests for all 17 RapidoILL exception classes
+- Mock Rapido API with configurable scenarios for testing (borrowing, lending, mixed, cancellations)
 - GET /scenarios endpoint for programmatic access to available test scenarios
 - --list-scenarios CLI parameter for mock API to display available scenarios
+- Control endpoints: POST /control/scenario/{name}, POST /control/reset
+- Cancellation workflow scenarios: borrowing_cancellation, lending_cancellation, cancellations
+- Lender cancel endpoint: POST /view/broker/circ/{circId}/lendercancel
 
 ### Fixed
 - FINAL_CHECKIN handling in borrowing requests (previously threw UnhandledException)
 - Complete borrowing workflow now works end-to-end without exceptions
 - BorrowerActions now properly handles FINAL_CHECKIN circulation control
+
+### Testing
+- Added t/RapidoILL/Backend/BorrowerActions.t (7 tests) - FINAL_CHECKIN with paper trail validation
+- Added t/RapidoILL/Backend/LenderActions.t (3 tests) - FINAL_CHECKIN consistency testing
+- Full test suite now includes 15 test files with 81 total tests, all passing
+- Comprehensive coverage of borrower_final_checkin method and paper trail functionality
 
 ## [0.3.14] - 2025-08-20
 

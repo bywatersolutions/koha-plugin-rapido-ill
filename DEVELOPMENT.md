@@ -218,7 +218,7 @@ The plugin includes comprehensive test coverage across multiple areas:
 #### Test Suite Overview
 
 **Unit Tests (t/):**
-- **`t/00-load.t`** - Basic module loading tests
+- **`t/00-load.t`** - Basic module loading tests (16 modules)
 - **`t/01-constraint.t`** - CircAction and CircActions object tests
 - **`t/02-plugin-methods.t`** - Plugin metadata and core method tests
 - **`t/03-logger-integration.t`** - Koha::Logger integration and plugin-level logging tests
@@ -227,9 +227,14 @@ The plugin includes comprehensive test coverage across multiple areas:
 **Component Tests (t/RapidoILL/):**
 - **`t/RapidoILL/APIHttpClient.t`** - APIHttpClient authentication and HTTP request logging tests
 - **`t/RapidoILL/StringNormalizer.t`** - String normalization and validation tests
+- **`t/RapidoILL/Exceptions.t`** - Exception handling tests (17 exception classes)
+- **`t/RapidoILL/Backend/BorrowerActions.t`** - Borrower-side circulation actions including FINAL_CHECKIN
+- **`t/RapidoILL/Backend/LenderActions.t`** - Lender-side circulation actions including FINAL_CHECKIN
 
 **Database-Dependent Tests (t/db_dependent/):**
 - **`t/db_dependent/RapidoILL.t`** - Main plugin database operations and configuration tests
+- **`t/db_dependent/RapidoILL_sync_circ_requests.t`** - Circulation request synchronization tests
+- **`t/db_dependent/RapidoILL_add_or_update_attributes.t`** - Attribute management tests
 - **`t/db_dependent/RapidoILL/QueuedTask.t`** - Individual queued task object tests
 - **`t/db_dependent/RapidoILL/QueuedTasks.t`** - Queued task collection tests
 
@@ -254,10 +259,18 @@ prove -v t/RapidoILL/          # Component tests only
 # Run individual tests
 prove -v t/03-logger-integration.t
 prove -v t/RapidoILL/APIHttpClient.t
+prove -v t/RapidoILL/Backend/BorrowerActions.t
 prove -v t/db_dependent/RapidoILL.t
 ```
 
 #### Test Coverage Areas
+
+**FINAL_CHECKIN Functionality:**
+- borrower_final_checkin method with paper trail (B_ITEM_CHECKED_IN → COMP)
+- lender_final_checkin method behavior
+- FINAL_CHECKIN mapping in both BorrowerActions and LenderActions
+- No exceptions thrown for FINAL_CHECKIN in either perspective
+- Complete method call sequences and integration testing
 
 **Logging Integration:**
 - Plugin-level Koha::Logger integration
@@ -346,18 +359,33 @@ Koha/Plugin/Com/ByWaterSolutions/RapidoILL/
 │   │   ├── StringNormalizer.pm     # String normalization utilities
 │   │   ├── QueuedTask.pm           # Individual task object
 │   │   ├── QueuedTasks.pm          # Task collection
+│   │   ├── Backend/
+│   │   │   ├── BorrowerActions.pm  # Borrower-side circulation actions
+│   │   │   └── LenderActions.pm    # Lender-side circulation actions
 │   │   └── ...                     # Other business logic
 │   └── Koha/Schema/Result/         # Auto-generated schema classes
 ├── scripts/                        # System service scripts
 └── t/
-    ├── 00-load.t                   # Module loading tests
+    ├── 00-load.t                   # Module loading tests (16 modules)
     ├── 01-constraint.t             # CircAction object tests
     ├── 02-plugin-methods.t         # Plugin metadata and methods
     ├── 03-logger-integration.t     # Koha::Logger integration tests
     ├── 04-backend-templates.t      # Backend action-template correspondence tests
     ├── RapidoILL/
     │   ├── APIHttpClient.t         # APIHttpClient authentication and logging tests
-    │   └── StringNormalizer.t      # String normalization tests
+    │   ├── StringNormalizer.t      # String normalization tests
+    │   ├── Exceptions.t            # Exception handling tests (17 classes)
+    │   └── Backend/
+    │       ├── BorrowerActions.t   # Borrower circulation actions (FINAL_CHECKIN)
+    │       └── LenderActions.t     # Lender circulation actions (FINAL_CHECKIN)
+    └── db_dependent/
+        ├── RapidoILL.t             # Main plugin database tests
+        ├── RapidoILL_sync_circ_requests.t      # Sync tests
+        ├── RapidoILL_add_or_update_attributes.t # Attribute tests
+        └── RapidoILL/
+            ├── QueuedTask.t        # Individual task object tests
+            └── QueuedTasks.t       # Task collection tests
+```
     └── db_dependent/
         ├── RapidoILL.t             # Main plugin database tests
         └── RapidoILL/
