@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - borrower_final_checkin method to handle FINAL_CHECKIN from borrower perspective
 - Paper trail functionality in borrower_final_checkin (sets B_ITEM_CHECKED_IN before COMP)
+- Paper trail functionality in lender final_checkin (sets O_ITEM_CHECKED_IN before COMP)
 - Comprehensive test suite for BorrowerActions and LenderActions backend methods
 - Backend test organization with t/RapidoILL/Backend/ directory structure
 - Exception handling tests for all 17 RapidoILL exception classes
