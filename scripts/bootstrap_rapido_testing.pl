@@ -51,8 +51,45 @@ pod2usage(1) if $help;
 
 print "=== Rapido ILL Plugin Testing Bootstrap ===\n\n";
 
-# Step 1: Install the plugin
-print "1. Installing Rapido ILL plugin...\n";
+# Step 1: Disable other plugins to avoid interference
+print "1. Disabling other plugins to avoid test interference...\n";
+
+eval {
+    my $dbh = DBI->connect(
+        "DBI:mysql:database=koha_kohadev;host=db",
+        "root",
+        "password",
+        { RaiseError => 1, AutoCommit => 1 }
+    );
+
+    # Disable all plugins except Rapido ILL
+    my $disable_sth = $dbh->prepare(
+        "UPDATE plugin_data SET plugin_value = 0 
+         WHERE plugin_key = '__ENABLED__' 
+         AND plugin_class != 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL'"
+    );
+    my $disabled_count = $disable_sth->execute();
+    
+    # Ensure Rapido ILL plugin is enabled
+    my $enable_rapido_sth = $dbh->prepare(
+        "INSERT INTO plugin_data (plugin_class, plugin_key, plugin_value) 
+         VALUES ('Koha::Plugin::Com::ByWaterSolutions::RapidoILL', '__ENABLED__', 1)
+         ON DUPLICATE KEY UPDATE plugin_value = 1"
+    );
+    $enable_rapido_sth->execute();
+    
+    print "   ✓ Disabled $disabled_count other plugins\n";
+    print "   ✓ Ensured Rapido ILL plugin is enabled\n";
+    
+    $dbh->disconnect;
+};
+
+if ($@) {
+    print "   ✗ Plugin disabling failed: $@\n";
+}
+
+# Step 2: Install the plugin
+print "2. Installing Rapido ILL plugin...\n";
 my $install_result = system("cd /kohadevbox/koha && perl misc/devel/install_plugins.pl 2>/dev/null");
 if ( $install_result == 0 ) {
     print "   ✓ Plugin installed successfully\n";
@@ -60,8 +97,8 @@ if ( $install_result == 0 ) {
     print "   ⚠ Plugin installation had warnings (this is normal)\n";
 }
 
-# Step 2: Configure the plugin with mock API settings
-print "\n2. Configuring plugin for mock API testing...\n";
+# Step 3: Configure the plugin with mock API settings
+print "\n3. Configuring plugin for mock API testing...\n";
 
 # Get all existing branches (excluding our created Rapido agencies) for location mapping
 my $dbh_branches = DBI->connect(
@@ -163,8 +200,8 @@ if ($@) {
     print "   You may need to configure the plugin manually through the web interface\n";
 }
 
-# Step 3: Setup ILL prerequisites
-print "\n3. Setting up ILL prerequisites...\n";
+# Step 4: Setup ILL prerequisites
+print "\n4. Setting up ILL prerequisites...\n";
 
 eval {
     my $dbh = DBI->connect(
@@ -223,10 +260,9 @@ if ($@) {
     print "   ✗ ILL prerequisites setup failed: $@\n";
 }
 
-# Step 4: Create agencies for mock API data
-print "\n4. Creating agencies for mock API testing...\n";
+# Step 5: Create agencies for mock API data
+print "\n5. Creating agencies for mock API testing...\n";
 
-# Agencies used in mock API responses that need patrons
 my @mock_agencies = (
     {
         agency_id    => 'famaf',
@@ -269,8 +305,8 @@ foreach my $agency (@mock_agencies) {
     }
 }
 
-# Step 5: Create sample mock API configuration
-print "\n5. Creating mock API configuration...\n";
+# Step 6: Create sample mock API configuration
+print "\n6. Creating mock API configuration...\n";
 
 my $mock_config_path = "/kohadevbox/plugins/rapido-ill/scripts/mock_config.json";
 if ( -f $mock_config_path ) {
@@ -281,8 +317,8 @@ if ( -f $mock_config_path ) {
     print "   ✓ Mock API will create configuration on first run\n";
 }
 
-# Step 6: Set up environment
-print "\n6. Setting up environment...\n";
+# Step 7: Set up environment
+print "\n7. Setting up environment...\n";
 
 # Create a helper script for running sync
 my $sync_helper = '#!/bin/bash
@@ -340,8 +376,8 @@ write_file( '/kohadevbox/plugins/rapido-ill/scripts/test_mock_api.sh', $test_hel
 system('chmod +x /kohadevbox/plugins/rapido-ill/scripts/test_mock_api.sh');
 print "   ✓ Created API test script: test_mock_api.sh\n";
 
-# Step 7: Verify KTD sample data
-print "\n7. Verifying KTD sample data...\n";
+# Step 8: Verify KTD sample data
+print "\n8. Verifying KTD sample data...\n";
 
 eval {
     my $dbh = DBI->connect(
@@ -385,8 +421,8 @@ if ($@) {
     print "   ⚠ Could not verify sample data: $@\n";
 }
 
-# Step 8: Validate plugin configuration
-print "\n8. Validating plugin configuration...\n";
+# Step 9: Validate plugin configuration
+print "\n9. Validating plugin configuration...\n";
 
 eval {
     # Create a temporary validation script
