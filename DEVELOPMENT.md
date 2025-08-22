@@ -2,6 +2,56 @@
 
 Comprehensive development documentation for the Rapido ILL plugin, including setup, testing, and architecture notes.
 
+## Known Issues and Workarounds
+
+### ILL Request Status Setting (Bug #40682)
+
+**Issue**: Koha's ILL request status handling has a design flaw where the `->status()` method performs an implicit `->store()` call, making it impossible to set both data fields and status in a single database transaction.
+
+**Upstream Bug**: https://bugs.koha-community.org/bugzilla3/show_bug.cgi?id=40682
+
+**Problem**: When you need to update both data fields and status on an ILL request, you cannot do:
+```perl
+# ❌ WRONG - This doesn't work as expected
+$req->set({
+    biblio_id => $biblio_id,
+    status    => 'NEW_STATUS'  # This gets ignored!
+})->store();
+```
+
+**Current Workaround**: Always use separate calls for data and status:
+```perl
+# ✅ CORRECT - Separate data and status setting
+$req->set({
+    biblio_id => $biblio_id,
+    due_date  => $due_date,
+    # ... other data fields
+});
+
+$req->status('NEW_STATUS')->store();  # Explicit store() for future-proofing
+```
+
+**Note**: We explicitly call `->store()` after `->status()` even though `->status()` currently does an implicit store. This ensures the code will continue to work correctly if/when the upstream bug is fixed and `->status()` no longer performs the implicit store operation.
+
+**Problematic Locations**: The following files still use the incorrect pattern and should be updated:
+
+1. **BorrowerActions.pm:219-224** (Legacy code):
+```perl
+$req->set({
+    biblio_id => $item->biblionumber,
+    status    => 'B_ITEM_SHIPPED',  # ❌ This gets ignored
+})->store();
+```
+
+**Fixed Locations**: The following files use the correct pattern:
+
+1. **ActionHandler/Borrower.pm** - Uses separate data and status calls
+2. **ActionHandler/Lender.pm** - Uses separate data and status calls
+3. **Backend/LenderActions.pm** - Uses separate status calls
+4. **Backend/BorrowerActions.pm** - Most methods use correct pattern
+
+**Action Required**: Until Bug #40682 is resolved upstream, all ILL request updates must use the separate call pattern. Legacy code should be updated when touched.
+
 ## Official Rapido Circulation States
 
 Based on the official Rapido API specification (page 15 of "Rapido via APIs.pdf"), the valid circulation states are:

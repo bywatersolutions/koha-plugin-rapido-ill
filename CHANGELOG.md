@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parameter pattern documentation in DEVELOPMENT.md for consistent API design
 - POD documentation for all ActionHandler methods and plugin integration
 - [#62] Due date setting from dueDateTime epoch in ITEM_SHIPPED messages
+- [#66] Comprehensive documentation for ILL request status setting workaround (Bug #40682)
 
 ### Changed
 - [#65] sync_circ_requests now uses ActionHandler system instead of legacy action methods
@@ -25,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed inheritance from ActionHandler classes to eliminate redefinition warnings
 - Plugin-level caching for ActionHandler instances for improved performance
 - [#62] item_shipped method now sets ILL request due_date from Rapido API dueDateTime field
+- [#66] All status() calls now use explicit store() for future-proofing against upstream changes
+
+### Fixed
+- [#66] ILL request status setting in BorrowerActions.pm (status was being ignored in set() calls)
+- [#66] Future-proof all status updates with explicit store() calls for when Bug #40682 is resolved
 
 ### Architecture
 - ActionHandler system provides perspective-based processing (borrower vs lender workflows)
@@ -40,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugin accessor method testing with caching verification
 - Exception handling validation for missing parameters
 - [#62] Comprehensive due_date functionality tests with and without dueDateTime
+- [#66] Updated tests to validate explicit store() calls for future-proofing
 - Full test suite: 17 files, 99 tests, all passing
 
 ## [0.3.15] - 2025-08-20
