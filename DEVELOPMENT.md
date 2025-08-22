@@ -304,6 +304,90 @@ prove -v t/db_dependent/RapidoILL.t
 
 ## Key Architecture Points
 
+### Method Parameter Patterns
+
+**CRITICAL**: Use consistent parameter patterns across all plugin methods.
+
+#### Single Parameter Methods
+```perl
+# ✅ CORRECT - Single parameter can be passed directly
+sub get_borrower_action_handler {
+    my ( $self, $pod ) = @_;
+    
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
+        unless $pod;
+    
+    # Implementation
+}
+
+# Usage
+my $handler = $plugin->get_borrower_action_handler('test_pod');
+```
+
+#### Multiple Parameter Methods
+```perl
+# ✅ CORRECT - Multiple parameters MUST use hashref
+sub get_action_handler {
+    my ( $self, $params ) = @_;
+    
+    $self->validate_params( { required => [qw(pod perspective)], params => $params } );
+    
+    my $pod = $params->{pod};
+    my $perspective = $params->{perspective};
+    # Implementation
+}
+
+# Usage
+my $handler = $plugin->get_action_handler({
+    pod => 'test_pod',
+    perspective => 'borrower'
+});
+```
+
+#### Parameter Validation with validate_params
+```perl
+# ✅ REQUIRED - Always use validate_params for hashref methods
+sub method_with_multiple_params {
+    my ( $self, $params ) = @_;
+    
+    $self->validate_params( { 
+        required => [qw(param1 param2)], 
+        params => $params 
+    } );
+    
+    # Method implementation using $params->{param1}, etc.
+}
+```
+
+**Benefits of This Pattern:**
+- **Consistency**: All methods follow the same parameter conventions
+- **Validation**: Centralized parameter validation with clear error messages
+- **Extensibility**: Easy to add new parameters without breaking existing calls
+- **Readability**: Clear parameter names in method calls
+- **Maintainability**: Consistent error handling across the codebase
+
+**When to Use Each Pattern:**
+- **Single parameter**: Simple methods with one clear input (IDs, names, etc.)
+- **Hashref + validate_params**: Any method with 2+ parameters or optional parameters
+
+**The validate_params Method:**
+```perl
+sub validate_params {
+    my ( $self, $args ) = @_;
+
+    foreach my $param ( @{ $args->{required} } ) {
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
+            unless defined $args->{params}->{$param};
+    }
+}
+```
+
+This method provides:
+- **Consistent error messages** across all plugin methods
+- **Proper exception types** (RapidoILL::Exception::MissingParameter)
+- **Parameter field information** for debugging
+- **Centralized validation logic** that's easy to maintain
+
 ### Configuration System
 - YAML config stored in plugin database via `store_data()`/`retrieve_data()`
 - `configuration()` method applies defaults and transformations

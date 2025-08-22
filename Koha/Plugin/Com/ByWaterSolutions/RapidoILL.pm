@@ -181,7 +181,7 @@ sub configuration {
 
     if ( !$self->{_configuration} || $args->{recreate} ) {
         my $configuration;
-        eval { $configuration = YAML::XS::Load( Encode::encode_utf8( $self->retrieve_data('configuration') ) ); };
+        eval { $configuration = YAML::XS::Load( Encode::encode_utf8( $self->retrieve_data('configuration') // '' ) ); };
         die($@) if $@;
 
         foreach my $pod ( keys %{$configuration} ) {
@@ -2411,6 +2411,101 @@ sub rapido_warn {
     my ( $self, $warning ) = @_;
 
     warn "rapidoill_plugin_warn: $warning";
+}
+
+=head3 get_action_handler
+
+    my $action_handler = $plugin->get_action_handler({
+        pod => $pod,
+        perspective => $perspective
+    });
+
+This method instantiates an action handler for the specified perspective.
+These handlers are designed for use by the task_queue_daemon.pl script
+to process actions from the sync operations.
+
+Parameters:
+- pod: The pod identifier
+- perspective: 'borrower' or 'lender'
+
+=cut
+
+sub get_action_handler {
+    my ( $self, $params ) = @_;
+
+    $self->validate_params( { required => [qw(pod perspective)], params => $params } );
+
+    my $pod         = $params->{pod};
+    my $perspective = $params->{perspective};
+
+    if ( $perspective eq 'borrower' ) {
+        return $self->get_borrower_action_handler($pod);
+    } elsif ( $perspective eq 'lender' ) {
+        return $self->get_lender_action_handler($pod);
+    } else {
+        RapidoILL::Exception::MissingParameter->throw(
+            "Invalid perspective: $perspective. Must be 'borrower' or 'lender'");
+    }
+}
+
+=head3 get_borrower_action_handler
+
+    my $borrower_handler = $plugin->get_borrower_action_handler( $pod );
+
+This method instantiates a borrower action handler for task queue operations.
+These handlers process actions from the borrower perspective when triggered
+by the task_queue_daemon.pl script.
+
+=cut
+
+sub get_borrower_action_handler {
+    my ( $self, $pod ) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
+        unless $pod;
+
+    require RapidoILL::ActionHandler::Borrower;
+
+    unless ( $self->{borrower_action_handler}->{$pod} ) {
+        $self->{borrower_action_handler}->{$pod} = RapidoILL::ActionHandler::Borrower->new(
+            {
+                pod    => $pod,
+                plugin => $self,
+            }
+        );
+    }
+
+    return $self->{borrower_action_handler}->{$pod};
+}
+
+=head3 get_lender_action_handler
+
+    my $lender_handler = $plugin->get_lender_action_handler( $pod );
+
+This method instantiates a lender action handler for task queue operations.
+These handlers process actions from the lender perspective when triggered
+by the task_queue_daemon.pl script.
+
+=cut
+
+sub get_lender_action_handler {
+    my ( $self, $pod ) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
+        unless $pod;
+
+    require RapidoILL::ActionHandler::Lender;
+
+    unless ( $self->{lender_action_handler}->{$pod} ) {
+        $self->{lender_action_handler}->{$pod} = RapidoILL::ActionHandler::Lender->new(
+            {
+                pod    => $pod,
+                plugin => $self,
+            }
+        );
+    }
+
+    return $self->{lender_action_handler}->{$pod};
 }
 
 1;
