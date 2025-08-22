@@ -1,37 +1,54 @@
 package RapidoILL::Backend::LenderActions;
 
-# This program is free software: you can redistribute it and/or modify
+# Copyright 2025 ByWater Solutions
+#
+# This file is part of The Rapido ILL plugin.
+#
+# The Rapido ILL plugin is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# This program is distributed in the hope that it will be useful,
+# The Rapido ILL plugin is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-# This program comes with ABSOLUTELY NO WARRANTY;
+# along with The Rapido ILL plugin; if not, see <http://www.gnu.org/licenses>.
 
 use Modern::Perl;
 
-use Encode;
-use JSON      qw( decode_json );
-use Try::Tiny qw(catch try);
-
-use Koha::Checkouts;
 use Koha::Database;
-use Koha::Items;
-use Koha::Holds;
-use Koha::Patrons;
 
 use RapidoILL::Exceptions;
 
-=head1 RapidoILL::Backend::LenderActions
+=head1 NAME
 
-A class implementing Rapido ILL lender site actions.
+RapidoILL::Backend::LenderActions - Backend utilities for lender-side ILL request operations
+
+=head1 SYNOPSIS
+
+    use RapidoILL::Backend::LenderActions;
+
+    my $actions = RapidoILL::Backend::LenderActions->new(
+        {
+            pod    => $pod,
+            plugin => $plugin,
+        }
+    );
+
+    # ILL request utility methods
+    $actions->cancel_request($ill_request);
+    $actions->item_shipped($ill_request);
+    $actions->final_checkin($ill_request);
+
+=head1 DESCRIPTION
+
+Backend utility class for lender-side ILL request operations. This class provides
+methods for performing backend operations on ILL requests from the lender perspective.
+
+Note: CircAction processing is handled by RapidoILL::ActionHandler::Lender.
 
 =head2 Class methods
 
@@ -44,7 +61,7 @@ A class implementing Rapido ILL lender site actions.
         }
     );
 
-Constructor for the API client class.
+Constructor for the lender actions utility class.
 
 =cut
 
@@ -53,7 +70,7 @@ sub new {
 
     my @mandatory_params = qw(pod plugin);
     foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw("Missing parameter: $param")
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
             unless $params->{$param};
     }
 
@@ -67,174 +84,13 @@ sub new {
     return $self;
 }
 
-=head3 handle_from_action
-
-    $lender_actions->handle_from_action( $action );
-
-Method for dispatching methods based on the passed I<$action> status.
-
-=cut
-
-sub handle_from_action {
-    my ( $self, $action ) = @_;
-
-    my $status_to_method = {
-        'FINAL_CHECKIN'   => \&lender_final_checkin,
-        'ITEM_RECEIVED'   => \&borrower_item_received,
-        'ITEM_IN_TRANSIT' => \&borrower_item_in_transit,
-        'ITEM_SHIPPED'    => \&lender_item_shipped,
-        'DEFAULT'         => \&default_handler,
-    };
-
-    my $status =
-        exists $status_to_method->{ $action->lastCircState }
-        ? $action->lastCircState
-        : 'DEFAULT';
-
-    return $status_to_method->{$status}->( $self, $action );
-}
-
-=head3 default_handler
-
-Throws an exception.
-
-=cut
-
-sub default_handler {
-    my ( $self, $action ) = @_;
-    RapidoILL::Exception::UnhandledException->throw(
-        sprintf(
-            "[lender_actions][handle_action] No method implemented for handling a %s status",
-            $action->lastCircState
-        )
-    );
-}
-
-=head2 Borrower-generated actions
-
-=head3 borrower_item_received
-
-    $client->borrower_item_received( { action  => $action } );
-
-FIXME: This should probably take an ILL request instead or have them both optional.
-       implement as needed, Tomas!
-
-=cut
-
-sub borrower_item_received {
-    my ( $self, $action ) = @_;
-
-    my $req = $action->ill_request;
-
-    Koha::Database->new->schema->txn_do(
-        sub {
-            if ( !$req->extended_attributes->search( { type => q{checkout_id} } )->count ) {
-                my $item   = Koha::Items->find( { barcode => $action->itemId } );
-                my $patron = Koha::Patrons->find( $req->borrowernumber );
-
-                my $checkout = $self->{plugin}->add_issue( { patron => $patron, barcode => $item->barcode } );
-
-                $self->{plugin}->add_or_update_attributes(
-                    {
-                        request    => $req,
-                        attributes => {
-                            checkout_id => $checkout->id,
-                        }
-                    }
-                );
-
-                $self->{plugin}->logger->warn(
-                    sprintf(
-                        "[lender_actions][borrower_item_received]: Request %s set to O_ITEM_RECEIVED_DESTINATION but didn't have a 'checkout_id' attribute",
-                        $req->id
-                    )
-                );
-            }
-
-            $req->status('O_ITEM_RECEIVED_DESTINATION')->store;
-        }
-    );
-
-    return;
-}
-
-=head3 borrower_item_in_transit
-
-    $client->borrower_item_in_transit( { action  => $action } );
-
-FIXME: This should probably take an ILL request instead or have them both optional.
-       implement as needed, Tomas!
-
-=cut
-
-sub borrower_item_in_transit {
-    my ( $self, $action ) = @_;
-
-    my $req = $action->ill_request;
-
-    Koha::Database->new->schema->txn_do(
-        sub {
-            if ( !$req->extended_attributes->search( { type => q{checkout_id} } )->count ) {
-                my $item   = Koha::Items->find( { barcode => $action->itemBarcode } );
-                my $patron = Koha::Patrons->find( $req->borrowernumber );
-
-                my $checkout = $self->{plugin}->add_issue( { patron => $patron, barcode => $item->barcode } );
-
-                $self->{plugin}->add_or_update_attributes(
-                    {
-                        request    => $req,
-                        attributes => {
-                            checkout_id => $checkout->id,
-                        }
-                    }
-                );
-
-                $self->{plugin}->logger->warn(
-                    sprintf(
-                        "[lender_actions][borrower_item_in_transit]: Request %s set to O_ITEM_IN_TRANSIT but didn't have a 'checkout_id' attribute",
-                        $req->id
-                    )
-                );
-            }
-
-            $req->status('O_ITEM_IN_TRANSIT')->store;
-        }
-    );
-
-    return;
-}
-
-=head3 final_checkin
-
-    $client->final_checkin( $action );
-
-=cut
-
-sub lender_final_checkin {
-    my ( $self, $action ) = @_;
-
-    $action->ill_request->status('COMP')->store;
-
-    return;
-}
-
-=head3 item_shipped
-
-    $client->item_shipped( $action );
-
-=cut
-
-sub lender_item_shipped {
-    my ( $self, $action ) = @_;
-
-    # This was triggered by us. No action
-
-    return;
-}
+=head2 Instance methods
 
 =head3 cancel_request
 
-    $client->cancel_request( $req );
+    $actions->cancel_request( $ill_request );
+
+Cancel an ILL request from the lender side.
 
 =cut
 
@@ -268,12 +124,14 @@ sub cancel_request {
         }
     );
 
-    return;
+    return $self;
 }
 
 =head3 item_shipped
 
-    $client->item_shipped( $req );
+    $actions->item_shipped( $ill_request );
+
+Mark an ILL request as item shipped from the lender side.
 
 =cut
 
@@ -329,12 +187,14 @@ sub item_shipped {
         }
     );
 
-    return;
+    return $self;
 }
 
 =head3 final_checkin
 
-    $client->final_checkin( $req );
+    $actions->final_checkin( $ill_request );
+
+Perform final checkin for an ILL request from the lender side.
 
 =cut
 
@@ -355,7 +215,7 @@ sub final_checkin {
         }
     );
 
-    return;
+    return $self;
 }
 
 1;
