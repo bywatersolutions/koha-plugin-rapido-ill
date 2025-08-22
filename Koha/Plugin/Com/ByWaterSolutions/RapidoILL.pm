@@ -2151,21 +2151,38 @@ sub create_patron_hold {
 
 =head3 update_ill_request
 
+    $plugin->update_ill_request($action);
+
+Updates an existing ILL request based on the circulation action received
+from the Rapido API. Determines the appropriate perspective (borrower or lender)
+and delegates processing to the corresponding ActionHandler.
+
+Parameters:
+- action: RapidoILL::CircAction object containing circulation state information
+
 =cut
 
 sub update_ill_request {
     my ( $self, $action ) = @_;
 
-    if ( $self->are_we_lender($action) ) {
-        $self->get_lender_actions( $action->pod )->handle_from_action($action);
-    } elsif ( $self->are_we_borrower($action) ) {
-        $self->get_borrower_actions( $action->pod )->handle_from_action($action);
-    } else {
+    my $perspective =
+          $self->are_we_lender($action)   ? 'lender'
+        : $self->are_we_borrower($action) ? 'borrower'
+        :                                   undef;
+
+    if ( !$perspective ) {
         RapidoILL::Exception::BadAgencyCode->throw(
             borrowerCode => $action->borrowerCode,
             lenderCode   => $action->lenderCode,
         );
     }
+
+    $self->get_action_handler(
+        {
+            pod         => $action->pod,
+            perspective => $perspective
+        }
+    )->handle_from_action($action);
 
     return;
 }

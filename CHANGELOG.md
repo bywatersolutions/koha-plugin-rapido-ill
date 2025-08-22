@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-08-22
+
+### Added
+- [#65] Complete ActionHandler system for circulation action processing
+- RapidoILL::ActionHandler::Borrower class for borrower-side circulation workflows
+- RapidoILL::ActionHandler::Lender class for lender-side circulation workflows
+- Plugin integration methods: get_borrower_action_handler, get_lender_action_handler, get_action_handler
+- Unified get_action_handler interface with perspective parameter ('borrower' or 'lender')
+- Comprehensive test coverage for all ActionHandler classes and plugin integration
+- Parameter pattern documentation in DEVELOPMENT.md for consistent API design
+- POD documentation for all ActionHandler methods and plugin integration
+
+### Changed
+- [#65] sync_circ_requests now uses ActionHandler system instead of legacy action methods
+- update_ill_request method refactored with elegant ternary operator chain for perspective determination
+- Consistent hashref parameter patterns across all plugin methods with validate_params
+- Removed inheritance from ActionHandler classes to eliminate redefinition warnings
+- Plugin-level caching for ActionHandler instances for improved performance
+
+### Architecture
+- ActionHandler system provides perspective-based processing (borrower vs lender workflows)
+- Real CircAction object handling via TestBuilder integration
+- Proper exception handling with RapidoILL::Exception types
+- Database transaction support for reliable operations
+- Clean separation of concerns between perspective determination and action execution
+
+### Testing
+- Unit tests for ActionHandler base class (constructor, parameter validation)
+- Integration tests for concrete implementations (Borrower, Lender)
+- Database-dependent tests with real CircAction objects
+- Plugin accessor method testing with caching verification
+- Exception handling validation for missing parameters
+- Full test suite: 17 files, 99 tests, all passing
+
 ## [0.3.15] - 2025-08-20
 
 ### Added
