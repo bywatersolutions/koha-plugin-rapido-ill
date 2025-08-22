@@ -556,6 +556,75 @@ This method provides:
 - **Parameter field information** for debugging
 - **Centralized validation logic** that's easy to maintain
 
+#### Backend Actions Method Patterns
+
+**NEW**: As of [#68], all Backend Actions methods follow a standardized signature pattern.
+
+```perl
+# ✅ STANDARDIZED - All Backend Actions methods use this pattern
+sub method_name {
+    my ( $self, $req, $params ) = @_;
+    
+    $params //= {};
+    my $client_options = $params->{client_options} // {};
+    
+    # Method implementation
+    # Use $client_options when calling Rapido client methods
+    
+    return $self; # Enable method chaining
+}
+```
+
+**Usage Examples:**
+```perl
+# Simple usage (no additional parameters)
+$actions->cancel_request($ill_request);
+$actions->item_shipped($ill_request);
+$actions->final_checkin($ill_request);
+
+# With client options for API passthrough
+$actions->cancel_request($ill_request, {
+    client_options => { timeout => 30, retry => 3 }
+});
+
+# Method chaining support
+$actions->item_shipped($ill_request)
+        ->final_checkin($ill_request);
+
+# BorrowerActions with additional parameters
+$actions->borrower_receive_unshipped($ill_request, {
+    circId     => 'circ_123',
+    attributes => { title => 'Book Title' },
+    barcode    => 'BARCODE123',
+    client_options => { notify_rapido => 1 }
+});
+```
+
+**Key Benefits:**
+- **Consistent API**: All Backend Actions methods follow the same pattern
+- **Request-first**: ILL request object is always the first parameter
+- **Optional parameters**: Second parameter is optional hashref for additional data
+- **Client options**: Standardized way to pass options to Rapido client calls
+- **Method chaining**: All methods return `$self` for fluent interfaces
+- **Backward compatible**: Simple calls without params still work
+
+**Migration from Old Patterns:**
+```perl
+# ❌ OLD - BorrowerActions used hashref-first approach
+$actions->item_in_transit({ request => $req });
+$actions->borrower_cancel({ request => $req });
+
+# ✅ NEW - Consistent request-first approach
+$actions->item_in_transit($req);
+$actions->borrower_cancel($req);
+
+# ❌ OLD - LenderActions had no client options support
+$actions->cancel_request($req); # No way to pass client options
+
+# ✅ NEW - Consistent client options support
+$actions->cancel_request($req, { client_options => $opts });
+```
+
 ### Configuration System
 - YAML config stored in plugin database via `store_data()`/`retrieve_data()`
 - `configuration()` method applies defaults and transformations

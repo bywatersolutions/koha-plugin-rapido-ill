@@ -9,12 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - [#67] Replaced rapido_warn() with proper Koha::Logger integration for consistent logging
+- [#68] Standardized Backend Actions method signatures to consistent `method($req, $params)` pattern
+- [#68] Enhanced LenderActions methods to support optional `$params` with `client_options` passthrough
+- [#68] Simplified BorrowerActions methods from hashref-first to request-first parameter approach
+- [#68] All Backend Actions methods now return `$self` for method chaining support
 
 ### Removed
 - [#67] Deprecated rapido_warn() method in favor of proper Koha logger
 
 ### Testing
 - [#67] Updated test mocks to use logger instead of deprecated rapido_warn
+- [#68] Replaced plugin mocking with real plugin instances to eliminate "Un-mocked method" warnings
+- [#68] Updated all Backend Actions tests to use new standardized method signatures
 
 ## [0.4.0] - 2025-08-22
 
