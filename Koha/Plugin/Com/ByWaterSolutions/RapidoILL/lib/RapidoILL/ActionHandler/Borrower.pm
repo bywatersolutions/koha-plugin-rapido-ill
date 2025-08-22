@@ -129,8 +129,8 @@ sub final_checkin {
     # The lender has received the item back and completed the transaction
     # From the borrower's perspective, this means the request is complete
     my $req = $action->ill_request;
-    $req->status('B_ITEM_CHECKED_IN');
-    $req->status('COMP')->store;
+    $req->status('B_ITEM_CHECKED_IN')->store();
+    $req->status('COMP')->store();
 
     return;
 }

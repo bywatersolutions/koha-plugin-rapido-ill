@@ -111,7 +111,7 @@ subtest 'borrower_final_checkin method' => sub {
     is(scalar @status_calls, 2, 'status method should be called twice for paper trail');
     is($status_calls[0], 'B_ITEM_CHECKED_IN', 'first status should be B_ITEM_CHECKED_IN for paper trail');
     is($status_calls[1], 'COMP', 'final status should be COMP (completed)');
-    is(scalar @store_calls, 1, 'store method should be called once at the end');
+    is(scalar @store_calls, 2, 'store method should be called twice (explicit calls for future-proofing)');
     
     # Verify paper trail sequence
     ok($status_calls[0] ne $status_calls[1], 'paper trail should create two different status entries');
@@ -157,7 +157,7 @@ subtest 'borrower_final_checkin integration with handle_from_action' => sub {
     is(scalar @status_calls, 2, 'FINAL_CHECKIN should create paper trail with two status calls');
     is($status_calls[0], 'B_ITEM_CHECKED_IN', 'FINAL_CHECKIN should first set B_ITEM_CHECKED_IN status');
     is($status_calls[1], 'COMP', 'FINAL_CHECKIN should finally set COMP status');
-    is(scalar @store_calls, 1, 'FINAL_CHECKIN should call store once at the end');
+    is(scalar @store_calls, 2, 'FINAL_CHECKIN should call store twice (explicit calls for future-proofing)');
 };
 
 subtest 'borrowing workflow completion scenario' => sub {
@@ -247,7 +247,7 @@ subtest 'method existence and documentation' => sub {
 };
 
 subtest 'paper trail functionality' => sub {
-    plan tests => 8;
+    plan tests => 10;
 
     # Create BorrowerActions with required parameters
     my $mock_plugin = Test::MockObject->new();
@@ -282,19 +282,23 @@ subtest 'paper trail functionality' => sub {
         'borrower_final_checkin should create paper trail without exception';
 
     # Verify call sequence
-    is(scalar @all_calls, 3, 'Should make exactly 3 method calls for paper trail');
+    is(scalar @all_calls, 4, 'Should make exactly 4 method calls for paper trail (explicit stores)');
     
     # Verify first status call (paper trail)
     is($all_calls[0]->{method}, 'status', 'First call should be status method');
     is($all_calls[0]->{arg}, 'B_ITEM_CHECKED_IN', 'First status should be B_ITEM_CHECKED_IN');
     
-    # Verify second status call (final status)
-    is($all_calls[1]->{method}, 'status', 'Second call should be status method');
-    is($all_calls[1]->{arg}, 'COMP', 'Second status should be COMP');
+    # Verify first store call (explicit for future-proofing)
+    is($all_calls[1]->{method}, 'store', 'Second call should be store method');
+    is($all_calls[1]->{arg}, undef, 'First store call should have no arguments');
     
-    # Verify store call (persistence)
-    is($all_calls[2]->{method}, 'store', 'Third call should be store method');
-    is($all_calls[2]->{arg}, undef, 'Store call should have no arguments');
+    # Verify second status call (final status)
+    is($all_calls[2]->{method}, 'status', 'Third call should be status method');
+    is($all_calls[2]->{arg}, 'COMP', 'Second status should be COMP');
+    
+    # Verify final store call (persistence)
+    is($all_calls[3]->{method}, 'store', 'Fourth call should be store method');
+    is($all_calls[3]->{arg}, undef, 'Final store call should have no arguments');
 };
 
 done_testing();

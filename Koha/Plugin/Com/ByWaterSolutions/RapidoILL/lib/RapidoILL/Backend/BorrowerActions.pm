@@ -215,13 +215,9 @@ sub lender_item_shipped {
                 }
             );
 
-            # Update request
-            $req->set(
-                {
-                    biblio_id => $item->biblionumber,
-                    status    => 'B_ITEM_SHIPPED',
-                }
-            )->store();
+            # Update request data and status separately (Bug #40682)
+            $req->set( { biblio_id => $item->biblionumber, } );
+            $req->status('B_ITEM_SHIPPED')->store();
         }
     );
 
@@ -361,8 +357,8 @@ sub borrower_final_checkin {
     # The lender has received the item back and completed the transaction
     # From the borrower's perspective, this means the request is complete
     my $req = $action->ill_request;
-    $req->status('B_ITEM_CHECKED_IN');
-    $req->status('COMP')->store;
+    $req->status('B_ITEM_CHECKED_IN')->store();
+    $req->status('COMP')->store();
 
     return;
 }

@@ -347,8 +347,8 @@ sub final_checkin {
             my $pod    = $self->{plugin}->get_req_pod($req);
 
             # update status with paper trail
-            $req->status('O_ITEM_CHECKED_IN');
-            $req->status('COMP')->store;
+            $req->status('O_ITEM_CHECKED_IN')->store();
+            $req->status('COMP')->store();
 
             # notify Rapido. Throws an exception if failed
             $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, } );
