@@ -20,6 +20,7 @@
 use Modern::Perl;
 
 use Test::More tests => 5;
+use Test::MockModule;
 use Test::MockObject;
 use Test::Exception;
 
@@ -78,33 +79,29 @@ subtest 'borrower_receive_unshipped() tests' => sub {
             }
         );
 
-        # Setup plugin with minimal mocking
-        my $plugin      = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        # Setup real plugin with method mocking for external dependencies
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         my $mock_client = Test::MockObject->new();
 
         # Mock only external API calls
         $mock_client->mock( 'borrower_receive_unshipped', sub { return; } );
 
         # Mock plugin methods that need external dependencies
-        my $mock_plugin = Test::MockObject->new();
-        $mock_plugin->mock( 'configuration', sub { return { test_pod => {} }; } );
-        $mock_plugin->mock( 'get_client',    sub { return $mock_client; } );
-        $mock_plugin->mock(
-            'add_virtual_record_and_item',
-            sub {
-                return $builder->build_object(
-                    {
-                        class => 'Koha::Items',
-                        value => { biblionumber => $biblio->biblionumber }
-                    }
-                );
-            }
-        );
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock('get_client', sub { return $mock_client; });
+        $plugin_module->mock('add_virtual_record_and_item', sub {
+            return $builder->build_object(
+                {
+                    class => 'Koha::Items',
+                    value => { biblionumber => $biblio->biblionumber }
+                }
+            );
+        });
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
                 pod    => 'test_pod',
-                plugin => $mock_plugin,
+                plugin => $plugin,
             }
         );
 
@@ -150,18 +147,21 @@ subtest 'borrower_receive_unshipped() tests' => sub {
             }
         );
 
-        # Test API failure
-        my $mock_plugin = Test::MockObject->new();
+        # Test API failure with real plugin
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         my $mock_client = Test::MockObject->new();
 
-        $mock_plugin->mock( 'configuration',               sub { return { test_pod => {} }; } );
-        $mock_plugin->mock( 'get_client',                  sub { return $mock_client; } );
-        $mock_plugin->mock( 'add_virtual_record_and_item', sub { die "Virtual record creation failed"; } );
+        # Mock plugin methods to simulate failure
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock('get_client', sub { return $mock_client; });
+        $plugin_module->mock('add_virtual_record_and_item', sub { 
+            die "Virtual record creation failed"; 
+        });
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
                 pod    => 'test_pod',
-                plugin => $mock_plugin,
+                plugin => $plugin,
             }
         );
 
@@ -188,6 +188,8 @@ subtest 'borrower_receive_unshipped() tests' => sub {
 subtest 'item_in_transit() tests' => sub {
 
     plan tests => 2;
+    
+    my $plugin; # Declare at test level to avoid masking warnings
 
     subtest 'Successful calls' => sub {
         plan tests => 3;
@@ -230,20 +232,20 @@ subtest 'item_in_transit() tests' => sub {
             }
         );
 
-        # Setup minimal mocking for external calls
+        # Setup real plugin with method mocking for external calls
+        $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         my $mock_client = Test::MockObject->new();
         $mock_client->mock( 'borrower_item_in_transit', sub { return; } );
 
-        my $mock_plugin = Test::MockObject->new();
-        $mock_plugin->mock( 'validate_params', sub { return; } );
-        $mock_plugin->mock( 'get_req_circ_id', sub { return 'test_circ_456'; } );
-        $mock_plugin->mock( 'get_client',      sub { return $mock_client; } );
-        $mock_plugin->mock( 'add_return',      sub { return; } );
+        # Mock plugin methods that need external dependencies
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock('get_client', sub { return $mock_client; });
+        $plugin_module->mock('add_return', sub { return; });
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
                 pod    => 'test_pod',
-                plugin => $mock_plugin,
+                plugin => $plugin,
             }
         );
 
@@ -276,13 +278,13 @@ subtest 'item_in_transit() tests' => sub {
             }
         );
 
-        # Test parameter validation failure
-        my $mock_plugin = Test::MockObject->new();
+        # Test parameter validation failure with real plugin
+        $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
                 pod    => 'test_pod',
-                plugin => $mock_plugin,
+                plugin => $plugin,
             }
         );
 
@@ -291,12 +293,8 @@ subtest 'item_in_transit() tests' => sub {
         }
         qr/Can't call method/, 'Handles missing request parameter';
 
-        # Test API failure
-        $mock_plugin->mock( 'validate_params', sub { return; } );
-        $mock_plugin->mock( 'get_req_circ_id', sub { return 'test_circ_456'; } );
-
+        # Test API failure with real plugin
         # Add required attributes for the method to work
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         $plugin->add_or_update_attributes(
             {
                 request    => $illrequest,
@@ -309,7 +307,17 @@ subtest 'item_in_transit() tests' => sub {
 
         my $mock_client = Test::MockObject->new();
         $mock_client->mock( 'borrower_item_in_transit', sub { die "API Error"; } );
-        $mock_plugin->mock( 'get_client',               sub { return $mock_client; } );
+        
+        # Mock get_client method
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock('get_client', sub { return $mock_client; });
+
+        $actions = RapidoILL::Backend::BorrowerActions->new(
+            {
+                pod    => 'test_pod',
+                plugin => $plugin,
+            }
+        );
 
         throws_ok {
             $actions->item_in_transit($illrequest);
@@ -327,6 +335,9 @@ subtest 'item_in_transit() tests' => sub {
 subtest 'borrower_cancel() tests' => sub {
 
     plan tests => 2;
+    
+    my $plugin; # Declare at test level to avoid masking warnings
+    my $actions; # Declare at test level to avoid masking warnings
 
     subtest 'Successful calls' => sub {
         plan tests => 3;
@@ -345,19 +356,29 @@ subtest 'borrower_cancel() tests' => sub {
             }
         );
 
-        # Setup minimal mocking for external calls
+        # Setup real plugin with method stubbing for external calls
+        $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         my $mock_client = Test::MockObject->new();
         $mock_client->mock( 'borrower_cancel', sub { return; } );
 
-        my $mock_plugin = Test::MockObject->new();
-        $mock_plugin->mock( 'validate_params', sub { return; } );
-        $mock_plugin->mock( 'get_req_circ_id', sub { return 'test_circ_456'; } );
-        $mock_plugin->mock( 'get_client',      sub { return $mock_client; } );
+        # Add required attributes for the method to work
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => 'test_circ_456',
+                }
+            }
+        );
+
+        # Mock get_client method
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock('get_client', sub { return $mock_client; });
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
                 pod    => 'test_pod',
-                plugin => $mock_plugin,
+                plugin => $plugin,
             }
         );
 
@@ -390,13 +411,13 @@ subtest 'borrower_cancel() tests' => sub {
             }
         );
 
-        # Test parameter validation failure
-        my $mock_plugin = Test::MockObject->new();
+        # Test parameter validation failure with real plugin
+        $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
                 pod    => 'test_pod',
-                plugin => $mock_plugin,
+                plugin => $plugin,
             }
         );
 
@@ -405,13 +426,22 @@ subtest 'borrower_cancel() tests' => sub {
         }
         qr/Can't call method/, 'Handles missing request parameter';
 
-        # Test API failure
-        $mock_plugin->mock( 'validate_params', sub { return; } );
-        $mock_plugin->mock( 'get_req_circ_id', sub { return 'test_circ_456'; } );
+        # Test API failure with real plugin
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => 'test_circ_456',
+                }
+            }
+        );
 
         my $mock_client = Test::MockObject->new();
         $mock_client->mock( 'borrower_cancel', sub { die "API Error"; } );
-        $mock_plugin->mock( 'get_client',      sub { return $mock_client; } );
+        
+        # Mock get_client method
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock('get_client', sub { return $mock_client; });
 
         throws_ok {
             $actions->borrower_cancel($illrequest);
