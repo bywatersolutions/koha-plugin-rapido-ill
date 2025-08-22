@@ -117,8 +117,8 @@ subtest 'borrower_receive_unshipped() tests' => sub {
         my $result;
         lives_ok {
             $result = $actions->borrower_receive_unshipped(
+                $illrequest,
                 {
-                    request    => $illrequest,
                     circId     => 'test_circ_456',
                     attributes => $attributes,
                     barcode    => 'TEST_BARCODE_456'
@@ -167,8 +167,8 @@ subtest 'borrower_receive_unshipped() tests' => sub {
 
         throws_ok {
             $actions->borrower_receive_unshipped(
+                $illrequest,
                 {
-                    request    => $illrequest,
                     circId     => 'test_circ_456',
                     attributes => { title => 'Test' },
                     barcode    => 'TEST_BARCODE'
@@ -249,7 +249,7 @@ subtest 'item_in_transit() tests' => sub {
 
         my $result;
         lives_ok {
-            $result = $actions->item_in_transit( { request => $illrequest } );
+            $result = $actions->item_in_transit($illrequest);
         }
         'item_in_transit executes without error';
 
@@ -278,12 +278,6 @@ subtest 'item_in_transit() tests' => sub {
 
         # Test parameter validation failure
         my $mock_plugin = Test::MockObject->new();
-        $mock_plugin->mock(
-            'validate_params',
-            sub {
-                die "Missing required parameter: request";
-            }
-        );
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
@@ -293,9 +287,9 @@ subtest 'item_in_transit() tests' => sub {
         );
 
         throws_ok {
-            $actions->item_in_transit( {} );
+            $actions->item_in_transit(undef);
         }
-        qr/Missing required parameter/, 'Validates parameters correctly';
+        qr/Can't call method/, 'Handles missing request parameter';
 
         # Test API failure
         $mock_plugin->mock( 'validate_params', sub { return; } );
@@ -318,7 +312,7 @@ subtest 'item_in_transit() tests' => sub {
         $mock_plugin->mock( 'get_client',               sub { return $mock_client; } );
 
         throws_ok {
-            $actions->item_in_transit( { request => $illrequest } );
+            $actions->item_in_transit($illrequest);
         }
         qr/API Error/, 'Throws exception on API failure';
 
@@ -369,7 +363,7 @@ subtest 'borrower_cancel() tests' => sub {
 
         my $result;
         lives_ok {
-            $result = $actions->borrower_cancel( { request => $illrequest } );
+            $result = $actions->borrower_cancel($illrequest);
         }
         'borrower_cancel executes without error';
 
@@ -398,12 +392,6 @@ subtest 'borrower_cancel() tests' => sub {
 
         # Test parameter validation failure
         my $mock_plugin = Test::MockObject->new();
-        $mock_plugin->mock(
-            'validate_params',
-            sub {
-                die "Missing required parameter: request";
-            }
-        );
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
@@ -413,9 +401,9 @@ subtest 'borrower_cancel() tests' => sub {
         );
 
         throws_ok {
-            $actions->borrower_cancel( {} );
+            $actions->borrower_cancel(undef);
         }
-        qr/Missing required parameter/, 'Validates parameters correctly';
+        qr/Can't call method/, 'Handles missing request parameter';
 
         # Test API failure
         $mock_plugin->mock( 'validate_params', sub { return; } );
@@ -426,7 +414,7 @@ subtest 'borrower_cancel() tests' => sub {
         $mock_plugin->mock( 'get_client',      sub { return $mock_client; } );
 
         throws_ok {
-            $actions->borrower_cancel( { request => $illrequest } );
+            $actions->borrower_cancel($illrequest);
         }
         qr/API Error/, 'Throws exception on API failure';
 

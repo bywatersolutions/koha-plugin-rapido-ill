@@ -89,26 +89,27 @@ sub new {
 
 =head3 borrower_receive_unshipped
 
-    $actions->borrower_receive_unshipped(
-        {
-            request    => $ill_request,
-            circId     => $circ_id,
-            attributes => $attributes_hashref,
-        }
-    );
+    $actions->borrower_receive_unshipped( $ill_request, $params );
 
 Handle receiving an unshipped item from the borrower side.
+
+Parameters:
+- $ill_request: The ILL request object
+- $params: Hashref with:
+  - circId: Circulation ID
+  - attributes: Item attributes for virtual record creation
+  - barcode: Item barcode
+  - client_options: Optional options to pass to the Rapido client
 
 =cut
 
 sub borrower_receive_unshipped {
-    my ( $self, $params, $options ) = @_;
+    my ( $self, $request, $params ) = @_;
 
-    my $request    = $params->{request};
     my $circId     = $params->{circId};
     my $attributes = $params->{attributes};
-
-    my $barcode = $params->{barcode};
+    my $barcode    = $params->{barcode};
+    my $options    = $params->{client_options} // {};
 
     Koha::Database->new->schema->txn_do(
         sub {
@@ -154,7 +155,7 @@ sub borrower_receive_unshipped {
             $request->status('B_ITEM_RECEIVED')->store();
 
             if ( $options && $options->{notify_rapido} ) {
-                $self->{plugin}->get_client( $self->{pod} )->borrower_receive_unshipped;
+                $self->{plugin}->get_client( $self->{pod} )->borrower_receive_unshipped( {}, $options );
             }
         }
     );
@@ -164,22 +165,23 @@ sub borrower_receive_unshipped {
 
 =head3 item_in_transit
 
-    $actions->item_in_transit(
-        {
-            request => $ill_request,
-        }
-    );
+    $actions->item_in_transit( $ill_request, $params );
 
 Mark an ILL request as item in transit from the borrower side.
+
+Parameters:
+- $ill_request: The ILL request object
+- $params: Optional hashref with:
+  - client_options: Options to pass to the Rapido client
 
 =cut
 
 sub item_in_transit {
-    my ( $self, $params, $options ) = @_;
+    my ( $self, $req, $params ) = @_;
 
-    $self->{plugin}->validate_params( { params => $params, required => [qw(request)], } );
+    $params //= {};
+    my $options = $params->{client_options} // {};
 
-    my $req   = $params->{request};
     my $attrs = $req->extended_attributes;
 
     my $circId = $self->{plugin}->get_req_circ_id($req);
@@ -223,18 +225,23 @@ sub item_in_transit {
 
 =head3 borrower_cancel
 
-    $actions->borrower_cancel( { request => $ill_request } );
+    $actions->borrower_cancel( $ill_request, $params );
 
 Cancel an ILL request from the borrower side.
+
+Parameters:
+- $ill_request: The ILL request object
+- $params: Optional hashref with:
+  - client_options: Options to pass to the Rapido client
 
 =cut
 
 sub borrower_cancel {
-    my ( $self, $params, $options ) = @_;
+    my ( $self, $req, $params ) = @_;
 
-    $self->{plugin}->validate_params( { params => $params, required => [qw(request)], } );
+    $params //= {};
+    my $options = $params->{client_options} // {};
 
-    my $req    = $params->{request};
     my $circId = $self->{plugin}->get_req_circ_id($req);
 
     Koha::Database->new->schema->txn_do(

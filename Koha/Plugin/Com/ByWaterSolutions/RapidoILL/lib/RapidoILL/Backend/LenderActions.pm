@@ -88,14 +88,22 @@ sub new {
 
 =head3 cancel_request
 
-    $actions->cancel_request( $ill_request );
+    $actions->cancel_request( $ill_request, $params );
 
 Cancel an ILL request from the lender side.
+
+Parameters:
+- $ill_request: The ILL request object
+- $params: Optional hashref with:
+  - client_options: Options to pass to the Rapido client
 
 =cut
 
 sub cancel_request {
-    my ( $self, $req ) = @_;
+    my ( $self, $req, $params ) = @_;
+
+    $params //= {};
+    my $client_options = $params->{client_options} // {};
 
     Koha::Database->schema->storage->txn_do(
         sub {
@@ -117,7 +125,8 @@ sub cancel_request {
                     circId     => $circId,
                     localBibId => $req->biblio_id,
                     patronName => $patronName,
-                }
+                },
+                $client_options
             );
 
             $req->status('O_ITEM_CANCELLED_BY_US')->store;
@@ -129,14 +138,22 @@ sub cancel_request {
 
 =head3 item_shipped
 
-    $actions->item_shipped( $ill_request );
+    $actions->item_shipped( $ill_request, $params );
 
 Mark an ILL request as item shipped from the lender side.
+
+Parameters:
+- $ill_request: The ILL request object
+- $params: Optional hashref with:
+  - client_options: Options to pass to the Rapido client
 
 =cut
 
 sub item_shipped {
-    my ( $self, $req ) = @_;
+    my ( $self, $req, $params ) = @_;
+
+    $params //= {};
+    my $client_options = $params->{client_options} // {};
 
     my $circId = $self->{plugin}->get_req_circ_id($req);
     my $pod    = $self->{plugin}->get_req_pod($req);
@@ -182,7 +199,8 @@ sub item_shipped {
                     callNumber  => $item->itemcallnumber,
                     circId      => $circId,
                     itemBarcode => $item->barcode,
-                }
+                },
+                $client_options
             );
         }
     );
@@ -192,14 +210,22 @@ sub item_shipped {
 
 =head3 final_checkin
 
-    $actions->final_checkin( $ill_request );
+    $actions->final_checkin( $ill_request, $params );
 
 Perform final checkin for an ILL request from the lender side.
+
+Parameters:
+- $ill_request: The ILL request object
+- $params: Optional hashref with:
+  - client_options: Options to pass to the Rapido client
 
 =cut
 
 sub final_checkin {
-    my ( $self, $req ) = @_;
+    my ( $self, $req, $params ) = @_;
+
+    $params //= {};
+    my $client_options = $params->{client_options} // {};
 
     Koha::Database->schema->storage->txn_do(
         sub {
@@ -211,7 +237,7 @@ sub final_checkin {
             $req->status('COMP')->store();
 
             # notify Rapido. Throws an exception if failed
-            $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, } );
+            $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, }, $client_options );
         }
     );
 

@@ -702,9 +702,13 @@ sub receive_unshipped {
         return try {
 
             $self->{plugin}->get_borrower_actions($pod)->borrower_receive_unshipped(
+                $request,
                 {
-                    request    => $request,
-                    callnumber => $params->{other}->{item_callnumber},
+                    circId     => $self->{plugin}->get_req_circ_id($request),
+                    attributes => {
+                        callnumber => $params->{other}->{item_callnumber},
+                        barcode    => $params->{other}->{item_barcode}
+                    },
                     barcode    => $params->{other}->{item_barcode}
                 }
             );
@@ -747,7 +751,7 @@ sub item_in_transit {
 
     return try {
         my $pod = $self->{plugin}->get_req_pod( $params->{request} );
-        $self->{plugin}->get_borrower_actions($pod)->item_in_transit( { request => $params->{request} } );
+        $self->{plugin}->get_borrower_actions($pod)->item_in_transit($params->{request});
 
         return {
             error   => 0,
@@ -850,7 +854,7 @@ sub borrower_cancel {
 
     return try {
         $self->{plugin}->get_agencies_list( $self->{plugin}->get_req_pod($req) )
-            ->borrower_cancel( { request => $req } );
+            ->borrower_cancel($req);
         return {
             status  => q{},
             message => q{},

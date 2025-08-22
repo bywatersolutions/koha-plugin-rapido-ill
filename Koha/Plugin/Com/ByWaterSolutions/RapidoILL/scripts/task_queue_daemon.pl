@@ -200,7 +200,7 @@ sub b_item_in_transit {
     my $req = $params->{task}->ill_request;
     my $pod = $params->{plugin}->get_req_pod($req);
 
-    $params->{plugin}->get_borrower_actions($pod)->item_in_transit( { request => $req } );
+    $params->{plugin}->get_borrower_actions($pod)->item_in_transit($req);
 }
 
 =head3 b_item_received
