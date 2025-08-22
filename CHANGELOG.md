@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test coverage for all ActionHandler classes and plugin integration
 - Parameter pattern documentation in DEVELOPMENT.md for consistent API design
 - POD documentation for all ActionHandler methods and plugin integration
+- [#62] Due date setting from dueDateTime epoch in ITEM_SHIPPED messages
 
 ### Changed
 - [#65] sync_circ_requests now uses ActionHandler system instead of legacy action methods
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consistent hashref parameter patterns across all plugin methods with validate_params
 - Removed inheritance from ActionHandler classes to eliminate redefinition warnings
 - Plugin-level caching for ActionHandler instances for improved performance
+- [#62] item_shipped method now sets ILL request due_date from Rapido API dueDateTime field
 
 ### Architecture
 - ActionHandler system provides perspective-based processing (borrower vs lender workflows)
@@ -37,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database-dependent tests with real CircAction objects
 - Plugin accessor method testing with caching verification
 - Exception handling validation for missing parameters
+- [#62] Comprehensive due_date functionality tests with and without dueDateTime
 - Full test suite: 17 files, 99 tests, all passing
 
 ## [0.3.15] - 2025-08-20

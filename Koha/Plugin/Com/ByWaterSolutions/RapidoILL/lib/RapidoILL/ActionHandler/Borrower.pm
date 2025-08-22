@@ -17,6 +17,7 @@ package RapidoILL::ActionHandler::Borrower;
 
 use Modern::Perl;
 
+use DateTime;
 use Encode;
 use JSON      qw( decode_json );
 use Try::Tiny qw(catch try);
@@ -138,7 +139,9 @@ sub final_checkin {
 
     $handler->item_shipped( $action );
 
-Handle incoming I<ITEM_SHIPPED> action.
+Handle incoming I<ITEM_SHIPPED> action. Creates a virtual record and item,
+places a hold for the patron, and updates the ILL request status. If the
+action contains a dueDateTime (epoch), sets the due_date on the ILL request.
 
 =cut
 
@@ -240,13 +243,19 @@ sub item_shipped {
                 }
             );
 
-            # Update request
+            my $due_date;
+            # Set due_date from dueDateTime epoch if available
+            $due_date = DateTime->from_epoch( epoch => $action->dueDateTime )
+                if $action->dueDateTime;
+
             $req->set(
                 {
                     biblio_id => $item->biblionumber,
-                    status    => 'B_ITEM_SHIPPED',
+                   ( $due_date ? ( due_date => $due_date->datetime() ) : () ),
                 }
-            )->store();
+            );
+
+            $req->status('B_ITEM_SHIPPED')->store();
         }
     );
 

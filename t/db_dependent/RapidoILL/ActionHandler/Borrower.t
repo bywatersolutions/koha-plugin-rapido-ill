@@ -237,8 +237,8 @@ subtest 'final_checkin method with paper trail and real CircAction' => sub {
     $schema->storage->txn_rollback;
 };
 
-subtest 'item_shipped method with database operations' => sub {
-    plan tests => 5;
+subtest 'item_shipped() tests' => sub {
+    plan tests => 9;
 
     $schema->storage->txn_begin;
 
@@ -296,7 +296,7 @@ subtest 'item_shipped method with database operations' => sub {
 
     # Set all the required action attributes
     my @action_attributes = qw(
-        author borrowerCode circId circStatus dateCreated dueDateTime
+        author borrowerCode circId circStatus dateCreated
         itemAgencyCode itemId lastCircState lastUpdated lenderCode
         needBefore patronAgencyCode patronId patronName pickupLocation
         puaLocalServerCode title circ_action_id
@@ -305,6 +305,10 @@ subtest 'item_shipped method with database operations' => sub {
     foreach my $attr (@action_attributes) {
         $mock_action->set_always( $attr, "test_$attr" );
     }
+
+    # Test with dueDateTime epoch (January 1, 2025 12:00:00 UTC)
+    my $test_epoch = 1735732800;
+    $mock_action->set_always( 'dueDateTime', $test_epoch );
 
     # Test successful item_shipped processing
     lives_ok {
@@ -316,6 +320,47 @@ subtest 'item_shipped method with database operations' => sub {
     $ill_request->discard_changes;
     is( $ill_request->status,    'B_ITEM_SHIPPED', 'ILL request status updated correctly' );
     is( $ill_request->biblio_id, 123,              'Biblio ID was set correctly' );
+
+    # Verify due_date was set from dueDateTime epoch
+    ok( $ill_request->due_date, 'due_date was set from dueDateTime' );
+    like( $ill_request->due_date, qr/2025-01-01/, 'due_date contains expected date from epoch' );
+
+    # Test without dueDateTime (should not set due_date)
+    my $ill_request2 = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                branchcode     => $library->branchcode,
+                backend        => 'RapidoILL',
+                status         => 'B_ITEM_REQUESTED',
+                due_date       => undef  # Explicitly set to undef
+            }
+        }
+    );
+    
+    # Check initial state
+    my $initial_due_date = $ill_request2->due_date;
+    
+    my $mock_action2 = Test::MockObject->new();
+    $mock_action2->set_always( 'itemBarcode', 'TEST_BARCODE_789' );
+    $mock_action2->set_always( 'ill_request', $ill_request2 );
+    $mock_action2->set_always( 'pod',         'test_pod' );
+    $mock_action2->set_always( 'callNumber',  'TEST CALL NUMBER 2' );
+    $mock_action2->set_always( 'dueDateTime', undef );  # No due date
+
+    foreach my $attr (@action_attributes) {
+        $mock_action2->set_always( $attr, "test_$attr" );
+    }
+
+    lives_ok {
+        $handler->item_shipped($mock_action2)
+    }
+    'item_shipped processes successfully without dueDateTime';
+
+    # Verify due_date was not changed when dueDateTime is undefined
+    $ill_request2->discard_changes;
+    is( $ill_request2->due_date, $initial_due_date, 'due_date unchanged when dueDateTime is undefined' );
 
     # Test barcode collision handling
     $mock_plugin->mock(
