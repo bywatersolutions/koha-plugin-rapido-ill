@@ -437,7 +437,7 @@ sub item_shipped {
             value   => q{},
         };
     } catch {
-        $self->{plugin}->rapido_warn("[item_shipped] $_");
+        $self->{plugin}->logger->warn("[item_shipped] $_");
         return {
             error   => 1,
             status  => 'error_on_checkout',
@@ -551,7 +551,7 @@ sub item_checkin {
             value   => q{},
         };
     } catch {
-        $self->{plugin}->rapido_warn("[item_checkin] $_");
+        $self->{plugin}->logger->warn("[item_checkin] $_");
         return {
             error   => 1,
             message => "$_",
@@ -609,7 +609,7 @@ sub cancel_request {
             }
         );
     } catch {
-        $self->{plugin}->rapido_warn("[cancel_request] $_");
+        $self->{plugin}->logger->warn("[cancel_request] $_");
         return {
             error    => 1,
             message  => "$_ | " . $_->method . " - " . $_->response->decoded_content,
@@ -662,7 +662,7 @@ sub item_received {
             }
         );
     } catch {
-        $self->{plugin}->rapido_warn("[item_received] $_");
+        $self->{plugin}->logger->warn("[item_received] $_");
         return {
             status   => 'error',
             error    => 1,
@@ -720,7 +720,7 @@ sub receive_unshipped {
             };
 
         } catch {
-            $self->{plugin}->rapido_warn("[receive_unshipped] $_");
+            $self->{plugin}->logger->warn("[receive_unshipped] $_");
 
             # FIXME: need to check error type
             return {
@@ -759,7 +759,7 @@ sub item_in_transit {
             value   => q{},
         };
     } catch {
-        $self->{plugin}->rapido_warn("[item_in_transit] $_");
+        $self->{plugin}->logger->warn("[item_in_transit] $_");
 
         # FIXME: need to check error type
         return {
@@ -858,7 +858,7 @@ sub borrower_cancel {
             stage   => 'commit',
         };
     } catch {
-        $self->{plugin}->rapido_warn("[borrower_cancel] $_");
+        $self->{plugin}->logger->warn("[borrower_cancel] $_");
         my $message = "$_";
         if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
             $message = "$_ | " . $_->method . " - " . $_->response->decoded_content;

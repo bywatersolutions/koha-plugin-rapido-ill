@@ -143,7 +143,7 @@ sub borrower_item_received {
                     }
                 );
 
-                $self->{plugin}->rapido_warn(
+                $self->{plugin}->logger->warn(
                     sprintf(
                         "[lender_actions][borrower_item_received]: Request %s set to O_ITEM_RECEIVED_DESTINATION but didn't have a 'checkout_id' attribute",
                         $req->id
@@ -189,7 +189,7 @@ sub borrower_item_in_transit {
                     }
                 );
 
-                $self->{plugin}->rapido_warn(
+                $self->{plugin}->logger->warn(
                     sprintf(
                         "[lender_actions][borrower_item_in_transit]: Request %s set to O_ITEM_IN_TRANSIT but didn't have a 'checkout_id' attribute",
                         $req->id

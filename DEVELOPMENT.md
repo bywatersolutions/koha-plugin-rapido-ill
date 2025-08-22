@@ -52,6 +52,124 @@ $req->set({
 
 **Action Required**: Until Bug #40682 is resolved upstream, all ILL request updates must use the separate call pattern. Legacy code should be updated when touched.
 
+## Logging
+
+The RapidoILL plugin uses Koha's standard logging system for consistent log management and integration with Koha's log4perl configuration.
+
+### Logger Access
+
+All plugin components have access to a centralized logger instance:
+
+```perl
+# In main plugin methods
+$self->logger->warn("Warning message");
+$self->logger->info("Info message");
+$self->logger->error("Error message");
+$self->logger->debug("Debug message");
+
+# In Backend, ActionHandler, and other components
+$self->{plugin}->logger->warn("Warning from component");
+```
+
+### Logger Configuration
+
+The logger is configured with:
+- **Interface**: `api` (for API-related logging)
+- **Category**: `rapidoill` (for filtering RapidoILL-specific logs)
+- **Fallback**: Graceful degradation if Koha::Logger fails
+
+### Logging Best Practices
+
+#### 1. Use Appropriate Log Levels
+
+```perl
+# ✅ CORRECT - Use appropriate levels
+$self->logger->debug("Processing circId: $circ_id");           # Development info
+$self->logger->info("ILL request created: id=$req_id");       # Important events
+$self->logger->warn("Missing checkout_id for request $id");   # Potential issues
+$self->logger->error("Failed to process request: $error");    # Actual errors
+```
+
+#### 2. Include Context Information
+
+```perl
+# ✅ CORRECT - Include relevant context
+$self->logger->warn(
+    sprintf(
+        "[%s][%s]: Request %s missing required attribute '%s'",
+        $component, $method, $req->id, $attribute_name
+    )
+);
+
+# ❌ AVOID - Vague messages without context
+$self->logger->warn("Missing attribute");
+```
+
+#### 3. Use Structured Messages
+
+```perl
+# ✅ CORRECT - Structured for parsing/filtering
+$self->logger->info(
+    sprintf(
+        "ILL request updated: circId=%s, status='%s', ill_request_id=%s",
+        $data->{circId}, $data->{circStatus}, $req->id
+    )
+);
+```
+
+#### 4. Component Prefixes
+
+Use consistent prefixes to identify the source component:
+
+```perl
+# Backend operations
+$self->{plugin}->logger->warn("[item_shipped] $_");
+
+# ActionHandler operations  
+$self->{plugin}->logger->warn("[lender_actions][item_received]: $_");
+
+# Main plugin operations
+$self->logger->error("Error processing circId=$circ_id: $error");
+```
+
+### Log Filtering
+
+Logs can be filtered by category in Koha's log4perl configuration:
+
+```perl
+# In koha-conf.xml or log4perl.conf
+log4perl.logger.rapidoill = DEBUG, RAPIDOILL
+log4perl.appender.RAPIDOILL = Log::Log4perl::Appender::File
+log4perl.appender.RAPIDOILL.filename = /var/log/koha/rapidoill.log
+```
+
+### Testing Logger Usage
+
+In tests, mock the logger to verify logging behavior:
+
+```perl
+# Mock logger for testing
+my $mock_logger = Test::MockObject->new();
+$mock_logger->mock('warn', sub { return; });
+$mock_logger->mock('info', sub { return; });
+$mock_logger->mock('error', sub { return; });
+$mock_logger->mock('debug', sub { return; });
+
+$mock_plugin->mock('logger', sub { return $mock_logger; });
+```
+
+### Migration from rapido_warn
+
+**Deprecated**: The old `rapido_warn()` method has been removed. Use the logger instead:
+
+```perl
+# ❌ OLD - Deprecated (removed)
+$self->rapido_warn("Warning message");
+
+# ✅ NEW - Use logger
+$self->logger->warn("Warning message");
+```
+
 ## Official Rapido Circulation States
 
 Based on the official Rapido API specification (page 15 of "Rapido via APIs.pdf"), the valid circulation states are:

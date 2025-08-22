@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- [#67] Replaced rapido_warn() with proper Koha::Logger integration for consistent logging
+
+### Removed
+- [#67] Deprecated rapido_warn() method in favor of proper Koha logger
+
+### Testing
+- [#67] Updated test mocks to use logger instead of deprecated rapido_warn
+
 ## [0.4.0] - 2025-08-22
 
 ### Added
@@ -27,10 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugin-level caching for ActionHandler instances for improved performance
 - [#62] item_shipped method now sets ILL request due_date from Rapido API dueDateTime field
 - [#66] All status() calls now use explicit store() for future-proofing against upstream changes
+- [#67] Replaced rapido_warn() with proper Koha::Logger integration for consistent logging
 
 ### Fixed
 - [#66] ILL request status setting in BorrowerActions.pm (status was being ignored in set() calls)
 - [#66] Future-proof all status updates with explicit store() calls for when Bug #40682 is resolved
+
+### Removed
+- [#67] Deprecated rapido_warn() method in favor of proper Koha logger
 
 ### Architecture
 - ActionHandler system provides perspective-based processing (borrower vs lender workflows)
@@ -47,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exception handling validation for missing parameters
 - [#62] Comprehensive due_date functionality tests with and without dueDateTime
 - [#66] Updated tests to validate explicit store() calls for future-proofing
+- [#67] Updated test mocks to use logger instead of deprecated rapido_warn
 - Full test suite: 17 files, 99 tests, all passing
 
 ## [0.3.15] - 2025-08-20

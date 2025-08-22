@@ -1140,7 +1140,7 @@ sub get_ill_request_from_biblio_id {
     my $reqs = Koha::ILL::Requests->search( { biblio_id => $params->{biblio_id} } );
 
     if ( $reqs->count > 1 ) {
-        $self->rapido_warn(
+        $self->logger->warn(
             sprintf( "More than one ILL request for the biblio_id (%s). Beware!", $params->{biblio_id} ) );
     }
 
@@ -1686,7 +1686,7 @@ sub sync_agencies {
             if ( $patron_id && !$patron ) {
 
                 # cleanup needed!
-                $self->rapido_warn(
+                $self->logger->warn(
                     "There is a 'agency_to_patron' entry for '$agency_id', but the patron is not present on the DB!");
                 my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
 
@@ -2029,7 +2029,7 @@ sub create_item_hold {
                 my $can_item_be_reserved = CanItemBeReserved( $patron, $item, $library_id )->{status};
 
                 if ( $can_item_be_reserved ne 'OK' ) {
-                    $self->rapido_warn(
+                    $self->logger->warn(
                               "Placing the hold, but rules woul've prevented it. FIXME! (patron_id=$patron_id, item_id="
                             . $item->itemnumber
                             . ", library_id=$library_id, status=$can_item_be_reserved)" );
@@ -2269,7 +2269,7 @@ sub get_ill_request_from_attribute {
 
     my $count = $requests_rs->count;
 
-    $self->rapido_warn("more than one result searching requests with type='$type' value='$value'")
+    $self->logger->warn("more than one result searching requests with type='$type' value='$value'")
         if $count > 1;
 
     return $requests_rs->next
@@ -2416,18 +2416,6 @@ sub validate_params {
     }
 
     return;
-}
-
-=head3 rapido_warn
-
-Helper method for logging warnings for the RapidoILL plugin homogeneously.
-
-=cut
-
-sub rapido_warn {
-    my ( $self, $warning ) = @_;
-
-    warn "rapidoill_plugin_warn: $warning";
 }
 
 =head3 get_action_handler
