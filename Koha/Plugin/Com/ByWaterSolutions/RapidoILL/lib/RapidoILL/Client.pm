@@ -83,6 +83,7 @@ sub locals {
         my $response = $self->{ua}->get_request(
             {
                 endpoint => "/view/broker/locals",
+                context  => 'locals'
             }
         );
 
@@ -123,7 +124,8 @@ sub lender_cancel {
                     localBibId => $params->{localBibId},
                     patronName => $params->{patronName},
                     reason     => '',
-                }
+                },
+                context => 'lender_cancel'
             }
         );
 
@@ -179,7 +181,8 @@ sub lender_visiting_patron_checkout {
                     uuid              => $params->{uuid},
                     patronName        => $params->{patronName},
                     items             => $params->{items},
-                }
+                },
+                context => 'lender_shipped'
             }
         );
 
@@ -212,6 +215,7 @@ sub lender_checkin {
         my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/lendercheckin',
+                context  => 'lender_checkin'
             }
         );
 
@@ -249,7 +253,8 @@ sub lender_shipped {
                 data     => {
                     callNumber  => $params->{callNumber},
                     itemBarcode => $params->{itemBarcode},
-                }
+                },
+                context => 'lender_shipped'
             }
         );
 
@@ -284,6 +289,7 @@ sub borrower_item_received {
         my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/itemreceived',
+                context  => 'borrower_item_received'
             }
         );
 
@@ -316,6 +322,7 @@ sub borrower_receive_unshipped {
         my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/receiveunshipped',
+                context  => 'borrower_receive_unshipped'
             }
         );
 
@@ -345,11 +352,12 @@ sub borrower_cancel {
     $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
 
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
-        my $response =
-            $self->{ua}->post_request( { 
+        my $response = $self->{ua}->post_request(
+            {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/borrowercancel',
-                context => 'borrower_cancel'
-            } );
+                context  => 'borrower_cancel'
+            }
+        );
 
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_cancel', response => $response )
             unless $response->is_success;
@@ -381,7 +389,8 @@ sub borrower_renew {
         my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/borrowerrenew',
-                data     => { dueDateTime => dt_from_string( $params->{dueDateTime} )->epoch }
+                data     => { dueDateTime => dt_from_string( $params->{dueDateTime} )->epoch },
+                context  => 'borrower_renew'
             }
         );
 
@@ -414,6 +423,7 @@ sub borrower_item_returned {
         my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/itemreturned',
+                context  => 'borrower_item_returned'
             }
         );
 
@@ -461,7 +471,8 @@ sub circulation_requests {
                     ( $params->{state}      ? ( state      => $params->{state} )      : () ),
                     ( $params->{content}    ? ( content    => $params->{content} )    : () ),
                     ( $params->{timeTarget} ? ( timeTarget => $params->{timeTarget} ) : () ),
-                }
+                },
+                context => 'circulation_requests'
             }
         );
 
