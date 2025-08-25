@@ -709,7 +709,7 @@ sub receive_unshipped {
                         callnumber => $params->{other}->{item_callnumber},
                         barcode    => $params->{other}->{item_barcode}
                     },
-                    barcode    => $params->{other}->{item_barcode}
+                    barcode => $params->{other}->{item_barcode}
                 }
             );
 
@@ -751,7 +751,7 @@ sub item_in_transit {
 
     return try {
         my $pod = $self->{plugin}->get_req_pod( $params->{request} );
-        $self->{plugin}->get_borrower_actions($pod)->item_in_transit($params->{request});
+        $self->{plugin}->get_borrower_actions($pod)->item_in_transit( $params->{request} );
 
         return {
             error   => 0,
@@ -853,8 +853,7 @@ sub borrower_cancel {
     my $req = $params->{request};
 
     return try {
-        $self->{plugin}->get_borrower_action_handler( $self->{plugin}->get_req_pod($req) )
-            ->borrower_cancel($req);
+        $self->{plugin}->get_borrower_action_handler( $self->{plugin}->get_req_pod($req) )->borrower_cancel($req);
         return {
             status  => q{},
             message => q{},
