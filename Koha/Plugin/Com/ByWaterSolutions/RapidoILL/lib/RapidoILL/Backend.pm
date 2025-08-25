@@ -853,7 +853,7 @@ sub borrower_cancel {
     my $req = $params->{request};
 
     return try {
-        $self->{plugin}->get_borrower_action_handler( $self->{plugin}->get_req_pod($req) )->borrower_cancel($req);
+        $self->{plugin}->get_borrower_actions( $self->{plugin}->get_req_pod($req) )->borrower_cancel($req);
         return {
             status  => q{},
             message => q{},
