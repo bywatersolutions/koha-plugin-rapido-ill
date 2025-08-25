@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.6] - TBD
 
+### Enhanced
+- [#75] Comprehensive HTTP logging improvements across all APIHttpClient methods - added detailed response content and headers in debug mode, context parameter support for business operation identification, and hybrid logging architecture to eliminate duplication
+
+### Added
+- [#75] Complete test coverage for all HTTP verb methods (POST, PUT, GET, DELETE, refresh_token) with proper LWP::UserAgent mocking and logger verification - 79 test assertions covering various HTTP status codes and context parameter functionality
+
 ### Fixed
 - [#74] Added missing template files for Backend.pm error handling (borrower_cancel.inc, item_received.inc, item_in_transit.inc)
 

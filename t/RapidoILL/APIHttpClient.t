@@ -17,26 +17,36 @@
 
 use Modern::Perl;
 
-use Test::More tests => 5;
+use Test::More tests => 10;
 use Test::Exception;
+use Test::MockModule;
+use HTTP::Response;
+use HTTP::Request;
+use JSON qw(encode_json);
+
+use t::lib::Mocks;
+use t::lib::Mocks::Logger;
 
 BEGIN {
-    # Add the plugin lib to @INC
-    unshift @INC, 'Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib';
     use_ok('RapidoILL::APIHttpClient');
+    use_ok('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
 }
 
-subtest 'APIHttpClient instantiation' => sub {
+my $logger = t::lib::Mocks::Logger->new();
+
+subtest 'new() tests' => sub {
     plan tests => 2;
 
     subtest 'Successful instantiation' => sub {
         plan tests => 2;
 
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         my $client = RapidoILL::APIHttpClient->new(
             {
                 base_url      => 'https://test.example.com',
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
+                plugin        => $plugin,
                 dev_mode      => 1,                            # Skip token refresh in dev mode
             }
         );
@@ -79,11 +89,13 @@ subtest 'APIHttpClient instantiation' => sub {
 subtest 'Dev mode behavior' => sub {
     plan tests => 1;
 
+    my $plugin           = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
     my $client_no_plugin = RapidoILL::APIHttpClient->new(
         {
             base_url      => 'https://test.example.com',
             client_id     => 'test_client',
             client_secret => 'test_secret',
+            plugin        => $plugin,
             dev_mode      => 1,
         }
     );
@@ -94,11 +106,13 @@ subtest 'Dev mode behavior' => sub {
 subtest 'Token management methods' => sub {
     plan tests => 2;
 
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
     my $client = RapidoILL::APIHttpClient->new(
         {
             base_url      => 'https://test.example.com',
             client_id     => 'test_client',
             client_secret => 'test_secret',
+            plugin        => $plugin,
             dev_mode      => 1,
         }
     );
@@ -107,20 +121,1189 @@ subtest 'Token management methods' => sub {
     can_ok( $client, 'is_token_expired' );
 };
 
-subtest 'HTTP request methods' => sub {
+subtest 'refresh_token() tests' => sub {
+    plan tests => 3;
+
+    subtest 'Successful token refresh' => sub {
+        plan tests => 6;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 200, 'OK' );
+                $response->content(
+                    encode_json(
+                        {
+                            access_token => 'new_test_token_12345',
+                            expires_in   => 3600,
+                            token_type   => 'Bearer'
+                        }
+                    )
+                );
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        $logger->clear();
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 0,                            # Disable dev mode to test token refresh
+            }
+        );
+
+        # Test successful token refresh
+        my $result = $client->refresh_token();
+
+        # Verify return value
+        isa_ok( $result, 'RapidoILL::APIHttpClient', 'refresh_token returns self' );
+        is( $client->{access_token}, 'new_test_token_12345', 'Access token updated correctly' );
+        ok( $client->{expiration}, 'Expiration time set' );
+
+        # Verify logging
+        $logger->info_like(
+            qr/Refreshing OAuth2 token for https:\/\/test\.example\.com/,
+            'Info log for token refresh start'
+        );
+        $logger->info_like(
+            qr/OAuth2 token refreshed successfully, expires in 3600 seconds/,
+            'Info log for successful refresh'
+        );
+
+        # Verify no error logs
+        is( $logger->count('error'), 0, 'No error logs for successful refresh' );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed token refresh - HTTP error' => sub {
+        plan tests => 5;
+
+        $logger->clear();
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 401, 'Unauthorized' );
+                $response->content(
+                    encode_json(
+                        {
+                            error             => 'invalid_client',
+                            error_description => 'Client authentication failed'
+                        }
+                    )
+                );
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+
+        # Test failed token refresh with proper exception handling
+        my $exception_caught  = 0;
+        my $exception_message = '';
+
+        my $client;
+        throws_ok {
+            $client = RapidoILL::APIHttpClient->new(
+                {
+                    base_url      => 'https://test.example.com',
+                    client_id     => 'test_client',
+                    client_secret => 'test_secret',
+                    plugin        => $plugin,
+                    dev_mode      => 0,
+                }
+            );
+        }
+        'RapidoILL::Exception::OAuth2::AuthError', 'Exception thrown';
+
+        if ( my $error = $@ ) {
+            $exception_caught  = 1;
+            $exception_message = "$error";
+        }
+
+        # Verify exception was thrown
+        ok( $exception_caught, 'Exception was thrown on authentication failure' );
+        like(
+            $exception_message, qr/Authentication error: Client authentication failed/,
+            'Exception contains error description'
+        );
+
+        # Verify logging
+        $logger->info_like(
+            qr/Refreshing OAuth2 token for https:\/\/test\.example\.com/,
+            'Info log for token refresh start'
+        );
+        $logger->error_like(
+            qr/OAuth2 authentication failed: Client authentication failed \(HTTP 401\)/,
+            'Error log for failed authentication'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed token refresh - Invalid JSON response' => sub {
+        plan tests => 3;
+
+        $logger->clear();
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 200, 'OK' );
+                $response->content('Invalid JSON response');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client;
+
+        throws_ok {
+            my $client = RapidoILL::APIHttpClient->new(
+                {
+                    base_url      => 'https://test.example.com',
+                    client_id     => 'test_client',
+                    client_secret => 'test_secret',
+                    plugin        => $plugin,
+                    dev_mode      => 0,
+                }
+            );
+        }
+        qr/malformed JSON string/, 'Dies on invalid JSON response';
+
+        # Verify logging
+        $logger->info_like(
+            qr/Refreshing OAuth2 token for https:\/\/test\.example\.com/,
+            'Info log for token refresh start'
+        );
+
+        # Should not have success or auth error logs
+        is( $logger->count('error'), 0, 'No OAuth2 error logs for JSON parsing error' );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+};
+
+subtest 'delete_request() tests' => sub {
     plan tests => 4;
 
-    my $client = RapidoILL::APIHttpClient->new(
-        {
-            base_url      => 'https://test.example.com',
-            client_id     => 'test_client',
-            client_secret => 'test_secret',
-            dev_mode      => 1,
-        }
-    );
+    subtest 'Successful DELETE request' => sub {
+        plan tests => 4;
 
-    can_ok( $client, 'get_request' );
-    can_ok( $client, 'post_request' );
-    can_ok( $client, 'put_request' );
-    can_ok( $client, 'delete_request' );
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 204, 'No Content' );
+                $response->content('');
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test successful DELETE request
+        my $response = $client->delete_request( { endpoint => '/item/123' } );
+
+        # Verify response
+        ok( $response->is_success, 'DELETE response indicates success' );
+        is( $response->code, 204, 'DELETE response has correct status code' );
+
+        # Verify logging
+        $logger->info_like(
+            qr/Making DELETE request to https:\/\/test\.example\.com\/item\/123/,
+            'Info log for DELETE request start'
+        );
+        $logger->info_like( qr/DELETE request successful: 204 No Content/, 'Info log for successful DELETE' );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'DELETE request with context parameter' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 200, 'OK' );
+                $response->content('{"deleted": true, "id": "456"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test DELETE request with context
+        my $response = $client->delete_request(
+            {
+                endpoint => '/reservation/456',
+                context  => 'cancel_reservation'
+            }
+        );
+
+        # Verify response
+        ok( $response->is_success, 'DELETE response with context indicates success' );
+        is( $response->code, 200, 'DELETE response has correct status code' );
+
+        # Verify context appears in logs
+        $logger->info_like(
+            qr/Making DELETE request to https:\/\/test\.example\.com\/reservation\/456/,
+            'Info log for DELETE request start'
+        );
+        $logger->info_like(
+            qr/DELETE request successful: 200 OK \[context: cancel_reservation\]/,
+            'Info log includes context for successful DELETE'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed DELETE request - HTTP error' => sub {
+        plan tests => 5;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $request = HTTP::Request->new( 'DELETE', 'https://test.example.com/item/999' );
+
+                my $response = HTTP::Response->new( 404, 'Not Found' );
+                $response->request($request);
+                $response->content('{"error": "Resource not found", "id": "999"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test failed DELETE request
+        my $response = $client->delete_request(
+            {
+                endpoint => '/item/999',
+                context  => 'delete_item'
+            }
+        );
+
+        # Verify response
+        ok( !$response->is_success, 'DELETE response indicates failure' );
+        is( $response->code, 404, 'DELETE response has correct error status code' );
+
+        # Verify error logging
+        $logger->info_like(
+            qr/Making DELETE request to https:\/\/test\.example\.com\/item\/999/,
+            'Info log for DELETE request start'
+        );
+        $logger->error_like(
+            qr/DELETE request failed: 404 Not Found to https:\/\/test\.example\.com\/item\/999 \[context: delete_item\]/,
+            'Error log contains status, endpoint, and context'
+        );
+
+        # Verify debug logging for response content
+        $logger->debug_like(
+            qr/DELETE request failed response body \[context: delete_item\]: .*Resource not found/,
+            'Debug log contains response body with context'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed DELETE request - Permission denied' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $request = HTTP::Request->new( 'DELETE', 'https://test.example.com/admin/user/123' );
+
+                my $response = HTTP::Response->new( 403, 'Forbidden' );
+                $response->request($request);
+                $response->content('{"error": "Insufficient permissions", "required_role": "admin"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test permission denied DELETE request
+        my $response = $client->delete_request( { endpoint => '/admin/user/123' } );
+
+        # Verify response
+        ok( !$response->is_success, 'DELETE response indicates failure' );
+        is( $response->code, 403, 'DELETE response has correct permission error status code' );
+
+        # Verify error logging (without context this time)
+        $logger->info_like(
+            qr/Making DELETE request to https:\/\/test\.example\.com\/admin\/user\/123/,
+            'Info log for DELETE request start'
+        );
+        $logger->error_like(
+            qr/DELETE request failed: 403 Forbidden to https:\/\/test\.example\.com\/admin\/user\/123$/,
+            'Error log contains status and endpoint (no context)'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+};
+
+subtest 'post_request() tests' => sub {
+    plan tests => 4;
+
+    subtest 'Successful POST request' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 201, 'Created' );
+                $response->content('{"id": "12345", "status": "created"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test successful POST request
+        my $response = $client->post_request(
+            {
+                endpoint => '/items',
+                data     => { title => 'Test Item', author => 'Test Author' }
+            }
+        );
+
+        # Verify response
+        ok( $response->is_success, 'POST response indicates success' );
+        is( $response->code, 201, 'POST response has correct status code' );
+
+        # Verify logging
+        $logger->info_like(
+            qr/Making POST request to https:\/\/test\.example\.com\/items/,
+            'Info log for POST request start'
+        );
+        $logger->info_like( qr/POST request successful: 201 Created/, 'Info log for successful POST' );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'POST request with context parameter' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 200, 'OK' );
+                $response->content('{"success": true, "message": "Item updated"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test POST request with context
+        my $response = $client->post_request(
+            {
+                endpoint => '/borrowercancel',
+                data     => { circId => '789' },
+                context  => 'borrower_cancel'
+            }
+        );
+
+        # Verify response
+        ok( $response->is_success, 'POST response with context indicates success' );
+        is( $response->code, 200, 'POST response has correct status code' );
+
+        # Verify context appears in logs
+        $logger->info_like(
+            qr/Making POST request to https:\/\/test\.example\.com\/borrowercancel/,
+            'Info log for POST request start'
+        );
+        $logger->info_like(
+            qr/POST request successful: 200 OK \[context: borrower_cancel\]/,
+            'Info log includes context for successful POST'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed POST request - HTTP error' => sub {
+        plan tests => 5;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $request = HTTP::Request->new( 'POST', 'https://test.example.com/items' );
+
+                my $response = HTTP::Response->new( 400, 'Bad Request' );
+                $response->request($request);
+                $response->content('{"error": "Validation failed", "details": "Missing required field: title"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test failed POST request
+        my $response = $client->post_request(
+            {
+                endpoint => '/items',
+                data     => { author => 'Test Author' },
+                context  => 'create_item'
+            }
+        );
+
+        # Verify response
+        ok( !$response->is_success, 'POST response indicates failure' );
+        is( $response->code, 400, 'POST response has correct error status code' );
+
+        # Verify error logging
+        $logger->info_like(
+            qr/Making POST request to https:\/\/test\.example\.com\/items/,
+            'Info log for POST request start'
+        );
+        $logger->error_like(
+            qr/POST request failed: 400 Bad Request to https:\/\/test\.example\.com\/items \[context: create_item\]/,
+            'Error log contains status, endpoint, and context'
+        );
+
+        # Verify debug logging for response content
+        $logger->debug_like(
+            qr/POST request failed response body \[context: create_item\]: .*Validation failed/,
+            'Debug log contains response body with context'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed POST request - Server error' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $request = HTTP::Request->new( 'POST', 'https://test.example.com/items' );
+
+                my $response = HTTP::Response->new( 500, 'Internal Server Error' );
+                $response->request($request);
+                $response->content('{"error": "Database connection failed"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test server error POST request
+        my $response = $client->post_request(
+            {
+                endpoint => '/items',
+                data     => { title => 'Test Item' }
+            }
+        );
+
+        # Verify response
+        ok( !$response->is_success, 'POST response indicates failure' );
+        is( $response->code, 500, 'POST response has correct server error status code' );
+
+        # Verify error logging (without context this time)
+        $logger->info_like(
+            qr/Making POST request to https:\/\/test\.example\.com\/items/,
+            'Info log for POST request start'
+        );
+        $logger->error_like(
+            qr/POST request failed: 500 Internal Server Error to https:\/\/test\.example\.com\/items$/,
+            'Error log contains status and endpoint (no context)'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+};
+
+subtest 'put_request() tests' => sub {
+    plan tests => 4;
+
+    subtest 'Successful PUT request' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 200, 'OK' );
+                $response->content('{"id": "456", "status": "updated"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test successful PUT request
+        my $response = $client->put_request(
+            {
+                endpoint => '/items/456',
+                data     => { title => 'Updated Item', status => 'active' }
+            }
+        );
+
+        # Verify response
+        ok( $response->is_success, 'PUT response indicates success' );
+        is( $response->code, 200, 'PUT response has correct status code' );
+
+        # Verify logging
+        $logger->info_like(
+            qr/Making PUT request to https:\/\/test\.example\.com\/items\/456/,
+            'Info log for PUT request start'
+        );
+        $logger->info_like( qr/PUT request successful: 200 OK/, 'Info log for successful PUT' );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'PUT request with context parameter' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 202, 'Accepted' );
+                $response->content('{"message": "Update queued for processing"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test PUT request with context
+        my $response = $client->put_request(
+            {
+                endpoint => '/requests/789/status',
+                data     => { status => 'completed' },
+                context  => 'update_request_status'
+            }
+        );
+
+        # Verify response
+        ok( $response->is_success, 'PUT response with context indicates success' );
+        is( $response->code, 202, 'PUT response has correct status code' );
+
+        # Verify context appears in logs
+        $logger->info_like(
+            qr/Making PUT request to https:\/\/test\.example\.com\/requests\/789\/status/,
+            'Info log for PUT request start'
+        );
+        $logger->info_like(
+            qr/PUT request successful: 202 Accepted \[context: update_request_status\]/,
+            'Info log includes context for successful PUT'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed PUT request - HTTP error' => sub {
+        plan tests => 5;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $request = HTTP::Request->new( 'PUT', 'https://test.example.com/items/999' );
+
+                my $response = HTTP::Response->new( 409, 'Conflict' );
+                $response->request($request);
+                $response->content('{"error": "Version conflict", "current_version": "2", "provided_version": "1"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test failed PUT request
+        my $response = $client->put_request(
+            {
+                endpoint => '/items/999',
+                data     => { title => 'Updated Title', version => 1 },
+                context  => 'update_item'
+            }
+        );
+
+        # Verify response
+        ok( !$response->is_success, 'PUT response indicates failure' );
+        is( $response->code, 409, 'PUT response has correct error status code' );
+
+        # Verify error logging
+        $logger->info_like(
+            qr/Making PUT request to https:\/\/test\.example\.com\/items\/999/,
+            'Info log for PUT request start'
+        );
+        $logger->error_like(
+            qr/PUT request failed: 409 Conflict to https:\/\/test\.example\.com\/items\/999 \[context: update_item\]/,
+            'Error log contains status, endpoint, and context'
+        );
+
+        # Verify debug logging for response content
+        $logger->debug_like(
+            qr/PUT request failed response body \[context: update_item\]: .*Version conflict/,
+            'Debug log contains response body with context'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed PUT request - Not found' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $request = HTTP::Request->new( 'PUT', 'https://test.example.com/items/nonexistent' );
+
+                my $response = HTTP::Response->new( 404, 'Not Found' );
+                $response->request($request);
+                $response->content('{"error": "Item not found", "id": "nonexistent"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test not found PUT request
+        my $response = $client->put_request(
+            {
+                endpoint => '/items/nonexistent',
+                data     => { title => 'Updated Title' }
+            }
+        );
+
+        # Verify response
+        ok( !$response->is_success, 'PUT response indicates failure' );
+        is( $response->code, 404, 'PUT response has correct not found status code' );
+
+        # Verify error logging (without context this time)
+        $logger->info_like(
+            qr/Making PUT request to https:\/\/test\.example\.com\/items\/nonexistent/,
+            'Info log for PUT request start'
+        );
+        $logger->error_like(
+            qr/PUT request failed: 404 Not Found to https:\/\/test\.example\.com\/items\/nonexistent$/,
+            'Error log contains status and endpoint (no context)'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+};
+
+subtest 'get_request() tests' => sub {
+    plan tests => 4;
+
+    subtest 'Successful GET request' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 200, 'OK' );
+                $response->content('{"id": "123", "title": "Test Item", "status": "active"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test successful GET request
+        my $response = $client->get_request( { endpoint => '/items/123' } );
+
+        # Verify response
+        ok( $response->is_success, 'GET response indicates success' );
+        is( $response->code, 200, 'GET response has correct status code' );
+
+        # Verify logging
+        $logger->info_like(
+            qr/Making GET request to https:\/\/test\.example\.com\/items\/123/,
+            'Info log for GET request start'
+        );
+        $logger->info_like( qr/GET request successful: 200 OK/, 'Info log for successful GET' );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'GET request with query parameters and context' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 200, 'OK' );
+                $response->content(
+                    '{"items": [{"id": "1", "title": "Item 1"}, {"id": "2", "title": "Item 2"}], "total": 2}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test GET request with query parameters and context
+        my $response = $client->get_request(
+            {
+                endpoint => '/items',
+                query    => { status => 'active', limit => 10 },
+                context  => 'search_items'
+            }
+        );
+
+        # Verify response
+        ok( $response->is_success, 'GET response with query and context indicates success' );
+        is( $response->code, 200, 'GET response has correct status code' );
+
+        # Verify context appears in logs
+        $logger->info_like(
+            qr/Making GET request to https:\/\/test\.example\.com\/items/,
+            'Info log for GET request start'
+        );
+        $logger->info_like(
+            qr/GET request successful: 200 OK \[context: search_items\]/,
+            'Info log includes context for successful GET'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed GET request - HTTP error' => sub {
+        plan tests => 5;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $request = HTTP::Request->new( 'GET', 'https://test.example.com/items/999' );
+
+                my $response = HTTP::Response->new( 404, 'Not Found' );
+                $response->request($request);
+                $response->content('{"error": "Item not found", "id": "999"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test failed GET request
+        my $response = $client->get_request(
+            {
+                endpoint => '/items/999',
+                context  => 'fetch_item'
+            }
+        );
+
+        # Verify response
+        ok( !$response->is_success, 'GET response indicates failure' );
+        is( $response->code, 404, 'GET response has correct error status code' );
+
+        # Verify error logging
+        $logger->info_like(
+            qr/Making GET request to https:\/\/test\.example\.com\/items\/999/,
+            'Info log for GET request start'
+        );
+        $logger->error_like(
+            qr/GET request failed: 404 Not Found to https:\/\/test\.example\.com\/items\/999 \[context: fetch_item\]/,
+            'Error log contains status, endpoint, and context'
+        );
+
+        # Verify debug logging for response content
+        $logger->debug_like(
+            qr/GET request failed response body \[context: fetch_item\]: .*Item not found/,
+            'Debug log contains response body with context'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed GET request - Unauthorized' => sub {
+        plan tests => 4;
+
+        # Mock LWP::UserAgent before creating the client
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $request = HTTP::Request->new( 'GET', 'https://test.example.com/admin/settings' );
+
+                my $response = HTTP::Response->new( 401, 'Unauthorized' );
+                $response->request($request);
+                $response->content('{"error": "Authentication required", "message": "Invalid or expired token"}');
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Use the global logger
+        $client->{logger} = Koha::Logger->get();
+
+        $logger->clear();
+
+        # Test unauthorized GET request
+        my $response = $client->get_request( { endpoint => '/admin/settings' } );
+
+        # Verify response
+        ok( !$response->is_success, 'GET response indicates failure' );
+        is( $response->code, 401, 'GET response has correct unauthorized status code' );
+
+        # Verify error logging (without context this time)
+        $logger->info_like(
+            qr/Making GET request to https:\/\/test\.example\.com\/admin\/settings/,
+            'Info log for GET request start'
+        );
+        $logger->error_like(
+            qr/GET request failed: 401 Unauthorized to https:\/\/test\.example\.com\/admin\/settings$/,
+            'Error log contains status and endpoint (no context)'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
 };

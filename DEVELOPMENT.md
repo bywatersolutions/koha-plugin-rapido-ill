@@ -48,6 +48,248 @@ $req->set({
 1. **ActionHandler/Borrower.pm** - Uses separate data and status calls
 2. **ActionHandler/Lender.pm** - Uses separate data and status calls
 3. **Backend/LenderActions.pm** - Uses separate status calls
+
+## HTTP Logging Implementation
+
+### Enhanced Logging Across All HTTP Verbs
+
+**Implementation**: All HTTP verb methods (POST, PUT, GET, DELETE) in `APIHttpClient.pm` now include enhanced error and debug logging.
+
+**Logging Pattern**:
+```perl
+if ( $self->logger ) {
+    if ( $response->is_success ) {
+        $self->logger->info( "{VERB} request successful: " . $response->code . " " . $response->message );
+    } else {
+        $self->logger->error(
+            "{VERB} request failed: " . $response->code . " " . $response->message . " to " . $endpoint );
+        
+        # In debug mode, log the full response content for troubleshooting
+        if ( $self->logger->can('debug') ) {
+            my $content = $response->decoded_content || $response->content || 'No content';
+            $self->logger->debug( "{VERB} request failed response body: " . $content );
+            
+            # Also log request headers if available for debugging
+            if ( $response->request ) {
+                $self->logger->debug( "{VERB} request headers: " . $response->request->headers->as_string );
+            }
+        }
+    }
+}
+```
+
+**Benefits**:
+- **Production Debugging**: Actual API error responses instead of blessed object references
+- **Complete HTTP Context**: Full request/response information available
+- **Performance Conscious**: Debug details only logged when logger supports debug level
+- **Consistent Experience**: Same detailed logging across all HTTP operations
+
+**Example Enhanced Logging**:
+```
+[ERROR] POST request failed: 400 Bad Request to https://dev03-na.alma.exlibrisgroup.com/view/broker/circ/01CUY0000031/borrowercancel
+[DEBUG] POST request failed response body: {"error": "Request cannot be cancelled", "reason": "Item already shipped"}
+[DEBUG] POST request headers: Authorization: Bearer [token]...
+```
+
+### Backend Exception Logging Enhancement
+
+**Implementation**: Enhanced `RequestFailed` exception logging in `Backend.pm` with detailed response content.
+
+**Pattern**:
+```perl
+} catch {
+    $self->{plugin}->logger->warn("[method_name] $_");
+    my $message = "$_";
+    if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+        my $response_content = $_->response->decoded_content || $_->response->content || 'No response content';
+        my $status_line = $_->response->status_line || 'Unknown status';
+        $message = "$_ | " . $_->method . " - HTTP " . $status_line . " - Response: " . $response_content;
+        
+        # In debug mode, log additional details
+        if ( $self->{plugin}->logger->can('debug') ) {
+            $self->{plugin}->logger->debug("[method_name] Full HTTP response details:");
+            $self->{plugin}->logger->debug("[method_name] Status: " . $status_line);
+            $self->{plugin}->logger->debug("[method_name] Headers: " . $_->response->headers->as_string);
+            $self->{plugin}->logger->debug("[method_name] Content: " . $response_content);
+        }
+    }
+}
+```
+
+## Testing Infrastructure
+
+### APIHttpClient Testing Patterns
+
+**Required Imports**:
+```perl
+use Test::More tests => N;
+use Test::Exception;
+use Test::MockModule;
+use HTTP::Response;
+use HTTP::Request;
+use JSON qw(encode_json);
+
+use t::lib::Mocks;
+use t::lib::Mocks::Logger;
+
+BEGIN {
+    unshift @INC, 'Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib';
+    use_ok('RapidoILL::APIHttpClient');
+    use_ok('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+    use_ok('RapidoILL::Exceptions');
+}
+```
+
+**Mandatory Plugin Parameter**:
+```perl
+# ✅ CORRECT - Always include plugin parameter
+my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+my $client = RapidoILL::APIHttpClient->new({
+    base_url      => 'https://test.example.com',
+    client_id     => 'test_client',
+    client_secret => 'test_secret',
+    plugin        => $plugin,  # MANDATORY
+    dev_mode      => 1,
+});
+```
+
+### LWP::UserAgent Mocking for HTTP Client Testing
+
+**Critical Pattern**:
+```perl
+# Mock BEFORE client instantiation
+my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+my $mock_ua = bless {}, 'LWP::UserAgent';
+
+$ua_mock->mock('new', sub { return $mock_ua; });
+$ua_mock->mock('request', sub {
+    my $response = HTTP::Response->new(200, 'OK');
+    $response->content(encode_json({
+        access_token => 'test_token',
+        expires_in   => 3600,
+    }));
+    $response->header('Content-Type', 'application/json');
+    return $response;
+});
+
+# NOW create the client
+my $client = RapidoILL::APIHttpClient->new({...});
+
+# Test functionality
+my $result = $client->refresh_token();
+
+# Clean up between subtests
+$ua_mock->unmock_all();
+```
+
+**Key Points**:
+- Mock `LWP::UserAgent->new()` constructor AND `request()` method
+- Set up mocks BEFORE creating APIHttpClient instances
+- Use `unmock_all()` between subtests to prevent mock persistence
+- Create realistic HTTP::Response objects with proper content and headers
+
+### Logger Testing with t::lib::Mocks::Logger
+
+**Setup Pattern**:
+```perl
+# Set up mock logger
+my $logger = t::lib::Mocks::Logger->new;
+
+# Create client and assign logger
+my $client = RapidoILL::APIHttpClient->new({...});
+$client->{logger} = $logger;
+
+$logger->clear();
+
+# Perform operations that generate logs
+$client->some_method();
+
+# Verify logging
+$logger->info_like(qr/Expected info message/, 'Info log verification');
+$logger->error_like(qr/Expected error message/, 'Error log verification');
+$logger->debug_like(qr/Expected debug message/, 'Debug log verification');
+
+# Count logs by level
+is($logger->count('error'), 0, 'No error logs expected');
+```
+
+### Exception Testing Patterns
+
+**Working Pattern for OAuth2 Exceptions**:
+```perl
+# Import exceptions in BEGIN block
+BEGIN {
+    use_ok('RapidoILL::Exceptions');
+}
+
+# Test exception with eval block (more reliable than throws_ok)
+my $exception_caught = 0;
+my $exception_message = '';
+
+eval {
+    $client->method_that_should_fail();
+};
+
+if (my $error = $@) {
+    $exception_caught = 1;
+    $exception_message = "$error";
+}
+
+ok($exception_caught, 'Exception was thrown');
+like($exception_message, qr/Expected error pattern/, 'Exception message correct');
+```
+
+### Test Structure Best Practices
+
+**Subtest Organization**:
+```perl
+subtest 'refresh_token() tests' => sub {
+    plan tests => 3;
+
+    subtest 'Successful token refresh' => sub {
+        plan tests => 6;
+        
+        # Set up fresh mocks for this scenario
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        # ... mock setup
+        
+        # Test logic
+        # ... assertions
+        
+        # Clean up
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Failed token refresh' => sub {
+        plan tests => 4;
+        
+        # Fresh mocks for failure scenario
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        # ... different mock setup
+        
+        # Test logic
+        # ... assertions
+        
+        # Clean up
+        $ua_mock->unmock_all();
+    };
+};
+```
+
+### Common Testing Pitfalls
+
+1. **Missing Plugin Parameter**: APIHttpClient requires `plugin` parameter - always provide it
+2. **Mock Timing**: Set up LWP::UserAgent mocks BEFORE creating APIHttpClient instances
+3. **Mock Persistence**: Use `unmock_all()` between subtests to avoid interference
+4. **Exception Handling**: Use eval blocks for complex exception testing instead of throws_ok
+5. **Logger Assignment**: Assign mocked logger to `$client->{logger}`, not during construction
+
+### Running Tests
+
+```bash
+# In KTD environment
+ktd --name rapido --shell --run "cd /kohadevbox/plugins/rapido-ill && export PERL5LIB=/kohadevbox/koha:/kohadevbox/plugins/rapido-ill/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:/kohadevbox/plugins/rapido-ill:. && prove -v t/RapidoILL/APIHttpClient.t"
+```
 4. **Backend/BorrowerActions.pm** - Most methods use correct pattern
 
 **Action Required**: Until Bug #40682 is resolved upstream, all ILL request updates must use the separate call pattern. Legacy code should be updated when touched.

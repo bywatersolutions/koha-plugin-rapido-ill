@@ -861,11 +861,18 @@ sub borrower_cancel {
             stage   => 'commit',
         };
     } catch {
-        $self->{plugin}->logger->warn("[borrower_cancel] $_");
-        my $message = "$_";
+        # HTTP client already logged detailed HTTP info with [context: borrower_cancel]
+        $self->{plugin}->logger->warn("[borrower_cancel] Operation failed: $_");
+        
+        my $message = "Borrower cancellation failed";
         if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
-            $message = "$_ | " . $_->method . " - " . $_->response->decoded_content;
+            # Extract basic error info for user-facing message
+            my $status_line = $_->response->status_line || 'Unknown HTTP error';
+            $message = "Borrower cancellation failed: HTTP " . $status_line;
+        } else {
+            $message = "Borrower cancellation failed: $_";
         }
+        
         my $result = {
             status   => 'error',
             error    => 1,

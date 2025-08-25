@@ -346,7 +346,10 @@ sub borrower_cancel {
 
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
         my $response =
-            $self->{ua}->post_request( { endpoint => '/view/broker/circ/' . $params->{circId} . '/borrowercancel' } );
+            $self->{ua}->post_request( { 
+                endpoint => '/view/broker/circ/' . $params->{circId} . '/borrowercancel',
+                context => 'borrower_cancel'
+            } );
 
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_cancel', response => $response )
             unless $response->is_success;
