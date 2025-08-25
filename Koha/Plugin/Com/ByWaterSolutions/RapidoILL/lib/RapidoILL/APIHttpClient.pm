@@ -60,7 +60,7 @@ sub new {
 
     my @mandatory_params = qw(base_url client_id client_secret );
     foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw("Missing parameter: $param")
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
             unless $args->{$param};
     }
 

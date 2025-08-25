@@ -1120,7 +1120,7 @@ Helper to get the I<$pod> config.
 sub pod_config {
     my ( $self, $pod ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
         unless $pod;
 
     return $self->configuration->{$pod};
@@ -1202,7 +1202,7 @@ Rapido ILL API.
 sub get_http_client {
     my ( $self, $pod ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
         unless $pod;
 
     require RapidoILL::APIHttpClient;
@@ -1248,7 +1248,7 @@ This method retrieves an API client to contact a I<$pod>.
 sub get_client {
     my ( $self, $pod ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
         unless $pod;
 
     require RapidoILL::Client;
@@ -1278,7 +1278,7 @@ This method instantiates an action handler for the borrower site.
 sub get_borrower_actions {
     my ( $self, $pod ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
         unless $pod;
 
     require RapidoILL::Backend::BorrowerActions;
@@ -1306,7 +1306,7 @@ This method instantiates an action handler for the lender site.
 sub get_lender_actions {
     my ( $self, $pod ) = @_;
 
-    RapidoILL::Exception::MissingParameter->throw("Mandatory parameter 'pod' missing")
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
         unless $pod;
 
     require RapidoILL::Backend::LenderActions;
@@ -2411,7 +2411,7 @@ sub validate_params {
     my ( $self, $args ) = @_;
 
     foreach my $param ( @{ $args->{required} } ) {
-        RapidoILL::Exception::MissingParameter->throw("Missing parameter: $param")
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
             unless exists $args->{params}->{$param};
     }
 
@@ -2448,7 +2448,7 @@ sub get_action_handler {
     } elsif ( $perspective eq 'lender' ) {
         return $self->get_lender_action_handler($pod);
     } else {
-        RapidoILL::Exception::MissingParameter->throw(
+        RapidoILL::Exception::BadParameter->throw(
             "Invalid perspective: $perspective. Must be 'borrower' or 'lender'");
     }
 }

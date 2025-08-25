@@ -48,7 +48,7 @@ sub new {
 
     my @mandatory_params = qw(pod plugin);
     foreach my $param (@mandatory_params) {
-        RapidoILL::Exception::MissingParameter->throw("Missing parameter: $param")
+        RapidoILL::Exception::MissingParameter->throw( param => $param )
             unless $params->{$param};
     }
 
