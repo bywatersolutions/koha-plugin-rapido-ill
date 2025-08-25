@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- [#70] Disable nightly agencies syncing - commented out cronjob_nightly hook
+
 ### Fixed
 - [#69] Fixed borrower_cancel method in Backend.pm calling wrong handler causing "unblessed reference" error in production
 

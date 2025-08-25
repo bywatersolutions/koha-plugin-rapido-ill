@@ -704,13 +704,13 @@ Plugin hook for running nightly tasks
 
 =cut
 
-sub cronjob_nightly {
-    my ($self) = @_;
+# sub cronjob_nightly {
+#     my ($self) = @_;
 
-    foreach my $pod ( @{ $self->pods } ) {
-        $self->sync_agencies($pod);
-    }
-}
+#     foreach my $pod ( @{ $self->pods } ) {
+#         $self->sync_agencies($pod);
+#     }
+# }
 
 =head2 Business methods
 
