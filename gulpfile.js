@@ -4,13 +4,12 @@ const util = require('util');
 const execPromise = util.promisify(exec);
 
 const fs = require('fs');
-const dateTime = require('node-datetime');
 const Vinyl = require('vinyl');
 const path = require('path');
 const stream = require('stream');
 
-const dt = dateTime.create();
-const today = dt.format('Y-m-d');
+// Replace node-datetime with built-in Date functionality
+const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
 const package_json = JSON.parse(fs.readFileSync('./package.json'));
 const release_filename = `${package_json.name}-v${package_json.version}.kpz`;

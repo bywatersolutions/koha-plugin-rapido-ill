@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - [#69] Fixed borrower_cancel method in Backend.pm calling wrong handler causing "unblessed reference" error in production
+- [#72] Remove vulnerable node-datetime dependency from build process - replaced with built-in Node.js Date functionality
 
 ## [0.5.1] - 2025-08-26
 
