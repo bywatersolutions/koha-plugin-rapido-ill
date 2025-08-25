@@ -39,9 +39,9 @@ RapidoILL::Backend::LenderActions - Backend utilities for lender-side ILL reques
     );
 
     # ILL request utility methods
-    $actions->cancel_request($ill_request);
-    $actions->item_shipped($ill_request);
-    $actions->final_checkin($ill_request);
+    $actions->cancel_request( $req, $params );
+    $actions->item_shipped( $req, $params );
+    $actions->final_checkin( $req, $params );
 
 =head1 DESCRIPTION
 
@@ -103,7 +103,7 @@ sub cancel_request {
     my ( $self, $req, $params ) = @_;
 
     $params //= {};
-    my $client_options = $params->{client_options} // {};
+    my $options = $params->{client_options} // {};
 
     Koha::Database->schema->storage->txn_do(
         sub {
@@ -126,7 +126,7 @@ sub cancel_request {
                     localBibId => $req->biblio_id,
                     patronName => $patronName,
                 },
-                $client_options
+                $options
             );
 
             $req->status('O_ITEM_CANCELLED_BY_US')->store;
@@ -153,7 +153,7 @@ sub item_shipped {
     my ( $self, $req, $params ) = @_;
 
     $params //= {};
-    my $client_options = $params->{client_options} // {};
+    my $options = $params->{client_options} // {};
 
     my $circId = $self->{plugin}->get_req_circ_id($req);
     my $pod    = $self->{plugin}->get_req_pod($req);
@@ -200,7 +200,7 @@ sub item_shipped {
                     circId      => $circId,
                     itemBarcode => $item->barcode,
                 },
-                $client_options
+                $options
             );
         }
     );
@@ -225,7 +225,7 @@ sub final_checkin {
     my ( $self, $req, $params ) = @_;
 
     $params //= {};
-    my $client_options = $params->{client_options} // {};
+    my $options = $params->{client_options} // {};
 
     Koha::Database->schema->storage->txn_do(
         sub {
@@ -237,7 +237,7 @@ sub final_checkin {
             $req->status('COMP')->store();
 
             # notify Rapido. Throws an exception if failed
-            $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, }, $client_options );
+            $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, }, $options );
         }
     );
 

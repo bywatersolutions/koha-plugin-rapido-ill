@@ -40,9 +40,9 @@ RapidoILL::Backend::BorrowerActions - Backend utilities for borrower-side ILL re
     );
 
     # ILL request utility methods
-    $actions->borrower_receive_unshipped( { request => $req, ... } );
-    $actions->item_in_transit( { request => $req } );
-    $actions->borrower_cancel( { request => $req } );
+    $actions->borrower_receive_unshipped( $req, $params );
+    $actions->item_in_transit( $req, $params );
+    $actions->borrower_cancel( $req, $params );
 
 =head1 DESCRIPTION
 
