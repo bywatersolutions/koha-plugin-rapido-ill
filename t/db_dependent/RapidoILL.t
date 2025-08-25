@@ -340,7 +340,7 @@ subtest 'get_action_handler method' => sub {
             }
         );
     }
-    'RapidoILL::Exception::MissingParameter', 'Dies with invalid perspective';
+    'RapidoILL::Exception::BadParameter', 'Dies with invalid perspective';
 
     # Test missing parameters
     throws_ok {

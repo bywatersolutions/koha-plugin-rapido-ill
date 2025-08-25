@@ -37,7 +37,7 @@ subtest 'APIHttpClient instantiation' => sub {
                 base_url      => 'https://test.example.com',
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
-                dev_mode      => 1,    # Skip token refresh in dev mode
+                dev_mode      => 1,                            # Skip token refresh in dev mode
             }
         );
 
@@ -46,17 +46,21 @@ subtest 'APIHttpClient instantiation' => sub {
     };
 
     subtest 'Missing parameters' => sub {
-        plan tests => 3;
+        plan tests => 6;
 
         throws_ok {
             RapidoILL::APIHttpClient->new( {} );
         }
-        qr/Missing parameter: base_url/, 'Dies when base_url missing';
+        'RapidoILL::Exception::MissingParameter', 'Dies when base_url missing';
+
+        is( $@->param, 'base_url' );
 
         throws_ok {
             RapidoILL::APIHttpClient->new( { base_url => 'https://test.com' } );
         }
-        qr/Missing parameter: client_id/, 'Dies when client_id missing';
+        'RapidoILL::Exception::MissingParameter', 'Dies when client_id missing';
+
+        is( $@->param, 'client_id' );
 
         throws_ok {
             RapidoILL::APIHttpClient->new(
@@ -66,7 +70,9 @@ subtest 'APIHttpClient instantiation' => sub {
                 }
             );
         }
-        qr/Missing parameter: client_secret/, 'Dies when client_secret missing';
+        'RapidoILL::Exception::MissingParameter', 'Dies when client_secret missing';
+
+        is( $@->param, 'client_secret' );
     };
 };
 
