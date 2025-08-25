@@ -34,6 +34,11 @@ BEGIN {
 
 my $logger = t::lib::Mocks::Logger->new();
 
+# Add is_debug method to the mock logger for log4perl compatibility
+# The actual logger object is accessed via Koha::Logger->get(), so we need to mock it there
+my $koha_logger = Koha::Logger->get();
+$koha_logger->mock('is_debug', sub { return 1; }); # Always return true for tests to get detailed logging
+
 subtest 'new() tests' => sub {
     plan tests => 2;
 
@@ -394,9 +399,6 @@ subtest 'delete_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test DELETE request with context
@@ -426,7 +428,7 @@ subtest 'delete_request() tests' => sub {
     };
 
     subtest 'Failed DELETE request - HTTP error' => sub {
-        plan tests => 5;
+        plan tests => 6;
 
         # Mock LWP::UserAgent before creating the client
         my $ua_mock = Test::MockModule->new('LWP::UserAgent');
@@ -457,9 +459,6 @@ subtest 'delete_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test failed DELETE request
@@ -485,6 +484,11 @@ subtest 'delete_request() tests' => sub {
         );
 
         # Verify debug logging for response content
+        # First debug message is the request debug, second is the response body debug
+        $logger->debug_like(
+            qr/DELETE request to https:\/\/test\.example\.com\/item\/999/,
+            'Debug log for DELETE request'
+        );
         $logger->debug_like(
             qr/DELETE request failed response body \[context: delete_item\]: .*Resource not found/,
             'Debug log contains response body with context'
@@ -525,9 +529,6 @@ subtest 'delete_request() tests' => sub {
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
-
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
 
         $logger->clear();
 
@@ -585,9 +586,6 @@ subtest 'post_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test successful POST request
@@ -642,9 +640,6 @@ subtest 'post_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test POST request with context
@@ -675,7 +670,7 @@ subtest 'post_request() tests' => sub {
     };
 
     subtest 'Failed POST request - HTTP error' => sub {
-        plan tests => 5;
+        plan tests => 7;
 
         # Mock LWP::UserAgent before creating the client
         my $ua_mock = Test::MockModule->new('LWP::UserAgent');
@@ -706,9 +701,6 @@ subtest 'post_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test failed POST request
@@ -735,6 +727,15 @@ subtest 'post_request() tests' => sub {
         );
 
         # Verify debug logging for response content
+        # First debug message is the request debug, second is request data, third is the response body debug
+        $logger->debug_like(
+            qr/POST request to https:\/\/test\.example\.com\/items/,
+            'Debug log for POST request'
+        );
+        $logger->debug_like(
+            qr/Request data: .*author.*Test Author/,
+            'Debug log for POST request data'
+        );
         $logger->debug_like(
             qr/POST request failed response body \[context: create_item\]: .*Validation failed/,
             'Debug log contains response body with context'
@@ -775,9 +776,6 @@ subtest 'post_request() tests' => sub {
                 dev_mode      => 1,
             }
         );
-
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
 
         $logger->clear();
 
@@ -840,9 +838,6 @@ subtest 'put_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test successful PUT request
@@ -897,9 +892,6 @@ subtest 'put_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test PUT request with context
@@ -930,7 +922,7 @@ subtest 'put_request() tests' => sub {
     };
 
     subtest 'Failed PUT request - HTTP error' => sub {
-        plan tests => 5;
+        plan tests => 7;
 
         # Mock LWP::UserAgent before creating the client
         my $ua_mock = Test::MockModule->new('LWP::UserAgent');
@@ -961,9 +953,6 @@ subtest 'put_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test failed PUT request
@@ -990,6 +979,15 @@ subtest 'put_request() tests' => sub {
         );
 
         # Verify debug logging for response content
+        # First debug message is the request debug, second is request data, third is the response body debug
+        $logger->debug_like(
+            qr/PUT request to https:\/\/test\.example\.com\/items\/999/,
+            'Debug log for PUT request'
+        );
+        $logger->debug_like(
+            qr/Request data: .*title.*Updated Title/,
+            'Debug log for PUT request data'
+        );
         $logger->debug_like(
             qr/PUT request failed response body \[context: update_item\]: .*Version conflict/,
             'Debug log contains response body with context'
@@ -1030,9 +1028,6 @@ subtest 'put_request() tests' => sub {
                 dev_mode      => 1,
             }
         );
-
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
 
         $logger->clear();
 
@@ -1095,9 +1090,6 @@ subtest 'get_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test successful GET request
@@ -1148,9 +1140,6 @@ subtest 'get_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test GET request with query parameters and context
@@ -1181,7 +1170,7 @@ subtest 'get_request() tests' => sub {
     };
 
     subtest 'Failed GET request - HTTP error' => sub {
-        plan tests => 5;
+        plan tests => 6;
 
         # Mock LWP::UserAgent before creating the client
         my $ua_mock = Test::MockModule->new('LWP::UserAgent');
@@ -1212,9 +1201,6 @@ subtest 'get_request() tests' => sub {
             }
         );
 
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
-
         $logger->clear();
 
         # Test failed GET request
@@ -1240,6 +1226,11 @@ subtest 'get_request() tests' => sub {
         );
 
         # Verify debug logging for response content
+        # First debug message is the request debug, second is the response body debug
+        $logger->debug_like(
+            qr/GET request to https:\/\/test\.example\.com\/items\/999/,
+            'Debug log for GET request'
+        );
         $logger->debug_like(
             qr/GET request failed response body \[context: fetch_item\]: .*Item not found/,
             'Debug log contains response body with context'
@@ -1280,9 +1271,6 @@ subtest 'get_request() tests' => sub {
                 dev_mode      => 1,
             }
         );
-
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
 
         $logger->clear();
 

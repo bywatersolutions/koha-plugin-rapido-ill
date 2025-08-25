@@ -862,7 +862,7 @@ sub borrower_cancel {
         };
     } catch {
         # HTTP client already logged detailed HTTP info with [context: borrower_cancel]
-        $self->{plugin}->logger->warn("[borrower_cancel] Operation failed: $_");
+        $self->{plugin}->logger->warn("[borrower_cancel] Operation failed");
         
         my $message = "Borrower cancellation failed";
         if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {

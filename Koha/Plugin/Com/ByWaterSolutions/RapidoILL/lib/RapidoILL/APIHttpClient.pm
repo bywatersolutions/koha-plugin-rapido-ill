@@ -47,7 +47,6 @@ HTTP request execution with proper authentication headers.
             client_id      => 'a_client_id',
             client_secret  => 'a_client_secret',
             base_url       => 'https://api.base.url',
-          [ debug_requests => 1|0 ]
         }
     );
 
@@ -89,7 +88,6 @@ sub new {
             undefined  => undef,
         ]
     );
-    $self->{debug_mode} = ( $args->{debug_requests} ) ? 1 : 0;
 
     bless $self, $class;
 
@@ -136,7 +134,7 @@ sub post_request {
     if ( $self->logger ) {
         $self->logger->info( "Making POST request to " . $endpoint );
 
-        if ( $self->{debug_mode} ) {
+        if ( $self->logger->is_debug ) {
             $self->logger->debug( "POST request to " . $endpoint );
             $self->logger->debug( "Request data: " . encode_json( $args->{data} ) ) if exists $args->{data};
         }
@@ -148,17 +146,20 @@ sub post_request {
         my $context_info = $args->{context} ? " [context: " . $args->{context} . "]" : "";
 
         if ( $response->is_success ) {
+            my $status_message = $response->message || 'Success';
             $self->logger->info(
-                "POST request successful: " . $response->code . " " . $response->message . $context_info );
+                "POST request successful: " . $response->code . " " . $status_message . $context_info );
         } else {
-            $self->logger->error( "POST request failed: "
-                    . $response->code . " "
-                    . $response->message . " to "
-                    . $endpoint
-                    . $context_info );
+            # In debug mode, log detailed HTTP error information
+            if ( $self->logger->is_debug ) {
+                my $status_message = $response->message || 'Unknown';
+                $self->logger->error( "POST request failed: "
+                        . $response->code . " "
+                        . $status_message . " to "
+                        . $endpoint
+                        . $context_info );
 
-            # In debug mode, log the full response content for troubleshooting
-            if ( $self->logger->can('debug') ) {
+                # Log the full response content for troubleshooting
                 my $content = $response->decoded_content || $response->content || 'No content';
                 $self->logger->debug( "POST request failed response body" . $context_info . ": " . $content );
 
@@ -167,6 +168,9 @@ sub post_request {
                     $self->logger->debug(
                         "POST request headers" . $context_info . ": " . $response->request->headers->as_string );
                 }
+            } else {
+                # Brief error log for production
+                $self->logger->error( "POST request failed" . $context_info );
             }
         }
     }
@@ -196,7 +200,7 @@ sub put_request {
     if ( $self->logger ) {
         $self->logger->info( "Making PUT request to " . $endpoint );
 
-        if ( $self->{debug_mode} ) {
+        if ( $self->logger->is_debug ) {
             $self->logger->debug( "PUT request to " . $endpoint );
             $self->logger->debug( "Request data: " . encode_json( $args->{data} ) );
         }
@@ -208,14 +212,31 @@ sub put_request {
         my $context_info = $args->{context} ? " [context: " . $args->{context} . "]" : "";
 
         if ( $response->is_success ) {
+            my $status_message = $response->message || 'Success';
             $self->logger->info(
-                "PUT request successful: " . $response->code . " " . $response->message . $context_info );
+                "PUT request successful: " . $response->code . " " . $status_message . $context_info );
         } else {
-            $self->logger->error( "PUT request failed: "
-                    . $response->code . " "
-                    . $response->message . " to "
-                    . $endpoint
-                    . $context_info );
+            # In debug mode, log detailed HTTP error information
+            if ( $self->logger->is_debug ) {
+                my $status_message = $response->message || 'Unknown';
+                $self->logger->error( "PUT request failed: "
+                        . $response->code . " "
+                        . $status_message . " to "
+                        . $endpoint
+                        . $context_info );
+
+                # Log the full response content for troubleshooting
+                my $content = $response->decoded_content || $response->content || 'No content';
+                $self->logger->debug( "PUT request failed response body" . $context_info . ": " . $content );
+
+                # Also log request headers if available for debugging
+                if ( $response->request ) {
+                    $self->logger->debug( "PUT request headers" . $context_info . ": " . $response->request->headers->as_string );
+                }
+            } else {
+                # Brief error log for production
+                $self->logger->error( "PUT request failed" . $context_info );
+            }
 
             # In debug mode, log the full response content for troubleshooting
             if ( $self->logger->can('debug') ) {
@@ -277,7 +298,7 @@ sub get_request {
     if ( $self->logger ) {
         $self->logger->info( "Making GET request to " . $uri->as_string );
 
-        if ( $self->{debug_mode} ) {
+        if ( $self->logger->is_debug ) {
             $self->logger->debug( "GET request to " . $uri->as_string );
         }
     }
@@ -288,17 +309,20 @@ sub get_request {
         my $context_info = $args->{context} ? " [context: " . $args->{context} . "]" : "";
 
         if ( $response->is_success ) {
+            my $status_message = $response->message || 'Success';
             $self->logger->info(
-                "GET request successful: " . $response->code . " " . $response->message . $context_info );
+                "GET request successful: " . $response->code . " " . $status_message . $context_info );
         } else {
-            $self->logger->error( "GET request failed: "
-                    . $response->code . " "
-                    . $response->message . " to "
-                    . $uri->as_string
-                    . $context_info );
+            # In debug mode, log detailed HTTP error information
+            if ( $self->logger->is_debug ) {
+                my $status_message = $response->message || 'Unknown';
+                $self->logger->error( "GET request failed: "
+                        . $response->code . " "
+                        . $status_message . " to "
+                        . $uri->as_string
+                        . $context_info );
 
-            # In debug mode, log the full response content for troubleshooting
-            if ( $self->logger->can('debug') ) {
+                # Log the full response content for troubleshooting
                 my $content = $response->decoded_content || $response->content || 'No content';
                 $self->logger->debug( "GET request failed response body" . $context_info . ": " . $content );
 
@@ -307,6 +331,9 @@ sub get_request {
                     $self->logger->debug(
                         "GET request headers" . $context_info . ": " . $response->request->headers->as_string );
                 }
+            } else {
+                # Brief error log for production
+                $self->logger->error( "GET request failed" . $context_info );
             }
         }
     }
@@ -334,7 +361,7 @@ sub delete_request {
     if ( $self->logger ) {
         $self->logger->info( "Making DELETE request to " . $endpoint );
 
-        if ( $self->{debug_mode} ) {
+        if ( $self->logger->is_debug ) {
             $self->logger->debug( "DELETE request to " . $endpoint );
         }
     }
@@ -345,25 +372,30 @@ sub delete_request {
         my $context_info = $args->{context} ? " [context: " . $args->{context} . "]" : "";
 
         if ( $response->is_success ) {
+            my $status_message = $response->message || 'Success';
             $self->logger->info(
-                "DELETE request successful: " . $response->code . " " . $response->message . $context_info );
+                "DELETE request successful: " . $response->code . " " . $status_message . $context_info );
         } else {
-            $self->logger->error( "DELETE request failed: "
-                    . $response->code . " "
-                    . $response->message . " to "
-                    . $endpoint
-                    . $context_info );
+            # In debug mode, log detailed HTTP error information
+            if ( $self->logger->is_debug ) {
+                my $status_message = $response->message || 'Unknown';
+                $self->logger->error( "DELETE request failed: "
+                        . $response->code . " "
+                        . $status_message . " to "
+                        . $endpoint
+                        . $context_info );
 
-            # In debug mode, log the full response content for troubleshooting
-            if ( $self->logger->can('debug') ) {
+                # Log the full response content for troubleshooting
                 my $content = $response->decoded_content || $response->content || 'No content';
                 $self->logger->debug( "DELETE request failed response body" . $context_info . ": " . $content );
 
                 # Also log request headers if available for debugging
                 if ( $response->request ) {
-                    $self->logger->debug(
-                        "DELETE request headers" . $context_info . ": " . $response->request->headers->as_string );
+                    $self->logger->debug( "DELETE request headers" . $context_info . ": " . $response->request->headers->as_string );
                 }
+            } else {
+                # Brief error log for production
+                $self->logger->error( "DELETE request failed" . $context_info );
             }
         }
     }
