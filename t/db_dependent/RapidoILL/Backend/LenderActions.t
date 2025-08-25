@@ -20,6 +20,7 @@
 use Modern::Perl;
 
 use Test::More tests => 5;
+use Test::MockModule;
 use Test::MockObject;
 use Test::Exception;
 
@@ -62,7 +63,7 @@ subtest 'cancel_request() tests' => sub {
     plan tests => 2;
 
     subtest 'Successful calls' => sub {
-        plan tests => 4;
+        plan tests => 8;
 
         $schema->storage->txn_begin;
 
@@ -115,27 +116,48 @@ subtest 'cancel_request() tests' => sub {
             }
         );
 
-        # Setup minimal mocking for external calls
+        # Setup real plugin with method mocking for external calls
         my $mock_client = Test::MockObject->new();
-        $mock_client->mock( 'lender_cancel', sub { return; } );
+        
+        # Track API client method calls
+        my @client_calls = ();
+        $mock_client->mock( 'lender_cancel', sub { 
+            my ($self, $data, $options) = @_;
+            push @client_calls, { 
+                method => 'lender_cancel', 
+                data => $data,
+                options => $options 
+            };
+            return; 
+        } );
 
-        my $mock_plugin = Test::MockObject->new();
-        $mock_plugin->mock( 'get_req_circ_id', sub { return 'test_circ_123'; } );
-        $mock_plugin->mock( 'get_req_pod',     sub { return 'test_pod'; } );
-        $mock_plugin->mock( 'get_client',      sub { return $mock_client; } );
+        # Mock plugin methods that need external dependencies
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock('get_client', sub { return $mock_client; });
 
         my $actions = RapidoILL::Backend::LenderActions->new(
             {
                 pod    => 'test_pod',
-                plugin => $mock_plugin,
+                plugin => $plugin,
             }
         );
 
+        my $client_options = { timeout => 60, force_cancel => 1 };
+
         my $result;
         lives_ok {
-            $result = $actions->cancel_request($illrequest);
+            $result = $actions->cancel_request($illrequest, { client_options => $client_options });
         }
         'cancel_request executes without error';
+
+        # Verify API client method was called correctly
+        is( scalar @client_calls, 1, 'API client method called once' );
+        is( $client_calls[0]->{method}, 'lender_cancel', 'Correct API method called' );
+        
+        # Verify client_options were passed through
+        my $call_options = $client_calls[0]->{options};
+        is_deeply( $call_options->{timeout}, 60, 'client_options timeout passed through' );
+        is_deeply( $call_options->{force_cancel}, 1, 'client_options force_cancel passed through' );
 
         $illrequest->discard_changes();
         is( $illrequest->status, 'O_ITEM_CANCELLED_BY_US', 'Sets correct status' );

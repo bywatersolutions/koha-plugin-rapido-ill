@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#67] Updated test mocks to use logger instead of deprecated rapido_warn
 - [#68] Replaced plugin mocking with real plugin instances to eliminate "Un-mocked method" warnings
 - [#68] Updated all Backend Actions tests to use new standardized method signatures
+- [#68] Replaced local redefinitions with Test::MockModule for cleaner test mocking
+- [#68] Enhanced Backend Actions tests to verify API client method calls and client_options passthrough
+- [#68] Added comprehensive verification of API client integration in all Backend Actions tests
+
+### Documentation
+- [#68] Added Backend Actions method patterns section to DEVELOPMENT.md
+- [#68] Documented standardized method signatures and client_options usage
+- [#68] Added migration guide from old patterns to new standardized approach
 
 ## [0.4.0] - 2025-08-22
 
