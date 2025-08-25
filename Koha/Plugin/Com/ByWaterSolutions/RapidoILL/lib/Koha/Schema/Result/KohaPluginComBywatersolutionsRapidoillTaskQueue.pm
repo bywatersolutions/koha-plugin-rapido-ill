@@ -176,12 +176,16 @@ __PACKAGE__->set_primary_key("id");
 # Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-08-15 13:33:16
 # DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:lMxUCc9s1m8SygXSRcDSbg
 
-sub koha_objects_class {
-    'RapidoILL::QueuedTasks';
-}
+{
+    no warnings 'redefine';
+    
+    sub koha_objects_class {
+        'RapidoILL::QueuedTasks';
+    }
 
-sub koha_object_class {
-    'RapidoILL::QueuedTask';
+    sub koha_object_class {
+        'RapidoILL::QueuedTask';
+    }
 }
 
 1;

@@ -387,12 +387,16 @@ __PACKAGE__->add_unique_constraint(
 # Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-08-15 13:33:16
 # DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:4P1WSWzunh9dkFm1HnL/Jw
 
-sub koha_objects_class {
-    'RapidoILL::CircActions';
-}
+{
+    no warnings 'redefine';
+    
+    sub koha_objects_class {
+        'RapidoILL::CircActions';
+    }
 
-sub koha_object_class {
-    'RapidoILL::CircAction';
+    sub koha_object_class {
+        'RapidoILL::CircAction';
+    }
 }
 
 1;

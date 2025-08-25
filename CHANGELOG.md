@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - [#70] Disable nightly agencies syncing - commented out cronjob_nightly hook
+- [#71] Silence specific redefinition warnings for koha_objects_class and koha_object_class methods in schema result classes
 
 ### Fixed
 - [#69] Fixed borrower_cancel method in Backend.pm calling wrong handler causing "unblessed reference" error in production
