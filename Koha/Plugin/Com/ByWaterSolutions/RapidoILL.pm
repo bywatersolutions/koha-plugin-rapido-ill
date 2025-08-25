@@ -121,7 +121,7 @@ sub logger {
 
     unless ($logger) {
         try {
-            $logger = Koha::Logger->get( { interface => 'api', category => 'rapidoill' } );
+            $logger = Koha::Logger->get( { category => 'rapidoill' } );
         } catch {
 
             # Fallback if Koha::Logger fails
