@@ -114,23 +114,26 @@ Global logger instance for the plugin and its components
 =cut
 
 sub logger {
-    my ($self) = @_;
+    my ($self, $category) = @_;
 
-    # Create a singleton logger instance
-    state $logger;
+    # Default to main plugin category if no category specified
+    $category //= 'rapidoill';
 
-    unless ($logger) {
+    # Initialize loggers hashref if it doesn't exist
+    $self->{_loggers} //= {};
+
+    unless ($self->{_loggers}->{$category}) {
         try {
-            $logger = Koha::Logger->get( { category => 'rapidoill' } );
+            $self->{_loggers}->{$category} = Koha::Logger->get( { category => $category } );
         } catch {
-
-            # Fallback if Koha::Logger fails
-            warn "Failed to initialize Koha::Logger: $_";
-            return;
+            # Fallback if Koha::Logger fails - but don't return undef
+            warn "Failed to initialize Koha::Logger for category '$category': $_";
+            # Return default logger as fallback
+            $self->{_loggers}->{$category} = Koha::Logger->get();
         };
     }
 
-    return $logger;
+    return $self->{_loggers}->{$category};
 }
 
 =head3 configure

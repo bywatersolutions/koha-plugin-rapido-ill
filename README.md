@@ -159,7 +159,7 @@ log4perl.appender.RAPIDOILL.layout.ConversionPattern = [%d] [%p] %m %l %n
 log4perl.appender.RAPIDOILL.utf8 = 1
 
 # 2. External API Calls (Koha -> Rapido ILL)
-log4perl.logger.rapidoill.api = DEBUG, RAPIDOILL_API
+log4perl.logger.rapidoill_api = DEBUG, RAPIDOILL_API
 log4perl.appender.RAPIDOILL_API = Log::Log4perl::Appender::File
 log4perl.appender.RAPIDOILL_API.filename = /var/log/koha/<instance>/rapidoill-api.log
 log4perl.appender.RAPIDOILL_API.mode = append
@@ -168,7 +168,7 @@ log4perl.appender.RAPIDOILL_API.layout.ConversionPattern = [%d] [%p] %m %l %n
 log4perl.appender.RAPIDOILL_API.utf8 = 1
 
 # 3. Task Queue Daemon Logging
-log4perl.logger.rapidoill.daemon = INFO, RAPIDOILL_DAEMON
+log4perl.logger.rapidoill_daemon = INFO, RAPIDOILL_DAEMON
 log4perl.appender.RAPIDOILL_DAEMON = Log::Log4perl::Appender::File
 log4perl.appender.RAPIDOILL_DAEMON.filename = /var/log/koha/<instance>/rapidoill-daemon.log
 log4perl.appender.RAPIDOILL_DAEMON.mode = append

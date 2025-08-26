@@ -31,7 +31,8 @@ use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 use RapidoILL::Exceptions;
 
 # Initialize logger with custom category for daemon
-my $logger = Koha::Logger->get( { category => 'rapidoill.daemon' } );
+my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+my $logger = $plugin->logger('rapidoill_daemon');
 
 my $daemon_sleep = 1;
 my $verbose_logging;

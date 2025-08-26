@@ -108,8 +108,8 @@ Access to the API-specific logger instance
 sub logger {
     my ($self) = @_;
 
-    # Use dedicated API logger category for external API calls
-    return Koha::Logger->get( { category => 'rapidoill.api' } );
+    # Use API-specific logger category through the plugin
+    return $self->plugin ? $self->plugin->logger('rapidoill_api') : undef;
 }
 
 =head3 post_request
