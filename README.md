@@ -14,7 +14,7 @@ The Rapido ILL plugin integrates Koha with the Rapido resource sharing network, 
 - **Configurable automation** for circulation actions
 - **Patron validation** and restriction handling
 - **Task queue system** for asynchronous processing
-- **Comprehensive logging** and debugging capabilities
+- **Logging** and debugging capabilities
 
 ## Installation
 
@@ -64,9 +64,7 @@ dev03-na:
   max_debt_blocks_holds: 100
   expiration_blocks_holds: true
   restriction_blocks_holds: true
-  # Debugging and logging
-  debug_mode: false        # Enable general debug logging
-  debug_requests: false    # Enable HTTP request debug logging (requires log4perl.conf setup)
+  # Development mode
   dev_mode: false
   default_retry_delay: 120
 ```
@@ -142,19 +140,7 @@ tail -f /var/log/koha/<instance>/plack-intranet-error.log | grep -i rapido
 
 ### Logging Configuration
 
-The plugin uses Koha::Logger for professional logging. To enable debug logging, you need to configure both the plugin and Koha's log4perl configuration.
-
-#### Plugin Configuration
-
-Enable debug logging in the plugin configuration:
-
-```yaml
----
-dev03-na:
-  # ... other configuration ...
-  debug_requests: true    # Enable HTTP request debug logging
-  debug_mode: true       # Enable general debug logging
-```
+The plugin uses Koha::Logger for logging. Debug logging is controlled entirely through Koha's log4perl configuration.
 
 #### Koha log4perl.conf Configuration
 
@@ -279,7 +265,7 @@ The `ill_request` attribute will only be available if the plugin finds the hold 
 
 ## Development
 
-**For developers, contributors, and advanced users**: See [DEVELOPMENT.md](DEVELOPMENT.md) for comprehensive development documentation including:
+**For developers, contributors, and advanced users**: See [DEVELOPMENT.md](DEVELOPMENT.md) for development documentation including:
 
 - **KTD setup and testing environment**
 - **Mock Rapido API for development**

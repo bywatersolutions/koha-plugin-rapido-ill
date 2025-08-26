@@ -68,9 +68,7 @@ dev03-na:
   max_debt_blocks_holds: 100
   expiration_blocks_holds: true
   restriction_blocks_holds: true
-  # Debugging - dev_mode enabled for testing
-  debug_mode: false
-  debug_requests: false
+  # Development mode enabled for testing
   dev_mode: true
   default_retry_delay: 120
 test-pod:

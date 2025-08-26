@@ -1215,7 +1215,6 @@ sub get_http_client {
                 client_id      => $configuration->{client_id},
                 client_secret  => $configuration->{client_secret},
                 base_url       => $configuration->{base_url},
-                debug_requests => $configuration->{debug_requests},
                 plugin         => $self,
             }
         );
@@ -1347,22 +1346,6 @@ sub get_normalizer {
     my ( $self, $args ) = @_;
     require RapidoILL::StringNormalizer;
     return RapidoILL::StringNormalizer->new($args);
-}
-
-=head3 debug_mode
-
-    if ( $self->debug_mode($pod) ) { ... }
-
-This method tells if debug mode is enabled/configured for the specified I<$pod>.
-
-Defaults to B<0> if not specified in the configuration YAML.
-
-=cut
-
-sub debug_mode {
-    my ( $self, $pod ) = @_;
-
-    return $self->configuration->{$pod}->{debug_mode} ? 1 : 0;
 }
 
 =head3 is_lending_req

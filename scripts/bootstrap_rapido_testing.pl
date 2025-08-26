@@ -149,8 +149,6 @@ my $plugin_config = {
         max_debt_blocks_holds    => 100,
         expiration_blocks_holds  => 1,
         restriction_blocks_holds => 1,
-        debug_mode               => 1,
-        debug_requests           => 1,
         dev_mode                 => 0,
         default_retry_delay      => 120
     }

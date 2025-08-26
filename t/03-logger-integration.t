@@ -76,7 +76,6 @@ subtest 'APIHttpClient gets plugin reference for logger access' => sub {
                     client_id      => 'test_client',
                     client_secret  => 'test_secret',
                     base_url       => 'https://test.example.com',
-                    debug_requests => 1,
                 }
             };
         }
