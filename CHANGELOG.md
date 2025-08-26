@@ -5,10 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-08-26
+
+### Changed
+- [#75] **BREAKING**: Replaced custom debug_mode and debug_requests configuration with native log4perl integration
+- [#75] Logging verbosity now controlled exclusively through Koha's log4perl.conf configuration
+- [#75] Simplified plugin configuration by removing debug-related parameters
+
+### Enhanced  
+- [#75] Implemented conditional logging: brief error messages in production (INFO level), detailed HTTP debugging in debug mode (DEBUG level)
+- [#75] Added business context parameters to all HTTP operations for improved traceability
+- [#75] Optimized logging architecture to eliminate redundant messages between controller and HTTP client layers
+
+### Removed
+- [#75] Custom debug_mode() method and debug_requests parameter from plugin configuration
+- [#75] All debug-related configuration options from documentation and example configs
+
+### Migration Guide
+- Remove `debug_mode` and `debug_requests` from your plugin configuration YAML
+- Configure logging levels in Koha's log4perl.conf instead:
+  - `log4perl.logger.rapidoill = INFO` for production (brief logs)  
+  - `log4perl.logger.rapidoill = DEBUG` for troubleshooting (detailed logs)
+
 ## [0.6.0] - 2025-08-26
 
 ### Enhanced
-- [#75] Comprehensive HTTP logging improvements across all APIHttpClient methods - added detailed response content and headers in debug mode, context parameter support for business operation identification, and hybrid logging architecture to eliminate duplication
+- [#75] HTTP logging improvements across all APIHttpClient methods - added detailed response content and headers in debug mode, context parameter support for business operation identification, and hybrid logging architecture to eliminate duplication
 
 ### Added
 - [#75] Complete test coverage for all HTTP verb methods (POST, PUT, GET, DELETE, refresh_token) with proper LWP::UserAgent mocking and logger verification - 79 test assertions covering various HTTP status codes and context parameter functionality
