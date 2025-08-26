@@ -23,7 +23,8 @@ __PACKAGE__->mk_accessors(qw( ua access_token dev_mode plugin ));
 
 use DateTime;
 use HTTP::Request::Common qw(DELETE GET POST PUT);
-use JSON                  qw(decode_json encode_json);
+use Koha::Logger;
+use JSON qw(decode_json encode_json);
 use LWP::UserAgent;
 use MIME::Base64 qw( decode_base64url encode_base64url );
 use URI          ();
@@ -100,14 +101,15 @@ sub new {
 
 =head3 logger
 
-Access to the plugin's logger instance
+Access to the API-specific logger instance
 
 =cut
 
 sub logger {
     my ($self) = @_;
 
-    return $self->plugin ? $self->plugin->logger : undef;
+    # Use dedicated API logger category for external API calls
+    return Koha::Logger->get( { category => 'rapidoill.api' } );
 }
 
 =head3 post_request
@@ -150,6 +152,7 @@ sub post_request {
             $self->logger->info(
                 "POST request successful: " . $response->code . " " . $status_message . $context_info );
         } else {
+
             # In debug mode, log detailed HTTP error information
             if ( $self->logger->is_debug ) {
                 my $status_message = $response->message || 'Unknown';
@@ -169,6 +172,7 @@ sub post_request {
                         "POST request headers" . $context_info . ": " . $response->request->headers->as_string );
                 }
             } else {
+
                 # Brief error log for production
                 $self->logger->error( "POST request failed" . $context_info );
             }
@@ -213,9 +217,9 @@ sub put_request {
 
         if ( $response->is_success ) {
             my $status_message = $response->message || 'Success';
-            $self->logger->info(
-                "PUT request successful: " . $response->code . " " . $status_message . $context_info );
+            $self->logger->info( "PUT request successful: " . $response->code . " " . $status_message . $context_info );
         } else {
+
             # In debug mode, log detailed HTTP error information
             if ( $self->logger->is_debug ) {
                 my $status_message = $response->message || 'Unknown';
@@ -231,9 +235,11 @@ sub put_request {
 
                 # Also log request headers if available for debugging
                 if ( $response->request ) {
-                    $self->logger->debug( "PUT request headers" . $context_info . ": " . $response->request->headers->as_string );
+                    $self->logger->debug(
+                        "PUT request headers" . $context_info . ": " . $response->request->headers->as_string );
                 }
             } else {
+
                 # Brief error log for production
                 $self->logger->error( "PUT request failed" . $context_info );
             }
@@ -310,9 +316,9 @@ sub get_request {
 
         if ( $response->is_success ) {
             my $status_message = $response->message || 'Success';
-            $self->logger->info(
-                "GET request successful: " . $response->code . " " . $status_message . $context_info );
+            $self->logger->info( "GET request successful: " . $response->code . " " . $status_message . $context_info );
         } else {
+
             # In debug mode, log detailed HTTP error information
             if ( $self->logger->is_debug ) {
                 my $status_message = $response->message || 'Unknown';
@@ -332,6 +338,7 @@ sub get_request {
                         "GET request headers" . $context_info . ": " . $response->request->headers->as_string );
                 }
             } else {
+
                 # Brief error log for production
                 $self->logger->error( "GET request failed" . $context_info );
             }
@@ -376,6 +383,7 @@ sub delete_request {
             $self->logger->info(
                 "DELETE request successful: " . $response->code . " " . $status_message . $context_info );
         } else {
+
             # In debug mode, log detailed HTTP error information
             if ( $self->logger->is_debug ) {
                 my $status_message = $response->message || 'Unknown';
@@ -391,9 +399,11 @@ sub delete_request {
 
                 # Also log request headers if available for debugging
                 if ( $response->request ) {
-                    $self->logger->debug( "DELETE request headers" . $context_info . ": " . $response->request->headers->as_string );
+                    $self->logger->debug(
+                        "DELETE request headers" . $context_info . ": " . $response->request->headers->as_string );
                 }
             } else {
+
                 # Brief error log for production
                 $self->logger->error( "DELETE request failed" . $context_info );
             }

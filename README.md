@@ -147,22 +147,34 @@ The plugin uses Koha::Logger for logging. Debug logging is controlled entirely t
 Add the following to your Koha instance's `log4perl.conf` file (usually located at `/etc/koha/sites/<instance>/log4perl.conf`):
 
 ```perl
-# RapidoILL Plugin Logging
-log4perl.logger.rapidoill = DEBUG, RAPIDOILL
+# RapidoILL Plugin Logging - Three Separate Log Files
+
+# 1. General Plugin Logging
+log4perl.logger.rapidoill = INFO, RAPIDOILL
 log4perl.appender.RAPIDOILL = Log::Log4perl::Appender::File
 log4perl.appender.RAPIDOILL.filename = /var/log/koha/<instance>/rapidoill.log
 log4perl.appender.RAPIDOILL.mode = append
 log4perl.appender.RAPIDOILL.layout = Log::Log4perl::Layout::PatternLayout
 log4perl.appender.RAPIDOILL.layout.ConversionPattern = [%d] [%p] %m %l %n
+log4perl.appender.RAPIDOILL.utf8 = 1
 
-# RapidoILL Task Queue Daemon Logging (separate log file)
+# 2. External API Calls (Koha -> Rapido ILL)
+log4perl.logger.rapidoill.api = DEBUG, RAPIDOILL_API
+log4perl.appender.RAPIDOILL_API = Log::Log4perl::Appender::File
+log4perl.appender.RAPIDOILL_API.filename = /var/log/koha/<instance>/rapidoill-api.log
+log4perl.appender.RAPIDOILL_API.mode = append
+log4perl.appender.RAPIDOILL_API.layout = Log::Log4perl::Layout::PatternLayout
+log4perl.appender.RAPIDOILL_API.layout.ConversionPattern = [%d] [%p] %m %l %n
+log4perl.appender.RAPIDOILL_API.utf8 = 1
+
+# 3. Task Queue Daemon Logging
 log4perl.logger.rapidoill.daemon = INFO, RAPIDOILL_DAEMON
 log4perl.appender.RAPIDOILL_DAEMON = Log::Log4perl::Appender::File
 log4perl.appender.RAPIDOILL_DAEMON.filename = /var/log/koha/<instance>/rapidoill-daemon.log
 log4perl.appender.RAPIDOILL_DAEMON.mode = append
 log4perl.appender.RAPIDOILL_DAEMON.layout = Log::Log4perl::Layout::PatternLayout
 log4perl.appender.RAPIDOILL_DAEMON.layout.ConversionPattern = [%d] [%p] %m %l %n
-log4perl.appender.RAPIDOILL.utf8 = 1
+log4perl.appender.RAPIDOILL_DAEMON.utf8 = 1
 ```
 
 Replace `<instance>` with your actual Koha instance name.
@@ -180,25 +192,28 @@ sudo systemctl restart koha-indexer
 
 #### Log Levels
 
-You can adjust the log level as needed:
+You can adjust the log level as needed for each category:
 
-**Plugin Logging (`rapidoill`):**
-- HTTP request/response details from web interface and daemon task execution
-- API authentication and communication logs
-- `DEBUG` - Verbose HTTP request/response details
-- `INFO` - Brief operation logs
-- `WARN` - Warning messages  
+**General Plugin Logging (`rapidoill`):**
+- Web interface operations, business logic, and general plugin activities
+- `INFO` - General operations (recommended for production)
+- `DEBUG` - Detailed plugin operations
+- `WARN` - Warning messages
 - `ERROR` - Error messages only
 
-**Daemon Logging (`rapidoill.daemon`):**
-- Task queue processing and daemon lifecycle events
-- Task batch management and individual task status
-- `DEBUG` - Detailed task processing information
+**External API Calls (`rapidoill.api`):**
+- HTTP requests/responses between Koha and Rapido ILL servers
+- `DEBUG` - Detailed HTTP request/response logging (recommended for troubleshooting)
+- `INFO` - Brief API operation logs
+- `WARN` - API warnings
+- `ERROR` - API failures only
+
+**Task Queue Daemon (`rapidoill.daemon`):**
+- Background task processing and daemon lifecycle events
 - `INFO` - Task batch processing and completion status (recommended)
+- `DEBUG` - Detailed task processing information
 - `WARN` - Task retry warnings
 - `ERROR` - Task failures and daemon errors
-
-**Note**: When the daemon executes tasks that make API calls, those HTTP interactions will be logged to the `rapidoill` category, while the task processing itself logs to `rapidoill.daemon`.
 - `WARN` - Warning messages only
 - `ERROR` - Error messages only
 

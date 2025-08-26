@@ -34,10 +34,10 @@ BEGIN {
 
 my $logger = t::lib::Mocks::Logger->new();
 
-# Add is_debug method to the mock logger for log4perl compatibility
-# The actual logger object is accessed via Koha::Logger->get(), so we need to mock it there
-my $koha_logger = Koha::Logger->get();
-$koha_logger->mock('is_debug', sub { return 1; }); # Always return true for tests to get detailed logging
+# The mock logger already mocks Koha::Logger->get() internally,
+# but we need to add the is_debug method to the returned mock object
+my $mock_logger_obj = Koha::Logger->get();
+$mock_logger_obj->mock( 'is_debug', sub { return 1; } );    # Always return true for tests
 
 subtest 'new() tests' => sub {
     plan tests => 2;
@@ -349,9 +349,6 @@ subtest 'delete_request() tests' => sub {
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
-
-        # Use the global logger
-        $client->{logger} = Koha::Logger->get();
 
         $logger->clear();
 

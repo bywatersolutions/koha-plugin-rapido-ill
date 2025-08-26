@@ -1212,10 +1212,10 @@ sub get_http_client {
     unless ( $self->{_http_clients}->{$pod} ) {
         $self->{_http_clients}->{$pod} = RapidoILL::APIHttpClient->new(
             {
-                client_id      => $configuration->{client_id},
-                client_secret  => $configuration->{client_secret},
-                base_url       => $configuration->{base_url},
-                plugin         => $self,
+                client_id     => $configuration->{client_id},
+                client_secret => $configuration->{client_secret},
+                base_url      => $configuration->{base_url},
+                plugin        => $self,
             }
         );
     }
@@ -2431,8 +2431,7 @@ sub get_action_handler {
     } elsif ( $perspective eq 'lender' ) {
         return $self->get_lender_action_handler($pod);
     } else {
-        RapidoILL::Exception::BadParameter->throw(
-            "Invalid perspective: $perspective. Must be 'borrower' or 'lender'");
+        RapidoILL::Exception::BadParameter->throw("Invalid perspective: $perspective. Must be 'borrower' or 'lender'");
     }
 }
 
