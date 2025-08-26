@@ -319,6 +319,9 @@ subtest 'refresh_token() tests' => sub {
 subtest 'delete_request() tests' => sub {
     plan tests => 4;
 
+    my $client_mock = Test::MockModule->new('RapidoILL::APIHttpClient');
+    $client_mock->mock( 'get_token', sub { return 'the_token'; } );
+
     subtest 'Successful DELETE request' => sub {
         plan tests => 4;
 
@@ -556,6 +559,9 @@ subtest 'delete_request() tests' => sub {
 
 subtest 'post_request() tests' => sub {
     plan tests => 4;
+
+    my $client_mock = Test::MockModule->new('RapidoILL::APIHttpClient');
+    $client_mock->mock( 'get_token', sub { return 'the_token'; } );
 
     subtest 'Successful POST request' => sub {
         plan tests => 4;
@@ -809,6 +815,9 @@ subtest 'post_request() tests' => sub {
 subtest 'put_request() tests' => sub {
     plan tests => 4;
 
+    my $client_mock = Test::MockModule->new('RapidoILL::APIHttpClient');
+    $client_mock->mock( 'get_token', sub { return 'the_token'; } );
+
     subtest 'Successful PUT request' => sub {
         plan tests => 4;
 
@@ -1060,6 +1069,9 @@ subtest 'put_request() tests' => sub {
 
 subtest 'get_request() tests' => sub {
     plan tests => 4;
+
+    my $client_mock = Test::MockModule->new('RapidoILL::APIHttpClient');
+    $client_mock->mock( 'get_token', sub { return 'the_token'; } );
 
     subtest 'Successful GET request' => sub {
         plan tests => 4;
