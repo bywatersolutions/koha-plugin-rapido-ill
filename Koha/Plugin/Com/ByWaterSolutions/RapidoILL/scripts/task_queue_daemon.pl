@@ -23,11 +23,15 @@ use Try::Tiny qw(catch try);
 
 use Koha::Checkouts;
 use Koha::Database;
+use Koha::Logger;
 
 use Koha::Script;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 use RapidoILL::Exceptions;
+
+# Initialize logger with custom category for daemon
+my $logger = Koha::Logger->get( { category => 'rapidoill.daemon' } );
 
 my $daemon_sleep = 1;
 my $verbose_logging;
@@ -47,14 +51,18 @@ if ( not $result or $help ) {
 
 $batch_size //= 100;
 
+$logger->info("RapidoILL task queue daemon starting (batch_size: $batch_size, sleep: ${daemon_sleep}s)");
+
 while (1) {
     try {
 
         run_tasks_batch();
 
     } catch {
-        if ( $@ && $verbose_logging ) {
-            print STDOUT "Warning : $@\n";
+        my $error = $_ || 'Unknown error';
+        $logger->error("Task batch execution failed: $error");
+        if ($verbose_logging) {
+            print STDOUT "Warning : $error\n";
         }
     };
 
@@ -76,7 +84,15 @@ sub run_tasks_batch {
         }
     );
 
+    my $task_count = $tasks->count;
+    if ( $task_count > 0 ) {
+        $logger->info("Processing $task_count queued tasks");
+    } else {
+        $logger->debug("No tasks to process");
+    }
+
     while ( my $task = $tasks->next ) {
+        $logger->debug( "Dispatching task ID " . $task->id . " (action: " . $task->action . ")" );
         dispatch_task( { plugin => $plugin, task => $task } );
     }
 }
@@ -110,11 +126,15 @@ sub dispatch_task {
     try {
         $action_to_method->{$action}->( { task => $task, plugin => $plugin } );
         $task->success();
+        $logger->info( "Task ID " . $task->id . " completed successfully (action: " . $task->action . ")" );
     } catch {
+        my $error = $_ || 'Unknown error';
         if ( $task->can_retry ) {
-            $task->retry( { error => "$_" } );
+            $task->retry( { error => "$error" } );
+            $logger->warn( "Task ID " . $task->id . " failed, will retry: $error" );
         } else {
-            $task->error( { error => "$_" } );
+            $task->error( { error => "$error" } );
+            $logger->error( "Task ID " . $task->id . " failed permanently: $error" );
         }
     };
 }

@@ -154,6 +154,14 @@ log4perl.appender.RAPIDOILL.filename = /var/log/koha/<instance>/rapidoill.log
 log4perl.appender.RAPIDOILL.mode = append
 log4perl.appender.RAPIDOILL.layout = Log::Log4perl::Layout::PatternLayout
 log4perl.appender.RAPIDOILL.layout.ConversionPattern = [%d] [%p] %m %l %n
+
+# RapidoILL Task Queue Daemon Logging (separate log file)
+log4perl.logger.rapidoill.daemon = INFO, RAPIDOILL_DAEMON
+log4perl.appender.RAPIDOILL_DAEMON = Log::Log4perl::Appender::File
+log4perl.appender.RAPIDOILL_DAEMON.filename = /var/log/koha/<instance>/rapidoill-daemon.log
+log4perl.appender.RAPIDOILL_DAEMON.mode = append
+log4perl.appender.RAPIDOILL_DAEMON.layout = Log::Log4perl::Layout::PatternLayout
+log4perl.appender.RAPIDOILL_DAEMON.layout.ConversionPattern = [%d] [%p] %m %l %n
 log4perl.appender.RAPIDOILL.utf8 = 1
 ```
 
@@ -173,8 +181,18 @@ sudo systemctl restart koha-indexer
 #### Log Levels
 
 You can adjust the log level as needed:
-- `DEBUG` - All debug messages (verbose)
-- `INFO` - Informational messages
+
+**Plugin Logging (`rapidoill`):**
+- `DEBUG` - All debug messages (verbose HTTP request/response details)
+- `INFO` - Informational messages (brief operation logs)
+- `WARN` - Warning messages
+- `ERROR` - Error messages only
+
+**Daemon Logging (`rapidoill.daemon`):**
+- `DEBUG` - Detailed task processing information
+- `INFO` - Task batch processing and completion status (recommended)
+- `WARN` - Task retry warnings
+- `ERROR` - Task failures and daemon errors
 - `WARN` - Warning messages only
 - `ERROR` - Error messages only
 
