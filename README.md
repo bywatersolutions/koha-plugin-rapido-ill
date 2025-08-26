@@ -183,16 +183,22 @@ sudo systemctl restart koha-indexer
 You can adjust the log level as needed:
 
 **Plugin Logging (`rapidoill`):**
-- `DEBUG` - All debug messages (verbose HTTP request/response details)
-- `INFO` - Informational messages (brief operation logs)
-- `WARN` - Warning messages
+- HTTP request/response details from web interface and daemon task execution
+- API authentication and communication logs
+- `DEBUG` - Verbose HTTP request/response details
+- `INFO` - Brief operation logs
+- `WARN` - Warning messages  
 - `ERROR` - Error messages only
 
 **Daemon Logging (`rapidoill.daemon`):**
+- Task queue processing and daemon lifecycle events
+- Task batch management and individual task status
 - `DEBUG` - Detailed task processing information
 - `INFO` - Task batch processing and completion status (recommended)
 - `WARN` - Task retry warnings
 - `ERROR` - Task failures and daemon errors
+
+**Note**: When the daemon executes tasks that make API calls, those HTTP interactions will be logged to the `rapidoill` category, while the task processing itself logs to `rapidoill.daemon`.
 - `WARN` - Warning messages only
 - `ERROR` - Error messages only
 
