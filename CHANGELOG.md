@@ -11,11 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#75] **BREAKING**: Replaced custom debug_mode and debug_requests configuration with native log4perl integration
 - [#75] Logging verbosity now controlled exclusively through Koha's log4perl.conf configuration
 - [#75] Simplified plugin configuration by removing debug-related parameters
+- [#76] **BREAKING**: Split logging into three separate log files for better operational monitoring
 
 ### Enhanced  
 - [#75] Implemented conditional logging: brief error messages in production (INFO level), detailed HTTP debugging in debug mode (DEBUG level)
 - [#75] Added business context parameters to all HTTP operations for improved traceability
 - [#75] Optimized logging architecture to eliminate redundant messages between controller and HTTP client layers
+- [#76] Implemented three dedicated logger categories:
+  - `rapidoill` - General plugin operations (rapidoill.log)
+  - `rapidoill.api` - External API calls to Rapido ILL servers (rapidoill-api.log)  
+  - `rapidoill.daemon` - Task queue daemon processing (rapidoill-daemon.log)
 
 ### Removed
 - [#75] Custom debug_mode() method and debug_requests parameter from plugin configuration
@@ -23,9 +28,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Migration Guide
 - Remove `debug_mode` and `debug_requests` from your plugin configuration YAML
-- Configure logging levels in Koha's log4perl.conf instead:
-  - `log4perl.logger.rapidoill = INFO` for production (brief logs)  
-  - `log4perl.logger.rapidoill = DEBUG` for troubleshooting (detailed logs)
+- Update log4perl.conf to configure three separate log files:
+  ```perl
+  # General plugin logging
+  log4perl.logger.rapidoill = INFO, RAPIDOILL
+  
+  # API communication logging  
+  log4perl.logger.rapidoill.api = DEBUG, RAPIDOILL_API
+  
+  # Task queue daemon logging
+  log4perl.logger.rapidoill.daemon = INFO, RAPIDOILL_DAEMON
+  ```
+- Configure separate appenders for each log file (see README.md for complete configuration)
 
 ## [0.6.0] - 2025-08-26
 
