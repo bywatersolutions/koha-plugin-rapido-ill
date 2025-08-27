@@ -39,6 +39,9 @@ This class provides authenticated HTTP communication with Rapido ILL central ser
 It handles OAuth2 token management (acquisition, refresh, expiration checking) and 
 HTTP request execution with proper authentication headers.
 
+OAuth2 tokens are refreshed on-demand (deferred) - the first request will trigger
+token acquisition, and subsequent requests will refresh tokens only when expired.
+
 =head2 Class methods
 
 =head3 new
@@ -91,10 +94,6 @@ sub new {
     );
 
     bless $self, $class;
-
-    # Get the first token we will use
-    $self->refresh_token
-        unless $self->dev_mode;
 
     return $self;
 }
@@ -434,9 +433,11 @@ sub get_token {
     my ($self) = @_;
 
     unless ( $self->dev_mode ) {
-        if ( $self->is_token_expired ) {
+        # If no token exists yet, or if token is expired, refresh it
+        if ( !$self->{access_token} || $self->is_token_expired ) {
             if ( $self->logger ) {
-                $self->logger->info("OAuth2 token expired, refreshing...");
+                my $reason = !$self->{access_token} ? "No token available" : "OAuth2 token expired";
+                $self->logger->info("$reason, refreshing...");
             }
             $self->refresh_token;
         }

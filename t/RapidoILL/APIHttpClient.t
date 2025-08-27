@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use Test::Exception;
 use Test::MockModule;
 use HTTP::Response;
@@ -222,23 +222,27 @@ subtest 'refresh_token() tests' => sub {
 
         my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
-        # Test failed token refresh with proper exception handling
+        # Constructor should succeed with deferred token refresh
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 0,
+            }
+        );
+
+        isa_ok( $client, 'RapidoILL::APIHttpClient', 'Constructor succeeds with deferred refresh' );
+
+        # First request should fail when token refresh fails
         my $exception_caught  = 0;
         my $exception_message = '';
 
-        my $client;
         throws_ok {
-            $client = RapidoILL::APIHttpClient->new(
-                {
-                    base_url      => 'https://test.example.com',
-                    client_id     => 'test_client',
-                    client_secret => 'test_secret',
-                    plugin        => $plugin,
-                    dev_mode      => 0,
-                }
-            );
+            $client->get_request( { endpoint => '/test' } );
         }
-        'RapidoILL::Exception::OAuth2::AuthError', 'Exception thrown';
+        'RapidoILL::Exception::OAuth2::AuthError', 'Exception thrown on first request';
 
         if ( my $error = $@ ) {
             $exception_caught  = 1;
@@ -254,12 +258,8 @@ subtest 'refresh_token() tests' => sub {
 
         # Verify logging
         $logger->info_like(
-            qr/Refreshing OAuth2 token for https:\/\/test\.example\.com/,
-            'Info log for token refresh start'
-        );
-        $logger->error_like(
-            qr/OAuth2 authentication failed: Client authentication failed \(HTTP 401\)/,
-            'Error log for failed authentication'
+            qr/No token available, refreshing\.\.\./,
+            'Info log for deferred token refresh'
         );
 
         # Clean up mock
@@ -287,32 +287,127 @@ subtest 'refresh_token() tests' => sub {
         );
 
         my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
-        my $client;
 
+        # Constructor should succeed with deferred token refresh
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 0,
+            }
+        );
+
+        isa_ok( $client, 'RapidoILL::APIHttpClient', 'Constructor succeeds with deferred refresh' );
+
+        # First request should fail when JSON parsing fails
         throws_ok {
-            my $client = RapidoILL::APIHttpClient->new(
-                {
-                    base_url      => 'https://test.example.com',
-                    client_id     => 'test_client',
-                    client_secret => 'test_secret',
-                    plugin        => $plugin,
-                    dev_mode      => 0,
-                }
-            );
+            $client->get_request( { endpoint => '/test' } );
         }
-        qr/malformed JSON string/, 'Dies on invalid JSON response';
+        qr/malformed JSON string/, 'Dies on invalid JSON response during first request';
 
         # Verify logging
         $logger->info_like(
-            qr/Refreshing OAuth2 token for https:\/\/test\.example\.com/,
-            'Info log for token refresh start'
+            qr/No token available, refreshing\.\.\./,
+            'Info log for deferred token refresh'
         );
-
-        # Should not have success or auth error logs
-        is( $logger->count('error'), 0, 'No OAuth2 error logs for JSON parsing error' );
 
         # Clean up mock
         $ua_mock->unmock_all();
+    };
+};
+
+subtest 'get_token() deferred refresh tests' => sub {
+    plan tests => 2;
+
+    subtest 'First call triggers token refresh' => sub {
+        plan tests => 4;
+
+        $logger->clear();
+
+        # Mock successful OAuth2 response
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 200, 'OK' );
+                $response->content(
+                    encode_json(
+                        {
+                            access_token => 'deferred_token_12345',
+                            expires_in   => 3600,
+                            token_type   => 'Bearer'
+                        }
+                    )
+                );
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 0,
+            }
+        );
+
+        # Verify no token exists initially
+        ok( !$client->{access_token}, 'No token exists after construction' );
+
+        # First call to get_token should trigger refresh
+        my $token = $client->get_token();
+
+        # Verify token was obtained
+        is( $token, 'deferred_token_12345', 'Token obtained from deferred refresh' );
+        is( $client->{access_token}, 'deferred_token_12345', 'Token stored in client' );
+
+        # Verify logging
+        $logger->info_like(
+            qr/No token available, refreshing\.\.\./,
+            'Info log for deferred token refresh'
+        );
+
+        # Clean up mock
+        $ua_mock->unmock_all();
+    };
+
+    subtest 'Subsequent calls use cached token' => sub {
+        plan tests => 3;
+
+        $logger->clear();
+
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 0,
+            }
+        );
+
+        # Manually set a token and expiration (simulating previous refresh)
+        $client->{access_token} = 'cached_token_67890';
+        $client->{expiration} = DateTime->now()->add( hours => 1 );
+
+        # Call get_token - should return cached token
+        my $token = $client->get_token();
+
+        is( $token, 'cached_token_67890', 'Cached token returned' );
+
+        # Verify no refresh logging (no new refresh occurred)
+        is( $logger->count('info'), 0, 'No refresh logs for cached token' );
+        is( $logger->count('error'), 0, 'No error logs for cached token' );
     };
 };
 

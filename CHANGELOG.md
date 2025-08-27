@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2025-08-27
+
+### Enhanced
+- [#77] Deferred OAuth2 token refresh for improved startup performance and error handling
+- [#77] APIHttpClient constructor now succeeds immediately without network calls
+- [#77] OAuth2 tokens acquired on-demand during first request instead of eagerly during construction
+- [#77] Enhanced logging with contextual messages for token acquisition vs refresh scenarios
+
+### Fixed
+- [#77] Authentication errors now occur during first request rather than during object construction
+- [#77] Improved resilience against network issues during plugin initialization
+
 ## [0.7.2] - 2025-08-27
 
 ### Fixed
