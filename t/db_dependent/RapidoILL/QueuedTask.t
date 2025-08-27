@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 11;
+use Test::More tests => 12;
 use Test::Exception;
 use Test::NoWarnings;
 
@@ -86,6 +86,44 @@ subtest 'ill_request() method' => sub {
     ok( $linked_request, 'ill_request() returns object' );
     isa_ok( $linked_request, 'Koha::ILL::Request', 'Returned object has correct class' );
     is( $linked_request->illrequest_id, $ill_request->illrequest_id, 'Correct ILL request returned' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'decoded_payload() method' => sub {
+
+    plan tests => 3;
+
+    $schema->storage->txn_begin;
+
+    # Test data structure
+    my $test_data = {
+        action => 'test_action',
+        params => {
+            key1 => 'value1',
+            key2 => 42,
+            key3 => [ 'array', 'values' ]
+        }
+    };
+
+    # Create task with JSON payload
+    my $task = RapidoILL::QueuedTask->new(
+        {
+            object_type => 'ill',
+            object_id   => 123,
+            action      => 'fill',
+            pod         => 'test-pod',
+            status      => 'queued',
+            attempts    => 0,
+            payload     => JSON::encode_json($test_data)
+        }
+    )->store;
+
+    # Test decoded_payload method
+    my $decoded = $task->decoded_payload;
+    ok( $decoded, 'decoded_payload() returns data' );
+    is_deeply( $decoded, $test_data, 'Decoded payload matches original data structure' );
+    is( ref($decoded), 'HASH', 'Decoded payload is a hash reference' );
 
     $schema->storage->txn_rollback;
 };

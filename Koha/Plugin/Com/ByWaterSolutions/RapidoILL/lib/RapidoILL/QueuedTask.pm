@@ -20,7 +20,7 @@ use Modern::Perl;
 # Suppress redefinition warnings when plugin is reloaded
 no warnings 'redefine';
 
-use JSON qw(encode_json);
+use JSON qw(encode_json decode_json);
 use Koha::ILL::Requests;
 
 use base qw(Koha::Object);
@@ -45,6 +45,20 @@ sub ill_request {
     my ($self) = @_;
 
     return Koha::ILL::Requests->find( $self->illrequest_id );
+}
+
+=head3 decoded_payload
+
+    my $data = $task->decoded_payload;
+
+Returns the JSON-decoded content of the payload attribute.
+
+=cut
+
+sub decoded_payload {
+    my ($self) = @_;
+
+    return decode_json( $self->payload );
 }
 
 =head3 can_retry
