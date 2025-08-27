@@ -114,7 +114,7 @@ Global logger instance for the plugin and its components
 =cut
 
 sub logger {
-    my ($self, $category) = @_;
+    my ( $self, $category ) = @_;
 
     # Default to main plugin category if no category specified
     $category //= 'rapidoill';
@@ -122,9 +122,11 @@ sub logger {
     # Initialize loggers hashref if it doesn't exist
     $self->{_loggers} //= {};
 
-    unless ($self->{_loggers}->{$category}) {
+    unless ( $self->{_loggers}->{$category} ) {
+
         # Use standard Koha::Logger approach
-        $self->{_loggers}->{$category} = Koha::Logger->get( { category => $category } );
+        $self->{_loggers}->{$category} =
+            Koha::Logger->get( { category => $category } );
     }
 
     return $self->{_loggers}->{$category};
@@ -439,6 +441,7 @@ sub after_circ_action {
                 action        => 'renewal',
                 pod           => $pod,
                 illrequest_id => $req->id,
+                payload       => { due_date => $checkout->date_due }
             }
         );
 
@@ -508,7 +511,10 @@ sub after_hold_action {
     my $config = $self->pod_config($pod);
 
     if ( $self->is_lending_req($req) ) {
-        if ( $action eq 'fill' || $action eq 'waiting' || $action eq 'transfer' ) {
+        if (   $action eq 'fill'
+            || $action eq 'waiting'
+            || $action eq 'transfer' )
+        {
 
             if ( $req->status eq 'O_ITEM_REQUESTED' ) {
 
@@ -538,7 +544,10 @@ sub after_hold_action {
             }
         }
     } else {
-        if ( $action eq 'fill' || $action eq 'waiting' || $action eq 'transfer' ) {
+        if (   $action eq 'fill'
+            || $action eq 'waiting'
+            || $action eq 'transfer' )
+        {
             if ( $req->status eq 'B_ITEM_SHIPPED' ) {
 
                 $self->get_queued_tasks->enqueue(
@@ -690,9 +699,7 @@ Plugin hook used to register paths to find templates
 sub template_include_paths {
     my ($self) = @_;
 
-    return [
-        $self->mbf_path('templates'),
-    ];
+    return [ $self->mbf_path('templates'), ];
 }
 
 =head3 cronjob_nightly
@@ -766,8 +773,10 @@ sub add_virtual_record_and_item {
     my $title_attr  = $attributes->search( { type => 'title' } )->next;
     my $title       = ($title_attr) ? $title_attr->value : '';
 
-    RapidoILL::Exception::BadConfig->throw( entry => 'marcflavour', value => $marc_flavour )
-        unless $marc_flavour eq 'MARC21';
+    RapidoILL::Exception::BadConfig->throw(
+        entry => 'marcflavour',
+        value => $marc_flavour
+    ) unless $marc_flavour eq 'MARC21';
 
     my $record = MARC::Record->new();
     $record->leader('     nac a22     1u 4500');
@@ -1134,11 +1143,16 @@ sub get_ill_request_from_biblio_id {
 
     $self->validate_params( { required => [qw(biblio_id)], params => $params } );
 
-    my $reqs = Koha::ILL::Requests->search( { biblio_id => $params->{biblio_id} } );
+    my $reqs =
+        Koha::ILL::Requests->search( { biblio_id => $params->{biblio_id} } );
 
     if ( $reqs->count > 1 ) {
         $self->logger->warn(
-            sprintf( "More than one ILL request for the biblio_id (%s). Beware!", $params->{biblio_id} ) );
+            sprintf(
+                "More than one ILL request for the biblio_id (%s). Beware!",
+                $params->{biblio_id}
+            )
+        );
     }
 
     return unless $reqs->count > 0;
@@ -1479,7 +1493,12 @@ Parameters: all AddReserve parameters
 sub add_hold {
     my ( $self, $params ) = @_;
 
-    $self->validate_params( { required => [qw(library_id patron_id biblio_id item_id)], params => $params } );
+    $self->validate_params(
+        {
+            required => [qw(library_id patron_id biblio_id item_id)],
+            params   => $params
+        }
+    );
 
     return AddReserve(
         {
@@ -1645,7 +1664,8 @@ sub sync_agencies {
             my $requires_passcode         = $agency->{requiresPasscode}        ? 1 : 0;
             my $visiting_checkout_allowed = $agency->{visitingCheckoutAllowed} ? 1 : 0;
 
-            $result->{$local_server}->{$agency_id}->{description} = $description;
+            $result->{$local_server}->{$agency_id}->{description} =
+                $description;
 
             my $patron_id = $self->get_patron_id_from_agency(
                 {
@@ -1656,10 +1676,12 @@ sub sync_agencies {
 
             my $patron;
 
-            $result->{$local_server}->{$agency_id}->{current_status} = 'no_entry';
+            $result->{$local_server}->{$agency_id}->{current_status} =
+                'no_entry';
 
             if ($patron_id) {
-                $result->{$local_server}->{$agency_id}->{current_status} = 'entry_exists';
+                $result->{$local_server}->{$agency_id}->{current_status} =
+                    'entry_exists';
                 $patron = Koha::Patrons->find($patron_id);
             }
 
@@ -1678,7 +1700,8 @@ sub sync_agencies {
                 );
 
                 $sth->execute();
-                $result->{$local_server}->{$agency_id}->{current_status} = 'invalid_entry';
+                $result->{$local_server}->{$agency_id}->{current_status} =
+                    'invalid_entry';
             }
 
             if ($patron) {
@@ -1792,31 +1815,39 @@ sub sync_circ_requests {
                 my $schema = Koha::Database->new->schema;
                 $schema->txn_do(
                     sub {
-                        if ( $data->{circStatus} eq 'CANCELED' || $data->{circStatus} eq 'COMPLETED' ) {
+                        if (   $data->{circStatus} eq 'CANCELED'
+                            || $data->{circStatus} eq 'COMPLETED' )
+                        {
                             my $msg = sprintf(
                                 "A finished request with circStatus='%s' lastCircState='%s' was found with no recorded ILL request.",
                                 $data->{circStatus}, $data->{lastCircState}
                             );
                             $self->logger->warn($msg);
                             push @{ $results->{messages} },
-                                { type => 'warning', circId => $data->{circId}, message => $msg };
+                                {
+                                type    => 'warning',
+                                circId  => $data->{circId},
+                                message => $msg
+                                };
                         } else {
                             my $req = $self->add_ill_request($action);
                             $action->illrequest_id( $req->id );
                             $action->store();
                             my $msg = sprintf(
                                 "New ILL request created: circId=%s, circStatus='%s', lastCircState='%s', ill_request_id=%s",
-                                $data->{circId}, $data->{circStatus}, $data->{lastCircState}, $req->id
+                                $data->{circId},        $data->{circStatus},
+                                $data->{lastCircState}, $req->id
                             );
                             $self->logger->info($msg);
                             $results->{created}++;
                             my $req_id = $req->id;
-                            push @{ $results->{messages} }, {
+                            push @{ $results->{messages} },
+                                {
                                 type           => 'created',
                                 circId         => $data->{circId},
                                 message        => "Created ILL request $req_id",
                                 ill_request_id => $req_id
-                            };
+                                };
                         }
                     }
                 );
@@ -1830,17 +1861,20 @@ sub sync_circ_requests {
                         $self->update_ill_request($action);
                         my $msg = sprintf(
                             "ILL request updated: circId=%s, circStatus='%s', lastCircState='%s', ill_request_id=%s",
-                            $data->{circId}, $data->{circStatus}, $data->{lastCircState}, $prev_action->illrequest_id
+                            $data->{circId}, $data->{circStatus},
+                            $data->{lastCircState},
+                            $prev_action->illrequest_id
                         );
                         $self->logger->info($msg);
                         $results->{updated}++;
                         my $prev_req_id = $prev_action->illrequest_id;
-                        push @{ $results->{messages} }, {
+                        push @{ $results->{messages} },
+                            {
                             type           => 'updated',
                             circId         => $data->{circId},
                             message        => "Updated ILL request $prev_req_id",
                             ill_request_id => $prev_req_id
-                        };
+                            };
                     }
                 );
             }    # else / no action required
@@ -1849,23 +1883,31 @@ sub sync_circ_requests {
 
             # Check if this is a duplicate entry error
             if ( $error =~ /Duplicate entry.*for key|already exists/ ) {
-                my $msg = sprintf( "Skipping duplicate circId=%s (already processed)", $data->{circId} );
+                my $msg = sprintf(
+                    "Skipping duplicate circId=%s (already processed)",
+                    $data->{circId}
+                );
                 $self->logger->debug($msg);
                 $results->{skipped}++;
-                push @{ $results->{messages} }, {
+                push @{ $results->{messages} },
+                    {
                     type    => 'skipped',
                     circId  => $data->{circId},
                     message => "Already processed (duplicate)"
-                };
+                    };
             } else {
-                my $msg = sprintf( "Error processing circId=%s: %s", $data->{circId}, $error );
+                my $msg = sprintf(
+                    "Error processing circId=%s: %s",
+                    $data->{circId}, $error
+                );
                 $self->logger->error($msg);
                 $results->{errors}++;
-                push @{ $results->{messages} }, {
+                push @{ $results->{messages} },
+                    {
                     type    => 'error',
                     circId  => $data->{circId},
                     message => $error
-                };
+                    };
             }
         };
     }
@@ -1882,8 +1924,11 @@ sub add_ill_request {
 
     my $req = $self->get_ill_request( { circId => $action->circId, pod => $action->pod } );
     RapidoILL::Exception->throw(
-        sprintf( "A request with circId=%s and pod=%s already exists!", $action->circId, $action->pod ) )
-        if $req;
+        sprintf(
+            "A request with circId=%s and pod=%s already exists!",
+            $action->circId, $action->pod
+        )
+    ) if $req;
 
     my $server_code = $self->configuration->{ $action->pod }->{server_code};
 
@@ -1978,7 +2023,11 @@ sub create_item_hold {
 
                     # FIXME: Should we just try to sync?
                     RapidoILL::Exceptions->throw(
-                        sprintf( "No patron_id for the request agency code (%s)", $agency_id ) );
+                        sprintf(
+                            "No patron_id for the request agency code (%s)",
+                            $agency_id
+                        )
+                    );
                 }
 
                 # Create the request
@@ -2249,8 +2298,7 @@ sub get_ill_request_from_attribute {
 
     my $count = $requests_rs->count;
 
-    $self->logger->warn("more than one result searching requests with type='$type' value='$value'")
-        if $count > 1;
+    $self->logger->warn("more than one result searching requests with type='$type' value='$value'") if $count > 1;
 
     return $requests_rs->next
         if $count > 0;
@@ -2372,8 +2420,10 @@ sub pickup_location_to_library_id {
         RapidoILL::Exception::BadPickupLocation->throw( value => $params->{pickupLocation} );
     }
 
-    RapidoILL::Exception::MissingMapping->throw( section => 'location_to_library', key => $pickup_location )
-        unless exists $configuration->{location_to_library}->{$pickup_location};
+    RapidoILL::Exception::MissingMapping->throw(
+        section => 'location_to_library',
+        key     => $pickup_location
+    ) unless exists $configuration->{location_to_library}->{$pickup_location};
 
     return $configuration->{location_to_library}->{$pickup_location};
 }

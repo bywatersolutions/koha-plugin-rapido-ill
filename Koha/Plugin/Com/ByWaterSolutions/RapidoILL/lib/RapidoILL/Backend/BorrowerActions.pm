@@ -255,4 +255,44 @@ sub borrower_cancel {
     return $self;
 }
 
+=head3 borrower_renew
+
+    $actions->borrower_renew( $ill_request, $params );
+
+Renew an ILL request from the borrower side. The renewal is announced
+to the lender.
+
+Parameters:
+- $ill_request: The ILL request object
+- $params: Optional hashref with:
+  - due_date: The new due date
+  - client_options: Options to pass to the Rapido client
+
+=cut
+
+sub borrower_renew {
+    my ( $self, $req, $params ) = @_;
+
+    $params //= {};
+    my $options = $params->{client_options} // {};
+
+    my $circId = $self->{plugin}->get_req_circ_id($req);
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            $req->status('B_ITEM_RENEWAL_REQUESTED')->store;
+
+            $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
+                {
+                    circId      => $circId,
+                    dueDateTime => dt_from_string( $params->{due_date} )
+                },
+                $options
+            );
+        }
+    );
+
+    return $self;
+}
+
 1;

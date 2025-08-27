@@ -84,7 +84,8 @@ sub new {
     my ( $class, $params ) = @_;
 
     RapidoILL::Exception::MissingParameter->throw( param => 'plugin' )
-        unless $params->{plugin} && ref( $params->{plugin} ) eq 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL';
+        unless $params->{plugin}
+        && ref( $params->{plugin} ) eq 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL';
 
     my $self = {
         configuration => $params->{plugin}->configuration,
@@ -308,8 +309,20 @@ sub status_graph {
             name           => 'Item received',
             ui_method_name => 'Receive item',
             method         => 'item_received',
-            next_actions   => [ 'B_ITEM_IN_TRANSIT', 'B_ITEM_CLAIMED_RETURNED', 'B_ITEM_RETURN_UNCIRCULATED' ],
+            next_actions   => [
+                'B_ITEM_IN_TRANSIT', 'B_ITEM_CLAIMED_RETURNED',
+                'B_ITEM_RETURN_UNCIRCULATED'
+            ],
             ui_method_icon => 'fa-inbox',
+        },
+        B_ITEM_RENEWAL_REQUESTED => {
+            prev_actions   => ['B_ITEM_RECEIVED'],
+            id             => 'B_ITEM_RENEWAL_REQUESTED',
+            name           => 'Renewal requested to owning library',
+            ui_method_name => q{},
+            method         => q{},
+            next_actions   => [],
+            ui_method_icon => 'fa-arrow-rotate-right',
         },
         B_ITEM_RECALLED => {
             prev_actions   => [],
@@ -477,7 +490,8 @@ sub item_recalled {
         my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
         my $itemId      = $attrs->find( { type => 'itemId' } )->value;
 
-        my $recall_due_date = dt_from_string( $params->{other}->{recall_due_date} );
+        my $recall_due_date =
+            dt_from_string( $params->{other}->{recall_due_date} );
 
         return try {
 
@@ -861,18 +875,20 @@ sub borrower_cancel {
             stage   => 'commit',
         };
     } catch {
+
         # HTTP client already logged detailed HTTP info with [context: borrower_cancel]
         $self->{plugin}->logger->warn("[borrower_cancel] Operation failed");
-        
+
         my $message = "Borrower cancellation failed";
         if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+
             # Extract basic error info for user-facing message
             my $status_line = $_->response->status_line || 'Unknown HTTP error';
             $message = "Borrower cancellation failed: HTTP " . $status_line;
         } else {
             $message = "Borrower cancellation failed: $_";
         }
-        
+
         my $result = {
             status   => 'error',
             error    => 1,

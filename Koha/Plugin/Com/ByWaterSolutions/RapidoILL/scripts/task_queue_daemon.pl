@@ -78,7 +78,7 @@ sub run_tasks_batch {
     my ($args) = @_;
 
     # Reuse the global plugin instance to maintain HTTP client cache
-    my $tasks  = $plugin->get_queued_tasks->filter_by_runnable(
+    my $tasks = $plugin->get_queued_tasks->filter_by_runnable(
         {
             order_by => { -asc => ['timestamp'] },
             rows     => $batch_size,
@@ -266,16 +266,15 @@ Handle the renewal action.
 sub renewal {
     my ($params) = @_;
 
-    my $task     = $params->{task};
-    my $plugin   = $params->{plugin};
-    my $checkout = Koha::Checkouts->find( $task->object_id );
+    my $task   = $params->{task};
+    my $plugin = $params->{plugin};
 
-    RapidoILL::Exception->throw( sprintf( "Invalid checkout_id passed [%s]", $task->object_id ) )
-        unless $checkout;
+    my $payload = $task->decoded_payload();
 
-    # notify renewal to pod
-    my $circId = $plugin->get_req_circ_id( $task->ill_request );
-    $plugin->get_client( $task->pod )->borrower_renew( { circId => $circId, dueDateTime => $checkout->date_due } );
+    $plugin->get_borrower_actions( $task->pod )->borrower_renew(
+        $task->ill_request,
+        { due_date => $payload->{due_date} }
+    );
 }
 
 =head1 NAME
