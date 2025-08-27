@@ -17,6 +17,7 @@ package RapidoILL::ActionHandler::Lender;
 
 use Modern::Perl;
 
+use List::MoreUtils qw( any );
 use Try::Tiny qw(catch try);
 
 use Koha::Database;
@@ -76,12 +77,22 @@ sub handle_from_action {
 
     my $status_to_method = {
         'BORROWING_SITE_CANCEL' => \&borrowing_site_cancel,
-        'FINAL_CHECKIN'         => \&final_checkin,
         'ITEM_IN_TRANSIT'       => \&item_in_transit,
         'ITEM_RECEIVED'         => \&item_received,
-        'ITEM_SHIPPED'          => \&item_shipped,
         'DEFAULT'               => \&default_handler,
     };
+
+    # Statuses that require no action from lender perspective
+    my @no_op_statuses = qw(
+        FINAL_CHECKIN
+        ITEM_SHIPPED
+    );
+
+    # Check if this is a no-op status first
+    if ( any { $_ eq $action->lastCircState } @no_op_statuses ) {
+        # No action needed for these statuses (triggered by us)
+        return;
+    }
 
     my $status =
         exists $status_to_method->{ $action->lastCircState }
@@ -230,40 +241,6 @@ sub borrowing_site_cancel {
             }
         }
     );
-
-    return;
-}
-
-=head2 Lender-generated actions (us)
-
-=head3 final_checkin
-
-    $handler->final_checkin( $action );
-
-Handle incoming I<FINAL_CHECKIN> action.
-
-=cut
-
-sub final_checkin {
-    my ( $self, $action ) = @_;
-
-    # This was triggered by us. No action
-
-    return;
-}
-
-=head3 item_shipped
-
-    $handler->item_shipped( $action );
-
-Handle incoming I<ITEM_SHIPPED> action.
-
-=cut
-
-sub item_shipped {
-    my ( $self, $action ) = @_;
-
-    # This was triggered by us. No action
 
     return;
 }

@@ -182,8 +182,8 @@ subtest 'handle_from_action dispatch mechanism with real CircAction objects' => 
     $schema->storage->txn_rollback;
 };
 
-subtest 'final_checkin method' => sub {
-    plan tests => 2;
+subtest 'final_checkin method (lender-generated - no-op)' => sub {
+    plan tests => 1;
 
     $schema->storage->txn_begin;
 
@@ -195,22 +195,21 @@ subtest 'final_checkin method' => sub {
         }
     );
 
+    # Create a mock action for FINAL_CHECKIN
     my $mock_action = Test::MockObject->new();
+    $mock_action->mock( 'lastCircState', sub { return 'FINAL_CHECKIN'; } );
 
-    # Test that final_checkin returns without action (lender-generated)
-    my $result;
+    # Test that FINAL_CHECKIN is handled as no-op (no exception thrown)
     lives_ok {
-        $result = $handler->final_checkin($mock_action)
+        $handler->handle_from_action($mock_action)
     }
-    'final_checkin does not throw exception';
-
-    is( $result, undef, 'final_checkin returns undef (no action needed)' );
+    'FINAL_CHECKIN handled as no-op without exception';
 
     $schema->storage->txn_rollback;
 };
 
-subtest 'item_shipped method' => sub {
-    plan tests => 2;
+subtest 'item_shipped method (lender-generated - no-op)' => sub {
+    plan tests => 1;
 
     $schema->storage->txn_begin;
 
@@ -222,16 +221,15 @@ subtest 'item_shipped method' => sub {
         }
     );
 
+    # Create a mock action for ITEM_SHIPPED
     my $mock_action = Test::MockObject->new();
+    $mock_action->mock( 'lastCircState', sub { return 'ITEM_SHIPPED'; } );
 
-    # Test that item_shipped returns without action (lender-generated)
-    my $result;
+    # Test that ITEM_SHIPPED is handled as no-op (no exception thrown)
     lives_ok {
-        $result = $handler->item_shipped($mock_action)
+        $handler->handle_from_action($mock_action)
     }
-    'item_shipped does not throw exception';
-
-    is( $result, undef, 'item_shipped returns undef (no action needed)' );
+    'ITEM_SHIPPED handled as no-op without exception';
 
     $schema->storage->txn_rollback;
 };

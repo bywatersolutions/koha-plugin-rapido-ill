@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 7;
+use Test::More tests => 8;
 use Test::MockObject;
 use Test::Exception;
 
@@ -386,8 +386,8 @@ subtest 'item_shipped() tests' => sub {
     $schema->storage->txn_rollback;
 };
 
-subtest 'item_in_transit method (borrower-generated)' => sub {
-    plan tests => 2;
+subtest 'item_in_transit method (borrower-generated - no-op)' => sub {
+    plan tests => 1;
 
     $schema->storage->txn_begin;
 
@@ -399,22 +399,21 @@ subtest 'item_in_transit method (borrower-generated)' => sub {
         }
     );
 
+    # Create a mock action for ITEM_IN_TRANSIT
     my $mock_action = Test::MockObject->new();
+    $mock_action->mock( 'lastCircState', sub { return 'ITEM_IN_TRANSIT'; } );
 
-    # Test that item_in_transit returns without action (borrower-generated)
-    my $result;
+    # Test that ITEM_IN_TRANSIT is handled as no-op (no exception thrown)
     lives_ok {
-        $result = $handler->item_in_transit($mock_action)
+        $handler->handle_from_action($mock_action)
     }
-    'item_in_transit does not throw exception';
-
-    is( $result, undef, 'item_in_transit returns undef (no action needed)' );
+    'ITEM_IN_TRANSIT handled as no-op without exception';
 
     $schema->storage->txn_rollback;
 };
 
-subtest 'item_received method (borrower-generated)' => sub {
-    plan tests => 2;
+subtest 'item_received method (borrower-generated - no-op)' => sub {
+    plan tests => 1;
 
     $schema->storage->txn_begin;
 
@@ -426,16 +425,41 @@ subtest 'item_received method (borrower-generated)' => sub {
         }
     );
 
+    # Create a mock action for ITEM_RECEIVED
     my $mock_action = Test::MockObject->new();
+    $mock_action->mock( 'lastCircState', sub { return 'ITEM_RECEIVED'; } );
 
-    # Test that item_received returns without action (borrower-generated)
-    my $result;
+    # Test that ITEM_RECEIVED is handled as no-op (no exception thrown)
     lives_ok {
-        $result = $handler->item_received($mock_action)
+        $handler->handle_from_action($mock_action)
     }
-    'item_received does not throw exception';
+    'ITEM_RECEIVED handled as no-op without exception';
 
-    is( $result, undef, 'item_received returns undef (no action needed)' );
+    $schema->storage->txn_rollback;
+};
+
+subtest 'patron_hold method (borrower-generated - no-op)' => sub {
+    plan tests => 1;
+
+    $schema->storage->txn_begin;
+
+    my $mock_plugin = Test::MockObject->new();
+    my $handler     = RapidoILL::ActionHandler::Borrower->new(
+        {
+            pod    => 'test_pod',
+            plugin => $mock_plugin
+        }
+    );
+
+    # Create a mock action for PATRON_HOLD
+    my $mock_action = Test::MockObject->new();
+    $mock_action->mock( 'lastCircState', sub { return 'PATRON_HOLD'; } );
+
+    # Test that PATRON_HOLD is handled as no-op (no exception thrown)
+    lives_ok {
+        $handler->handle_from_action($mock_action)
+    }
+    'PATRON_HOLD handled as no-op without exception';
 
     $schema->storage->txn_rollback;
 };

@@ -20,6 +20,7 @@ use Modern::Perl;
 use DateTime;
 use Encode;
 use JSON      qw( decode_json );
+use List::MoreUtils qw( any );
 use Try::Tiny qw(catch try);
 
 use C4::Biblio qw(DelBiblio);
@@ -83,10 +84,21 @@ sub handle_from_action {
     my $status_to_method = {
         'DEFAULT'         => \&default_handler,
         'FINAL_CHECKIN'   => \&final_checkin,
-        'ITEM_IN_TRANSIT' => \&item_in_transit,
-        'ITEM_RECEIVED'   => \&item_received,
         'ITEM_SHIPPED'    => \&item_shipped,
     };
+
+    # Statuses that require no action from borrower perspective
+    my @no_op_statuses = qw(
+        ITEM_IN_TRANSIT
+        ITEM_RECEIVED
+        PATRON_HOLD
+    );
+
+    # Check if this is a no-op status first
+    if ( any { $_ eq $action->lastCircState } @no_op_statuses ) {
+        # No action needed for these statuses
+        return;
+    }
 
     my $status =
         exists $status_to_method->{ $action->lastCircState }
@@ -258,41 +270,6 @@ sub item_shipped {
             $req->status('B_ITEM_SHIPPED')->store();
         }
     );
-
-    return;
-}
-
-=head2 Borrower-generated actions (us)
-
-=head3 item_in_transit
-
-    $handler->item_in_transit( $action );
-
-Handle incoming I<ITEM_SHIPPED> action.
-
-=cut
-
-sub item_in_transit {
-    my ( $self, $action ) = @_;
-
-    # No action, this was triggered by us.
-
-    return;
-}
-
-=head3 item_received
-
-    $handler->item_received( $action );
-
-Handle incoming I<ITEM_RECEIVED> action.
-
-
-=cut
-
-sub item_received {
-    my ( $self, $action ) = @_;
-
-    # No action, this was triggered by us.
 
     return;
 }
