@@ -85,6 +85,7 @@ sub handle_from_action {
     # Statuses that require no action from lender perspective
     my @no_op_statuses = qw(
         FINAL_CHECKIN
+        ITEM_HOLD
         ITEM_SHIPPED
     );
 
