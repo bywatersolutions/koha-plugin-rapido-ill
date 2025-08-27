@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#83] Overloaded `store` method in RapidoILL::QueuedTask to automatically JSON-encode payload references
 - [#83] Added ILL renewal system with B_ITEM_RENEWAL_REQUESTED status and borrower_renew action
 - [#83] Added renewal task queue processing with structured payload support
+- [#83] Added BORROWER_RENEW to Borrower ActionHandler no-op status list
+- [#83] Added comprehensive tests for renewal status handling (BORROWER_RENEW no-op and OWNER_RENEW actionable)
 
 ### Fixed
 - [#84] Added PATRON_HOLD to no-op status list to prevent UnhandledException errors
