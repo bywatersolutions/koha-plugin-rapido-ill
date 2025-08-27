@@ -80,32 +80,38 @@ subtest 'borrower_receive_unshipped() tests' => sub {
         );
 
         # Setup real plugin with method mocking for external dependencies
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $plugin      = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         my $mock_client = Test::MockObject->new();
 
         # Track API client method calls
         my @client_calls = ();
-        $mock_client->mock( 'borrower_receive_unshipped', sub { 
-            my ($self, $data, $options) = @_;
-            push @client_calls, { 
-                method => 'borrower_receive_unshipped', 
-                data => $data,
-                options => $options 
-            };
-            return; 
-        } );
+        $mock_client->mock(
+            'borrower_receive_unshipped',
+            sub {
+                my ( $self, $data, $options ) = @_;
+                push @client_calls, {
+                    method  => 'borrower_receive_unshipped',
+                    data    => $data,
+                    options => $options
+                };
+                return;
+            }
+        );
 
         # Mock plugin methods that need external dependencies
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock('get_client', sub { return $mock_client; });
-        $plugin_module->mock('add_virtual_record_and_item', sub {
-            return $builder->build_object(
-                {
-                    class => 'Koha::Items',
-                    value => { biblionumber => $biblio->biblionumber }
-                }
-            );
-        });
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock(
+            'add_virtual_record_and_item',
+            sub {
+                return $builder->build_object(
+                    {
+                        class => 'Koha::Items',
+                        value => { biblionumber => $biblio->biblionumber }
+                    }
+                );
+            }
+        );
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
@@ -127,9 +133,9 @@ subtest 'borrower_receive_unshipped() tests' => sub {
             $result = $actions->borrower_receive_unshipped(
                 $illrequest,
                 {
-                    circId     => 'test_circ_456',
-                    attributes => $attributes,
-                    barcode    => 'TEST_BARCODE',
+                    circId         => 'test_circ_456',
+                    attributes     => $attributes,
+                    barcode        => 'TEST_BARCODE',
                     client_options => $client_options,
                 }
             );
@@ -137,13 +143,13 @@ subtest 'borrower_receive_unshipped() tests' => sub {
         'borrower_receive_unshipped executes without error';
 
         # Verify API client method was called correctly
-        is( scalar @client_calls, 1, 'API client method called once' );
+        is( scalar @client_calls,       1,                            'API client method called once' );
         is( $client_calls[0]->{method}, 'borrower_receive_unshipped', 'Correct API method called' );
-        
+
         # Verify client_options were passed through
         my $call_options = $client_calls[0]->{options};
         is_deeply( $call_options->{timeout}, 30, 'client_options timeout passed through' );
-        is_deeply( $call_options->{retry}, 3, 'client_options retry passed through' );
+        is_deeply( $call_options->{retry},   3,  'client_options retry passed through' );
 
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_RECEIVED', 'Sets correct status' );
@@ -169,15 +175,18 @@ subtest 'borrower_receive_unshipped() tests' => sub {
         );
 
         # Test API failure with real plugin
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $plugin      = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         my $mock_client = Test::MockObject->new();
 
         # Mock plugin methods to simulate failure
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock('get_client', sub { return $mock_client; });
-        $plugin_module->mock('add_virtual_record_and_item', sub { 
-            die "Virtual record creation failed"; 
-        });
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock(
+            'add_virtual_record_and_item',
+            sub {
+                die "Virtual record creation failed";
+            }
+        );
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
@@ -209,8 +218,8 @@ subtest 'borrower_receive_unshipped() tests' => sub {
 subtest 'item_in_transit() tests' => sub {
 
     plan tests => 2;
-    
-    my $plugin; # Declare at test level to avoid masking warnings
+
+    my $plugin;    # Declare at test level to avoid masking warnings
 
     subtest 'Successful calls' => sub {
         plan tests => 7;
@@ -256,23 +265,26 @@ subtest 'item_in_transit() tests' => sub {
         # Setup real plugin with method mocking for external calls
         $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         my $mock_client = Test::MockObject->new();
-        
+
         # Track API client method calls
         my @client_calls = ();
-        $mock_client->mock( 'borrower_item_in_transit', sub { 
-            my ($self, $data, $options) = @_;
-            push @client_calls, { 
-                method => 'borrower_item_in_transit', 
-                data => $data,
-                options => $options 
-            };
-            return; 
-        } );
+        $mock_client->mock(
+            'borrower_item_returned',
+            sub {
+                my ( $self, $data, $options ) = @_;
+                push @client_calls, {
+                    method  => 'borrower_item_returned',
+                    data    => $data,
+                    options => $options
+                };
+                return;
+            }
+        );
 
         # Mock plugin methods that need external dependencies
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock('get_client', sub { return $mock_client; });
-        $plugin_module->mock('add_return', sub { return; });
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'add_return', sub { return; } );
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
@@ -285,18 +297,18 @@ subtest 'item_in_transit() tests' => sub {
 
         my $result;
         lives_ok {
-            $result = $actions->item_in_transit($illrequest, { client_options => $client_options });
+            $result = $actions->item_in_transit( $illrequest, { client_options => $client_options } );
         }
         'item_in_transit executes without error';
 
         # Verify API client method was called correctly
-        is( scalar @client_calls, 1, 'API client method called once' );
-        is( $client_calls[0]->{method}, 'borrower_item_in_transit', 'Correct API method called' );
-        
+        is( scalar @client_calls,       1,                        'API client method called once' );
+        is( $client_calls[0]->{method}, 'borrower_item_returned', 'Correct API method called' );
+
         # Verify client_options were passed through
         my $call_options = $client_calls[0]->{options};
-        is_deeply( $call_options->{timeout}, 45, 'client_options timeout passed through' );
-        is_deeply( $call_options->{notify_rapido}, 1, 'client_options notify_rapido passed through' );
+        is_deeply( $call_options->{timeout},       45, 'client_options timeout passed through' );
+        is_deeply( $call_options->{notify_rapido}, 1,  'client_options notify_rapido passed through' );
 
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_IN_TRANSIT', 'Sets correct status' );
@@ -349,11 +361,11 @@ subtest 'item_in_transit() tests' => sub {
         );
 
         my $mock_client = Test::MockObject->new();
-        $mock_client->mock( 'borrower_item_in_transit', sub { die "API Error"; } );
-        
+        $mock_client->mock( 'borrower_item_returned', sub { die "API Error"; } );
+
         # Mock get_client method
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock('get_client', sub { return $mock_client; });
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
 
         $actions = RapidoILL::Backend::BorrowerActions->new(
             {
@@ -378,9 +390,9 @@ subtest 'item_in_transit() tests' => sub {
 subtest 'borrower_cancel() tests' => sub {
 
     plan tests => 2;
-    
-    my $plugin; # Declare at test level to avoid masking warnings
-    my $actions; # Declare at test level to avoid masking warnings
+
+    my $plugin;     # Declare at test level to avoid masking warnings
+    my $actions;    # Declare at test level to avoid masking warnings
 
     subtest 'Successful calls' => sub {
         plan tests => 7;
@@ -402,18 +414,21 @@ subtest 'borrower_cancel() tests' => sub {
         # Setup real plugin with method stubbing for external calls
         $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
         my $mock_client = Test::MockObject->new();
-        
+
         # Track API client method calls
         my @client_calls = ();
-        $mock_client->mock( 'borrower_cancel', sub { 
-            my ($self, $data, $options) = @_;
-            push @client_calls, { 
-                method => 'borrower_cancel', 
-                data => $data,
-                options => $options 
-            };
-            return; 
-        } );
+        $mock_client->mock(
+            'borrower_cancel',
+            sub {
+                my ( $self, $data, $options ) = @_;
+                push @client_calls, {
+                    method  => 'borrower_cancel',
+                    data    => $data,
+                    options => $options
+                };
+                return;
+            }
+        );
 
         # Add required attributes for the method to work
         $plugin->add_or_update_attributes(
@@ -427,7 +442,7 @@ subtest 'borrower_cancel() tests' => sub {
 
         # Mock get_client method
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock('get_client', sub { return $mock_client; });
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
 
         my $actions = RapidoILL::Backend::BorrowerActions->new(
             {
@@ -440,18 +455,18 @@ subtest 'borrower_cancel() tests' => sub {
 
         my $result;
         lives_ok {
-            $result = $actions->borrower_cancel($illrequest, { client_options => $client_options });
+            $result = $actions->borrower_cancel( $illrequest, { client_options => $client_options } );
         }
         'borrower_cancel executes without error';
 
         # Verify API client method was called correctly
-        is( scalar @client_calls, 1, 'API client method called once' );
+        is( scalar @client_calls,       1,                 'API client method called once' );
         is( $client_calls[0]->{method}, 'borrower_cancel', 'Correct API method called' );
-        
+
         # Verify client_options were passed through
         my $call_options = $client_calls[0]->{options};
-        is_deeply( $call_options->{force_cancel}, 1, 'client_options force_cancel passed through' );
-        is_deeply( $call_options->{reason}, 'patron_request', 'client_options reason passed through' );
+        is_deeply( $call_options->{force_cancel}, 1,                'client_options force_cancel passed through' );
+        is_deeply( $call_options->{reason},       'patron_request', 'client_options reason passed through' );
 
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_CANCELLED_BY_US', 'Sets correct status' );
@@ -503,10 +518,10 @@ subtest 'borrower_cancel() tests' => sub {
 
         my $mock_client = Test::MockObject->new();
         $mock_client->mock( 'borrower_cancel', sub { die "API Error"; } );
-        
+
         # Mock get_client method
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock('get_client', sub { return $mock_client; });
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
 
         throws_ok {
             $actions->borrower_cancel($illrequest);
