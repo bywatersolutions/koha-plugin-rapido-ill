@@ -21,6 +21,7 @@ use Modern::Perl;
 
 use Try::Tiny;
 use Koha::Database;
+use Koha::DateUtils qw( dt_from_string );
 
 use RapidoILL::Exceptions;
 
@@ -282,10 +283,15 @@ sub borrower_renew {
         sub {
             $req->status('B_ITEM_RENEWAL_REQUESTED')->store;
 
+            # Convert due_date to DateTime with end-of-day time (23:59:59)
+            my $due_datetime = dt_from_string( $params->{due_date} );
+            $due_datetime->set_time_zone('local');
+            $due_datetime->set( hour => 23, minute => 59, second => 59 );
+
             $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
                 {
                     circId      => $circId,
-                    dueDateTime => dt_from_string( $params->{due_date} )
+                    dueDateTime => $due_datetime
                 },
                 $options
             );

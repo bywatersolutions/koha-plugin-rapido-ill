@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 use Test::MockModule;
 use Test::MockObject;
 use Test::Exception;
@@ -531,6 +531,117 @@ subtest 'borrower_cancel() tests' => sub {
         # Verify transaction rollback
         $illrequest->discard_changes();
         is( $illrequest->status, 'NEW', 'Status unchanged after transaction rollback' );
+
+        $schema->storage->txn_rollback;
+    };
+};
+
+subtest 'borrower_renew() tests' => sub {
+    plan tests => 2;
+
+    subtest 'Successful calls' => sub {
+        plan tests => 7;
+
+        $schema->storage->txn_begin;
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    backend => 'RapidoILL',
+                    status  => 'B_ITEM_RECEIVED'
+                }
+            }
+        );
+
+        # Mock client to capture the dueDateTime parameter
+        my $captured_params;
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock(
+            'borrower_renew',
+            sub {
+                my ( $self, $params ) = @_;
+                $captured_params = $params;
+                return;
+            }
+        );
+
+        # Mock plugin methods
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client',      sub { return $mock_client; } );
+        $plugin_module->mock( 'get_req_circ_id', sub { return 'TEST_CIRC_ID'; } );
+
+        my $actions = RapidoILL::Backend::BorrowerActions->new(
+            {
+                pod    => 'test_pod',
+                plugin => Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new()
+            }
+        );
+
+        # Test with a due date string
+        my $due_date = '2025-09-15';
+        lives_ok {
+            $actions->borrower_renew( $illrequest, { due_date => $due_date } );
+        }
+        'borrower_renew executes without error';
+
+        # Verify API client method was called
+        is( $mock_client->call_pos(1), 'borrower_renew', 'Correct API method called' );
+
+        # Verify parameters passed to client
+        ok( $captured_params, 'Parameters captured from client call' );
+        is( $captured_params->{circId}, 'TEST_CIRC_ID', 'Correct circId passed' );
+
+        # Verify dueDateTime is a DateTime object with end-of-day time
+        isa_ok( $captured_params->{dueDateTime}, 'DateTime', 'dueDateTime is DateTime object' );
+        is( $captured_params->{dueDateTime}->hms, '23:59:59', 'Due time set to end of day (23:59:59)' );
+
+        # Verify status was updated
+        $illrequest->discard_changes();
+        is( $illrequest->status, 'B_ITEM_RENEWAL_REQUESTED', 'Sets correct status' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Error cases' => sub {
+        plan tests => 2;
+
+        $schema->storage->txn_begin;
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    backend => 'RapidoILL',
+                    status  => 'B_ITEM_RECEIVED'
+                }
+            }
+        );
+
+        # Mock client to throw error
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock( 'borrower_renew', sub { die "API Error"; } );
+
+        # Mock plugin methods
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client',      sub { return $mock_client; } );
+        $plugin_module->mock( 'get_req_circ_id', sub { return 'TEST_CIRC_ID'; } );
+
+        my $actions = RapidoILL::Backend::BorrowerActions->new(
+            {
+                pod    => 'test_pod',
+                plugin => Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new()
+            }
+        );
+
+        throws_ok {
+            $actions->borrower_renew( $illrequest, { due_date => '2025-09-15' } );
+        }
+        qr/API Error/, 'Throws exception on API failure';
+
+        # Verify transaction rollback
+        $illrequest->discard_changes();
+        is( $illrequest->status, 'B_ITEM_RECEIVED', 'Status unchanged after transaction rollback' );
 
         $schema->storage->txn_rollback;
     };
