@@ -19,9 +19,9 @@ use Modern::Perl;
 
 use DateTime;
 use Encode;
-use JSON      qw( decode_json );
+use JSON            qw( decode_json );
 use List::MoreUtils qw( any );
-use Try::Tiny qw(catch try);
+use Try::Tiny       qw(catch try);
 
 use C4::Biblio qw(DelBiblio);
 
@@ -82,13 +82,14 @@ sub handle_from_action {
     my ( $self, $action ) = @_;
 
     my $status_to_method = {
-        'DEFAULT'         => \&default_handler,
-        'FINAL_CHECKIN'   => \&final_checkin,
-        'ITEM_SHIPPED'    => \&item_shipped,
+        'DEFAULT'       => \&default_handler,
+        'FINAL_CHECKIN' => \&final_checkin,
+        'ITEM_SHIPPED'  => \&item_shipped,
     };
 
     # Statuses that require no action from borrower perspective
     my @no_op_statuses = qw(
+        BORROWER_RENEW
         ITEM_IN_TRANSIT
         ITEM_RECEIVED
         PATRON_HOLD
@@ -96,6 +97,7 @@ sub handle_from_action {
 
     # Check if this is a no-op status first
     if ( any { $_ eq $action->lastCircState } @no_op_statuses ) {
+
         # No action needed for these statuses
         return;
     }
@@ -256,6 +258,7 @@ sub item_shipped {
             );
 
             my $due_date;
+
             # Set due_date from dueDateTime epoch if available
             $due_date = DateTime->from_epoch( epoch => $action->dueDateTime )
                 if $action->dueDateTime;
@@ -263,7 +266,7 @@ sub item_shipped {
             $req->set(
                 {
                     biblio_id => $item->biblionumber,
-                   ( $due_date ? ( due_date => $due_date->datetime() ) : () ),
+                    ( $due_date ? ( due_date => $due_date->datetime() ) : () ),
                 }
             );
 
