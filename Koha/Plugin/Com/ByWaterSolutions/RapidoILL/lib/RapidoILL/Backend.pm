@@ -324,6 +324,15 @@ sub status_graph {
             next_actions   => [],
             ui_method_icon => 'fa-arrow-rotate-right',
         },
+        B_ITEM_RENEWAL_ACCEPTED => {
+            prev_actions   => ['B_ITEM_RENEWAL_REQUESTED'],
+            id             => 'B_ITEM_RENEWAL_ACCEPTED',
+            name           => 'Renewal accepted owning library',
+            ui_method_name => q{},
+            method         => q{},
+            next_actions   => [],
+            ui_method_icon => 'fa-arrow-rotate-right',
+        },
         B_ITEM_RECALLED => {
             prev_actions   => [],
             id             => 'B_ITEM_RECALLED',

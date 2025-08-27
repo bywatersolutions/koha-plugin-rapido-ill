@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 8;
+use Test::More tests => 10;
 use Test::MockObject;
 use Test::Exception;
 
@@ -334,20 +334,20 @@ subtest 'item_shipped() tests' => sub {
                 branchcode     => $library->branchcode,
                 backend        => 'RapidoILL',
                 status         => 'B_ITEM_REQUESTED',
-                due_date       => undef  # Explicitly set to undef
+                due_date       => undef                      # Explicitly set to undef
             }
         }
     );
-    
+
     # Check initial state
     my $initial_due_date = $ill_request2->due_date;
-    
+
     my $mock_action2 = Test::MockObject->new();
     $mock_action2->set_always( 'itemBarcode', 'TEST_BARCODE_789' );
     $mock_action2->set_always( 'ill_request', $ill_request2 );
     $mock_action2->set_always( 'pod',         'test_pod' );
     $mock_action2->set_always( 'callNumber',  'TEST CALL NUMBER 2' );
-    $mock_action2->set_always( 'dueDateTime', undef );  # No due date
+    $mock_action2->set_always( 'dueDateTime', undef );                  # No due date
 
     foreach my $attr (@action_attributes) {
         $mock_action2->set_always( $attr, "test_$attr" );
@@ -382,6 +382,87 @@ subtest 'item_shipped() tests' => sub {
         $handler->item_shipped($mock_action)
     }
     'RapidoILL::Exception', 'item_shipped throws exception for missing barcode';
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'owner_renew() tests' => sub {
+    plan tests => 6;
+
+    $schema->storage->txn_begin;
+
+    # Create test ILL request
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                backend => 'RapidoILL',
+                status  => 'B_ITEM_RECEIVED'
+            }
+        }
+    );
+
+    # Create real CircAction object with dueDateTime
+    my $due_epoch   = DateTime->now->add( days => 14 )->epoch;
+    my $circ_action = $builder->build_object(
+        {
+            class => 'RapidoILL::CircActions',
+            value => {
+                lastCircState => 'OWNER_RENEW',
+                illrequest_id => $ill_request->id,
+                pod           => 'test_pod',
+                circId        => 'TEST_CIRC_OWNER_RENEW',
+                borrowerCode  => 'TEST_BORROWER',
+                dueDateTime   => $due_epoch
+            }
+        }
+    );
+
+    # Use plugin accessor
+    my $plugin  = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    my $handler = $plugin->get_borrower_action_handler('test_pod');
+
+    # Test owner_renew with dueDateTime
+    lives_ok {
+        $handler->owner_renew($circ_action)
+    }
+    'owner_renew processes successfully with dueDateTime';
+
+    # Verify status and due_date were updated
+    $ill_request->discard_changes;
+    is( $ill_request->status, 'B_ITEM_RENEWAL_ACCEPTED', 'Status updated to B_ITEM_RENEWAL_ACCEPTED' );
+    ok( $ill_request->due_date, 'due_date was set from dueDateTime' );
+
+    # Verify the due_date contains the expected date (format may vary)
+    my $expected_date =
+        DateTime->from_epoch( epoch => $due_epoch )->ymd . ' ' . DateTime->from_epoch( epoch => $due_epoch )->hms;
+    like( $ill_request->due_date, qr/\Q$expected_date\E/, 'due_date contains expected date from epoch' );
+
+    # Test owner_renew without dueDateTime
+    my $circ_action2 = $builder->build_object(
+        {
+            class => 'RapidoILL::CircActions',
+            value => {
+                lastCircState => 'OWNER_RENEW',
+                illrequest_id => $ill_request->id,
+                pod           => 'test_pod',
+                circId        => 'TEST_CIRC_OWNER_RENEW_2',
+                borrowerCode  => 'TEST_BORROWER',
+                dueDateTime   => undef
+            }
+        }
+    );
+
+    my $previous_due_date = $ill_request->due_date;
+
+    lives_ok {
+        $handler->owner_renew($circ_action2)
+    }
+    'owner_renew processes successfully without dueDateTime';
+
+    # Verify due_date unchanged when dueDateTime is undefined
+    $ill_request->discard_changes;
+    is( $ill_request->due_date, $previous_due_date, 'due_date unchanged when dueDateTime is undefined' );
 
     $schema->storage->txn_rollback;
 };
@@ -460,6 +541,32 @@ subtest 'patron_hold method (borrower-generated - no-op)' => sub {
         $handler->handle_from_action($mock_action)
     }
     'PATRON_HOLD handled as no-op without exception';
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'borrower_renew method (borrower-generated - no-op)' => sub {
+    plan tests => 1;
+
+    $schema->storage->txn_begin;
+
+    my $mock_plugin = Test::MockObject->new();
+    my $handler     = RapidoILL::ActionHandler::Borrower->new(
+        {
+            pod    => 'test_pod',
+            plugin => $mock_plugin
+        }
+    );
+
+    # Create a mock action for BORROWER_RENEW
+    my $mock_action = Test::MockObject->new();
+    $mock_action->mock( 'lastCircState', sub { return 'BORROWER_RENEW'; } );
+
+    # Test that BORROWER_RENEW is handled as no-op (no exception thrown)
+    lives_ok {
+        $handler->handle_from_action($mock_action)
+    }
+    'BORROWER_RENEW handled as no-op without exception';
 
     $schema->storage->txn_rollback;
 };

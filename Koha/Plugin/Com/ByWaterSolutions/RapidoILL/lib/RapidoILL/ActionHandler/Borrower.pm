@@ -85,6 +85,7 @@ sub handle_from_action {
         'DEFAULT'       => \&default_handler,
         'FINAL_CHECKIN' => \&final_checkin,
         'ITEM_SHIPPED'  => \&item_shipped,
+        'OWNER_RENEW'   => \&owner_renew,
     };
 
     # Statuses that require no action from borrower perspective
@@ -271,6 +272,42 @@ sub item_shipped {
             );
 
             $req->status('B_ITEM_SHIPPED')->store();
+        }
+    );
+
+    return;
+}
+
+=head3 owner_renew
+
+    $handler->owner_renew( $action );
+
+Handle incoming I<OWNER_RENEW> action. From borrower perspective - the
+owner has accepted our renewal request and a new due date needs to be set.
+
+=cut
+
+sub owner_renew {
+    my ( $self, $action ) = @_;
+
+    my $req = $action->ill_request;
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+
+            my $due_date;
+
+            # Set due_date from dueDateTime epoch if available
+            $due_date = DateTime->from_epoch( epoch => $action->dueDateTime )
+                if $action->dueDateTime;
+
+            $req->set(
+                {
+                    ( $due_date ? ( due_date => $due_date->datetime() ) : () ),
+                }
+            );
+
+            $req->status('B_ITEM_RENEWAL_ACCEPTED')->store();
         }
     );
 
