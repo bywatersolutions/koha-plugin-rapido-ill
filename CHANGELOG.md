@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.6] - 2025-08-27
+
+### Enhanced
+- [#81] Improved RequestFailed exception error messages with detailed HTTP information for better debugging
+
+### Fixed
+- [#81] RequestFailed exceptions now show HTTP status codes, messages, and response bodies instead of memory addresses
+
 ## [0.7.5] - 2025-08-27
 
 ### Fixed

@@ -95,7 +95,7 @@ use Exception::Class (
     'RapidoILL::Exception::RequestFailed' => {
         isa         => 'RapidoILL::Exception',
         description => 'HTTP request error response',
-        fields      => [ 'method', 'response' ]
+        fields      => [ 'method', 'response', 'status_code', 'status_message', 'response_body' ]
     },
     'RapidoILL::Exception::OAuth2::AuthError' => {
         isa         => 'RapidoILL::Exception',

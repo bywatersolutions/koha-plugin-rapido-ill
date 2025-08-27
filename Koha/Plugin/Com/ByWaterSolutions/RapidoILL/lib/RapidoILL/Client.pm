@@ -66,6 +66,26 @@ sub new {
     return $self;
 }
 
+=head3 _throw_request_failed
+
+    $self->_throw_request_failed($method, $response);
+
+Helper method to throw RequestFailed exceptions with detailed HTTP information.
+
+=cut
+
+sub _throw_request_failed {
+    my ( $self, $method, $response ) = @_;
+
+    RapidoILL::Exception::RequestFailed->throw(
+        method         => $method,
+        response       => $response,
+        status_code    => $response->code,
+        status_message => $response->message,
+        response_body  => $response->decoded_content || 'No response body'
+    );
+}
+
 =head2 Client methods
 
 =head3 locals
@@ -87,8 +107,13 @@ sub locals {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'locals', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'locals',
+            response       => $response,
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
@@ -129,8 +154,13 @@ sub lender_cancel {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'lender_cancel', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'lender_cancel',
+            response       => $response,
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
@@ -258,8 +288,13 @@ sub lender_shipped {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'lender_shipped', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'lender_shipped',
+            response       => $response,
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content
+        ) unless $response->is_success;
 
         return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
@@ -359,8 +394,13 @@ sub borrower_cancel {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'borrower_cancel', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'borrower_cancel',
+            response       => $response,
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( encode( 'UTF-8', $response->decoded_content ) );
     }
