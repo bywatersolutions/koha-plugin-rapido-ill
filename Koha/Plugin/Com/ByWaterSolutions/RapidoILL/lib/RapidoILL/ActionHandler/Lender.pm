@@ -75,11 +75,12 @@ sub handle_from_action {
     my ( $self, $action ) = @_;
 
     my $status_to_method = {
-        'FINAL_CHECKIN'   => \&final_checkin,
-        'ITEM_IN_TRANSIT' => \&item_in_transit,
-        'ITEM_RECEIVED'   => \&item_received,
-        'ITEM_SHIPPED'    => \&item_shipped,
-        'DEFAULT'         => \&default_handler,
+        'BORROWING_SITE_CANCEL' => \&borrowing_site_cancel,
+        'FINAL_CHECKIN'         => \&final_checkin,
+        'ITEM_IN_TRANSIT'       => \&item_in_transit,
+        'ITEM_RECEIVED'         => \&item_received,
+        'ITEM_SHIPPED'          => \&item_shipped,
+        'DEFAULT'               => \&default_handler,
     };
 
     my $status =
@@ -192,6 +193,41 @@ sub item_in_transit {
             }
 
             $req->status('O_ITEM_IN_TRANSIT')->store;
+        }
+    );
+
+    return;
+}
+
+=head3 borrowing_site_cancel
+
+    $handler->borrowing_site_cancel($action);
+
+Handle incoming I<BORROWING_SITE_CANCEL> action when the borrowing site cancels the request.
+
+=cut
+
+sub borrowing_site_cancel {
+    my ( $self, $action ) = @_;
+
+    my $req = $action->ill_request;
+
+    # Wrap in transaction to ensure data consistency
+    Koha::Database->schema->storage->txn_do(
+        sub {
+            # Set request status to cancelled
+            $req->status('O_ITEM_CANCELLED')->store;
+
+            # Cancel any associated hold if it exists
+            my $attrs = $req->extended_attributes;
+            my $hold_id_attr = $attrs->find( { type => 'hold_id' } );
+            
+            if ( $hold_id_attr ) {
+                my $hold = Koha::Holds->find( $hold_id_attr->value );
+                if ( $hold ) {
+                    $hold->cancel;
+                }
+            }
         }
     );
 

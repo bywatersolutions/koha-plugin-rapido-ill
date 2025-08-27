@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 use Test::MockObject;
 use Test::Exception;
 
@@ -40,7 +40,7 @@ subtest 'Constructor and basic functionality' => sub {
     $schema->storage->txn_begin;
 
     # Use plugin accessor instead of direct instantiation
-    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    my $plugin  = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
     my $handler = $plugin->get_lender_action_handler('test_pod');
 
     isa_ok( $handler, 'RapidoILL::ActionHandler::Lender', 'Object created successfully' );
@@ -56,7 +56,7 @@ subtest 'handle_from_action dispatch mechanism with real CircAction objects' => 
     $schema->storage->txn_begin;
 
     # Use plugin accessor instead of mocking
-    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    my $plugin  = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
     my $handler = $plugin->get_lender_action_handler('test_pod');
 
     # Create real ILL request for testing
@@ -294,9 +294,10 @@ subtest 'item_received method with database operations and real CircAction' => s
         }
     );
     $mock_plugin->mock( 'add_or_update_attributes', sub { return; } );
-        # Mock logger
+
+    # Mock logger
     my $mock_logger = Test::MockObject->new();
-    $mock_logger->mock( 'warn', sub { return; } );
+    $mock_logger->mock( 'warn',   sub { return; } );
     $mock_plugin->mock( 'logger', sub { return $mock_logger; } );
 
     my $handler = RapidoILL::ActionHandler::Lender->new(
@@ -396,9 +397,10 @@ subtest 'item_in_transit method with database operations and real CircAction' =>
         }
     );
     $mock_plugin->mock( 'add_or_update_attributes', sub { return; } );
-        # Mock logger
+
+    # Mock logger
     my $mock_logger = Test::MockObject->new();
-    $mock_logger->mock( 'warn', sub { return; } );
+    $mock_logger->mock( 'warn',   sub { return; } );
     $mock_plugin->mock( 'logger', sub { return $mock_logger; } );
 
     my $handler = RapidoILL::ActionHandler::Lender->new(
@@ -438,6 +440,98 @@ subtest 'item_in_transit method with database operations and real CircAction' =>
         $handler->item_in_transit($missing_item_action)
     }
     qr//, 'item_in_transit handles missing item appropriately';
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'borrowing_site_cancel method with database operations and real CircAction' => sub {
+    plan tests => 4;
+
+    $schema->storage->txn_begin;
+
+    # Create handler using plugin accessor
+    my $plugin  = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    my $handler = $plugin->get_lender_action_handler('test_pod');
+
+    # Test case 1: ILL request WITH hold_id attribute
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => { status => 'O_ITEM_SHIPPED' }
+        }
+    );
+
+    # Create test hold
+    my $hold = $builder->build_object(
+        {
+            class => 'Koha::Holds',
+            value => {
+                biblionumber => $ill_request->biblio_id,
+            }
+        }
+    );
+
+    # Add hold_id extended attribute
+    $builder->build_object(
+        {
+            class => 'Koha::ILL::Request::Attributes',
+            value => {
+                illrequest_id => $ill_request->illrequest_id,
+                type          => 'hold_id',
+                value         => $hold->reserve_id,
+            }
+        }
+    );
+
+    # Create real CircAction object
+    my $action_with_hold = $builder->build_object(
+        {
+            class => 'RapidoILL::CircActions',
+            value => {
+                lastCircState => 'BORROWING_SITE_CANCEL',
+                illrequest_id => $ill_request->id,
+                pod           => 'test_pod',
+                circId        => 'TEST_CIRC_CANCEL_WITH_HOLD'
+            }
+        }
+    );
+
+    # Test the handler
+    lives_ok { $handler->borrowing_site_cancel($action_with_hold) }
+    'borrowing_site_cancel executes without error with hold';
+
+    # Verify request status was updated
+    $ill_request->discard_changes;
+    is( $ill_request->status, 'O_ITEM_CANCELLED', 'Request status set to O_ITEM_CANCELLED' );
+
+    # Test case 2: ILL request WITHOUT hold_id attribute
+    my $ill_request_no_hold = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => { status => 'O_ITEM_SHIPPED' }
+        }
+    );
+
+    # Create real CircAction object without hold
+    my $action_no_hold = $builder->build_object(
+        {
+            class => 'RapidoILL::CircActions',
+            value => {
+                lastCircState => 'BORROWING_SITE_CANCEL',
+                illrequest_id => $ill_request_no_hold->id,
+                pod           => 'test_pod',
+                circId        => 'TEST_CIRC_CANCEL_NO_HOLD'
+            }
+        }
+    );
+
+    # Test the handler
+    lives_ok { $handler->borrowing_site_cancel($action_no_hold) }
+    'borrowing_site_cancel works without hold_id attribute';
+
+    # Verify request status was updated
+    $ill_request_no_hold->discard_changes;
+    is( $ill_request_no_hold->status, 'O_ITEM_CANCELLED', 'Request status updated even without hold' );
 
     $schema->storage->txn_rollback;
 };
