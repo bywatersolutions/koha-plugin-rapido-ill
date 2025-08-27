@@ -151,33 +151,69 @@ Add the following to your Koha instance's `log4perl.conf` file (usually located 
 
 # 1. General Plugin Logging
 log4perl.logger.rapidoill = INFO, RAPIDOILL
+log4perl.logger.opac.rapidoill = INFO, RAPIDOILL
+log4perl.logger.intranet.rapidoill = INFO, RAPIDOILL
+log4perl.logger.commandline.rapidoill = INFO, RAPIDOILL
+log4perl.logger.cron.rapidoill = INFO, RAPIDOILL
+log4perl.additivity.rapidoill = 0
+log4perl.additivity.opac.rapidoill = 0
+log4perl.additivity.intranet.rapidoill = 0
+log4perl.additivity.commandline.rapidoill = 0
+log4perl.additivity.cron.rapidoill = 0
+
 log4perl.appender.RAPIDOILL = Log::Log4perl::Appender::File
 log4perl.appender.RAPIDOILL.filename = /var/log/koha/<instance>/rapidoill.log
 log4perl.appender.RAPIDOILL.mode = append
-log4perl.appender.RAPIDOILL.layout = Log::Log4perl::Layout::PatternLayout
-log4perl.appender.RAPIDOILL.layout.ConversionPattern = [%d] [%p] %m %l %n
+log4perl.appender.RAPIDOILL.layout = PatternLayout
+log4perl.appender.RAPIDOILL.layout.ConversionPattern = [%d] [%p] %m %l%n
 log4perl.appender.RAPIDOILL.utf8 = 1
 
 # 2. External API Calls (Koha -> Rapido ILL)
 log4perl.logger.rapidoill_api = DEBUG, RAPIDOILL_API
+log4perl.logger.opac.rapidoill_api = DEBUG, RAPIDOILL_API
+log4perl.logger.intranet.rapidoill_api = DEBUG, RAPIDOILL_API
+log4perl.logger.commandline.rapidoill_api = DEBUG, RAPIDOILL_API
+log4perl.logger.cron.rapidoill_api = DEBUG, RAPIDOILL_API
+log4perl.additivity.rapidoill_api = 0
+log4perl.additivity.opac.rapidoill_api = 0
+log4perl.additivity.intranet.rapidoill_api = 0
+log4perl.additivity.commandline.rapidoill_api = 0
+log4perl.additivity.cron.rapidoill_api = 0
+
 log4perl.appender.RAPIDOILL_API = Log::Log4perl::Appender::File
 log4perl.appender.RAPIDOILL_API.filename = /var/log/koha/<instance>/rapidoill-api.log
 log4perl.appender.RAPIDOILL_API.mode = append
-log4perl.appender.RAPIDOILL_API.layout = Log::Log4perl::Layout::PatternLayout
-log4perl.appender.RAPIDOILL_API.layout.ConversionPattern = [%d] [%p] %m %l %n
+log4perl.appender.RAPIDOILL_API.layout = PatternLayout
+log4perl.appender.RAPIDOILL_API.layout.ConversionPattern = [%d] [%p] %m %l%n
 log4perl.appender.RAPIDOILL_API.utf8 = 1
 
 # 3. Task Queue Daemon Logging
 log4perl.logger.rapidoill_daemon = INFO, RAPIDOILL_DAEMON
+log4perl.logger.opac.rapidoill_daemon = INFO, RAPIDOILL_DAEMON
+log4perl.logger.intranet.rapidoill_daemon = INFO, RAPIDOILL_DAEMON
+log4perl.logger.commandline.rapidoill_daemon = INFO, RAPIDOILL_DAEMON
+log4perl.logger.cron.rapidoill_daemon = INFO, RAPIDOILL_DAEMON
+log4perl.additivity.rapidoill_daemon = 0
+log4perl.additivity.opac.rapidoill_daemon = 0
+log4perl.additivity.intranet.rapidoill_daemon = 0
+log4perl.additivity.commandline.rapidoill_daemon = 0
+log4perl.additivity.cron.rapidoill_daemon = 0
+
 log4perl.appender.RAPIDOILL_DAEMON = Log::Log4perl::Appender::File
 log4perl.appender.RAPIDOILL_DAEMON.filename = /var/log/koha/<instance>/rapidoill-daemon.log
 log4perl.appender.RAPIDOILL_DAEMON.mode = append
-log4perl.appender.RAPIDOILL_DAEMON.layout = Log::Log4perl::Layout::PatternLayout
-log4perl.appender.RAPIDOILL_DAEMON.layout.ConversionPattern = [%d] [%p] %m %l %n
+log4perl.appender.RAPIDOILL_DAEMON.layout = PatternLayout
+log4perl.appender.RAPIDOILL_DAEMON.layout.ConversionPattern = [%d] [%p] %m %l%n
 log4perl.appender.RAPIDOILL_DAEMON.utf8 = 1
 ```
 
 Replace `<instance>` with your actual Koha instance name.
+
+**Important**: The configuration includes multiple logger categories for each log type:
+- **Base categories** (`rapidoill`, `rapidoill_api`, `rapidoill_daemon`): For direct Log4perl usage
+- **Interface-prefixed categories** (`opac.rapidoill`, `intranet.rapidoill`, `commandline.rapidoill`, `cron.rapidoill`, etc.): For Koha::Logger usage
+
+Koha::Logger automatically prefixes categories with the current interface (`opac`, `intranet`, `commandline`, or `cron`), so all sets of categories are required for complete coverage across web interfaces, command-line scripts, and scheduled tasks.
 
 **Important:** After modifying `log4perl.conf`, restart your Koha services:
 
@@ -214,8 +250,37 @@ You can adjust the log level as needed for each category:
 - `DEBUG` - Detailed task processing information
 - `WARN` - Task retry warnings
 - `ERROR` - Task failures and daemon errors
-- `WARN` - Warning messages only
-- `ERROR` - Error messages only
+
+#### Troubleshooting Logging
+
+**No messages appearing in log files?**
+
+1. **Check interface prefixing**: Koha::Logger automatically prefixes categories with the interface name (`opac`, `intranet`, `commandline`, or `cron`). Ensure you have both base and prefixed categories configured for all interfaces.
+
+2. **Verify configuration syntax**: Check that your log4perl.conf has no syntax errors:
+   ```bash
+   perl -c /etc/koha/sites/<instance>/log4perl.conf
+   ```
+
+3. **Test direct logging**: Verify the configuration works with direct Log4perl:
+   ```perl
+   use Log::Log4perl;
+   Log::Log4perl->init('/etc/koha/sites/<instance>/log4perl.conf');
+   my $logger = Log::Log4perl->get_logger('rapidoill');
+   $logger->info('Test message');
+   ```
+
+4. **Check file permissions**: Ensure the Koha user can write to the log files:
+   ```bash
+   sudo chown <koha-user>:<koha-group> /var/log/koha/<instance>/rapidoill*.log
+   sudo chmod 644 /var/log/koha/<instance>/rapidoill*.log
+   ```
+
+5. **Restart services**: After configuration changes, restart Koha services:
+   ```bash
+   sudo systemctl restart apache2
+   sudo koha-plack --restart <instance>
+   ```
 
 #### Log File Rotation
 

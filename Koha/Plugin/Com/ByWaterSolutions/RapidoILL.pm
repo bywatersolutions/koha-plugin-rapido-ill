@@ -123,14 +123,8 @@ sub logger {
     $self->{_loggers} //= {};
 
     unless ($self->{_loggers}->{$category}) {
-        try {
-            $self->{_loggers}->{$category} = Koha::Logger->get( { category => $category } );
-        } catch {
-            # Fallback if Koha::Logger fails - but don't return undef
-            warn "Failed to initialize Koha::Logger for category '$category': $_";
-            # Return default logger as fallback
-            $self->{_loggers}->{$category} = Koha::Logger->get();
-        };
+        # Use standard Koha::Logger approach
+        $self->{_loggers}->{$category} = Koha::Logger->get( { category => $category } );
     }
 
     return $self->{_loggers}->{$category};
