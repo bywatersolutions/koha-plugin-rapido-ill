@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2025-08-27
+
+### Fixed
+- [#76] Complete interface coverage for Koha::Logger categories (opac, intranet, commandline, cron)
+- [#76] Log format standardized to match Koha's standard format: `[%d] [%p] %m %l%n`
+- [#76] Added troubleshooting guide for logging configuration issues
+
+### Enhanced
+- [#76] Comprehensive log4perl.conf configuration covering all execution contexts
+- [#76] Documentation updated with complete interface-prefixed category examples
+
 ## [0.7.0] - 2025-08-26
 
 ### Changed
