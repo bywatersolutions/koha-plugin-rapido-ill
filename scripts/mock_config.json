@@ -363,6 +363,150 @@
                     "title": "Perl best practices"
                 }
             ]
+        },
+        "borrowing_renew_requested": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC001",
+                    "circStatus": "ACTIVE",
+                    "lastCircState": "BORROWER_RENEW",
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "dueDateTime": "2025-09-07T11:43:56Z",
+                    "itemBarcode": "3999900000001",
+                    "itemId": "3999900000001",
+                    "lastUpdated": "2025-08-27T18:23:00Z",
+                    "lenderCode": "famaf",
+                    "needBefore": "2025-09-14T11:43:56Z",
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "23529000445172",
+                    "patronName": "Tanya Daniels",
+                    "pickupLocation": "MPL",
+                    "requestId": "REQ001",
+                    "title": "E Street shuffle"
+                }
+            ]
+        },
+        "borrowing_renew_accepted": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC001",
+                    "circStatus": "ACTIVE",
+                    "lastCircState": "OWNER_RENEW",
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "dueDateTime": "2025-09-21T11:43:56Z",
+                    "itemBarcode": "3999900000001",
+                    "itemId": "3999900000001",
+                    "lastUpdated": "2025-08-27T18:25:00Z",
+                    "lenderCode": "famaf",
+                    "needBefore": "2025-09-28T11:43:56Z",
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "23529000445172",
+                    "patronName": "Tanya Daniels",
+                    "pickupLocation": "MPL",
+                    "requestId": "REQ001",
+                    "title": "E Street shuffle"
+                }
+            ]
+        },
+        "borrowing_renew_rejected": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC001",
+                    "circStatus": "ACTIVE",
+                    "lastCircState": "ITEM_RECEIVED",
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "dueDateTime": "2025-09-07T11:43:56Z",
+                    "itemBarcode": "3999900000001",
+                    "itemId": "3999900000001",
+                    "lastUpdated": "2025-08-27T18:25:00Z",
+                    "lenderCode": "famaf",
+                    "needBefore": "2025-09-14T11:43:56Z",
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "23529000445172",
+                    "patronName": "Tanya Daniels",
+                    "pickupLocation": "MPL",
+                    "requestId": "REQ001",
+                    "title": "E Street shuffle"
+                }
+            ]
+        },
+        "lending_renew_requested": {
+            "data": [
+                {
+                    "author": "Kernighan, Brian W",
+                    "borrowerCode": "derecho",
+                    "lenderCode": "11747",
+                    "callNumber": "005.133 KER",
+                    "circId": "CIRC002",
+                    "circStatus": "ACTIVE",
+                    "lastCircState": "BORROWER_RENEW",
+                    "dateCreated": "2025-08-15T08:43:56Z",
+                    "dueDateTime": "2025-09-07T11:43:56Z",
+                    "itemBarcode": "3999900000018",
+                    "itemId": "3999900000018",
+                    "lastUpdated": "2025-08-27T18:23:00Z",
+                    "needBefore": "2025-09-14T11:43:56Z",
+                    "patronAgencyCode": "derecho",
+                    "patronId": "23529000152273",
+                    "patronName": "Marcus Welch",
+                    "requestId": "REQ002",
+                    "title": "The C programming language"
+                }
+            ]
+        },
+        "lending_renew_accepted": {
+            "data": [
+                {
+                    "author": "Kernighan, Brian W",
+                    "borrowerCode": "derecho",
+                    "lenderCode": "11747",
+                    "callNumber": "005.133 KER",
+                    "circId": "CIRC002",
+                    "circStatus": "ACTIVE",
+                    "lastCircState": "OWNER_RENEW",
+                    "dateCreated": "2025-08-15T08:43:56Z",
+                    "dueDateTime": "2025-09-21T11:43:56Z",
+                    "itemBarcode": "3999900000018",
+                    "itemId": "3999900000018",
+                    "lastUpdated": "2025-08-27T18:25:00Z",
+                    "needBefore": "2025-09-28T11:43:56Z",
+                    "patronAgencyCode": "derecho",
+                    "patronId": "23529000152273",
+                    "patronName": "Marcus Welch",
+                    "requestId": "REQ002",
+                    "title": "The C programming language"
+                }
+            ]
+        },
+        "lending_renew_rejected": {
+            "data": [
+                {
+                    "author": "Kernighan, Brian W",
+                    "borrowerCode": "derecho",
+                    "lenderCode": "11747",
+                    "callNumber": "005.133 KER",
+                    "circId": "CIRC002",
+                    "circStatus": "ACTIVE",
+                    "lastCircState": "ITEM_RECEIVED",
+                    "dateCreated": "2025-08-15T08:43:56Z",
+                    "dueDateTime": "2025-09-07T11:43:56Z",
+                    "itemBarcode": "3999900000018",
+                    "itemId": "3999900000018",
+                    "lastUpdated": "2025-08-27T18:25:00Z",
+                    "needBefore": "2025-09-14T11:43:56Z",
+                    "patronAgencyCode": "derecho",
+                    "patronId": "23529000152273",
+                    "patronName": "Marcus Welch",
+                    "requestId": "REQ002",
+                    "title": "The C programming language"
+                }
+            ]
         }
     },
     "scenarios": {
@@ -457,6 +601,74 @@
                 {
                     "endpoint": "circulation_requests", 
                     "response": "owning_site_cancel"
+                }
+            ]
+        },
+        "borrower_renew_accept": {
+            "description": "Borrower renewal request accepted by lender",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_received"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_renew_requested"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_renew_accepted"
+                }
+            ]
+        },
+        "borrower_renew_reject": {
+            "description": "Borrower renewal request rejected by lender",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_received"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_renew_requested"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_renew_rejected"
+                }
+            ]
+        },
+        "lender_renew_accept": {
+            "description": "Lender side of renewal request acceptance",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "lending_shipped"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "lending_renew_requested"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "lending_renew_accepted"
+                }
+            ]
+        },
+        "lender_renew_reject": {
+            "description": "Lender side of renewal request rejection",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "lending_shipped"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "lending_renew_requested"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "lending_renew_rejected"
                 }
             ]
         }
