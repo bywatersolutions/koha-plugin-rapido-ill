@@ -216,7 +216,7 @@ sub item_in_transit {
 
             $req->status('B_ITEM_IN_TRANSIT')->store;
 
-            $self->{plugin}->get_client( $self->{pod} )->borrower_item_in_transit( { circId => $circId }, $options );
+            $self->{plugin}->get_client( $self->{pod} )->borrower_item_returned( { circId => $circId }, $options );
         }
     );
 
