@@ -12,10 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#77] APIHttpClient constructor now succeeds immediately without network calls
 - [#77] OAuth2 tokens acquired on-demand during first request instead of eagerly during construction
 - [#77] Enhanced logging with contextual messages for token acquisition vs refresh scenarios
+- [#78] Improved daemon performance by maintaining HTTP client cache across task batches
+- [#78] Reduced OAuth2 API calls through proper token reuse (10-minute token lifespan)
 
 ### Fixed
 - [#77] Authentication errors now occur during first request rather than during object construction
 - [#77] Improved resilience against network issues during plugin initialization
+- [#78] OAuth2 tokens now properly reused between task batches in daemon script
+- [#78] JSON encoding error in QueuedTask retry method causing stuck retry loops
+- [#78] Daemon script creating unnecessary plugin instances, breaking HTTP client cache
 
 ## [0.7.2] - 2025-08-27
 

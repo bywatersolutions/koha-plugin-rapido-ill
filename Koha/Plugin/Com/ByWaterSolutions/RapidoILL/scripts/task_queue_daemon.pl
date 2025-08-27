@@ -77,7 +77,7 @@ while (1) {
 sub run_tasks_batch {
     my ($args) = @_;
 
-    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    # Reuse the global plugin instance to maintain HTTP client cache
     my $tasks  = $plugin->get_queued_tasks->filter_by_runnable(
         {
             order_by => { -asc => ['timestamp'] },

@@ -103,7 +103,7 @@ sub retry {
         {
             status   => 'retry',
             attempts => $self->attempts + 1,
-            ( $error ? ( last_error => encode_json($error) ) : () ),
+            ( $error ? ( last_error => encode_json( { error => $error } ) ) : () ),
             run_after => \"DATE_ADD(NOW(), INTERVAL $retry_delay SECOND)"
         }
     )->store();
