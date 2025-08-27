@@ -2,6 +2,67 @@
 
 Comprehensive development documentation for the Rapido ILL plugin, including setup, testing, and architecture notes.
 
+## Code Quality Standards
+
+### Mandatory Pre-Commit Workflow
+
+**CRITICAL**: All code must be formatted with Koha's tidy.pl before committing.
+
+#### Required Steps Before Every Commit:
+
+1. **Format code with Koha tidy.pl**:
+   ```bash
+   ktd --name rapido --shell --run "cd /kohadevbox/plugins/rapido-ill && /kohadevbox/koha/misc/devel/tidy.pl [modified_files...]"
+   ```
+
+2. **Remove all .bak files**:
+   ```bash
+   find . -name "*.bak" -delete
+   ```
+
+3. **Run tests to ensure formatting didn't break anything**:
+   ```bash
+   ktd --name rapido --shell --run "cd /kohadevbox/plugins/rapido-ill && export PERL5LIB=/kohadevbox/koha:/kohadevbox/plugins/rapido-ill/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:/kohadevbox/plugins/rapido-ill:. && prove -lr t/"
+   ```
+
+4. **Commit with clean, formatted code**:
+   ```bash
+   git add .
+   git commit -m "Your commit message"
+   ```
+
+#### Standard Commit Sequence:
+
+```bash
+# 1. Make your code changes
+# ... edit files ...
+
+# 2. Format with Koha tidy.pl
+ktd --name rapido --shell --run "cd /kohadevbox/plugins/rapido-ill && /kohadevbox/koha/misc/devel/tidy.pl Koha/Plugin/Com/ByWaterSolutions/RapidoILL.pm"
+
+# 3. Clean up backup files
+find . -name "*.bak" -delete
+
+# 4. Verify tests still pass
+ktd --name rapido --shell --run "cd /kohadevbox/plugins/rapido-ill && export PERL5LIB=/kohadevbox/koha:/kohadevbox/plugins/rapido-ill/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:/kohadevbox/plugins/rapido-ill:. && prove -lr t/"
+
+# 5. Commit
+git add .
+git commit -m "[#XX] Your descriptive commit message"
+```
+
+#### Benefits of This Workflow:
+
+- ✅ **Consistent formatting**: All code follows Koha standards
+- ✅ **Clean commits**: No backup file pollution in git history
+- ✅ **Professional quality**: Matches Koha project standards
+- ✅ **Maintainable codebase**: Uniform style across all files
+- ✅ **Easy reviews**: Reviewers focus on logic, not formatting
+
+#### Configuration:
+
+The repository includes `.perltidyrc` copied from Koha's main repository to ensure consistent formatting standards.
+
 ## Known Issues and Workarounds
 
 ### ILL Request Status Setting (Bug #40682)
