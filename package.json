@@ -1,6 +1,6 @@
 {
     "name": "koha-plugin-rapido-ill",
-    "version": "0.7.4",
+    "version": "0.7.5",
     "description": "Rapido ILL connector plugin for Koha",
     "devDependencies": {
         "gulp": "^4.0.2",
