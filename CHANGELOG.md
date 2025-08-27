@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - [#83] Added `decoded_payload` method to RapidoILL::QueuedTask for JSON-decoding payload attribute
+- [#83] Overloaded `store` method in RapidoILL::QueuedTask to automatically JSON-encode payload references
 
 ### Fixed
 - [#84] Added PATRON_HOLD to no-op status list to prevent UnhandledException errors
