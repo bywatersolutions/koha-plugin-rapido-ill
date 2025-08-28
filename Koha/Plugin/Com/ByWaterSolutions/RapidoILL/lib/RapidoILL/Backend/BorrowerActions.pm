@@ -288,6 +288,19 @@ sub borrower_renew {
             $due_datetime->set_time_zone('local');
             $due_datetime->set( hour => 23, minute => 59, second => 59 );
 
+            # Store current due_date as prevDueDateTime before updating
+            if ( $req->due_date ) {
+                my $prev_due_epoch = dt_from_string( $req->due_date )->epoch;
+                $self->{plugin}->add_or_update_attributes(
+                    {
+                        request    => $req,
+                        attributes => { prevDueDateTime => $prev_due_epoch }
+                    }
+                );
+            }
+
+            $req->set( { due_date => $due_datetime->datetime() } )->store();
+
             $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
                 {
                     circId      => $circId,

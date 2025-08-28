@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 use Test::Exception;
 use Test::Warn;
 
@@ -345,6 +345,66 @@ subtest 'get_action_handler method' => sub {
         $plugin->get_action_handler( {} );
     }
     'RapidoILL::Exception::MissingParameter', 'Dies when parameters missing';
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'get_checkout() tests' => sub {
+    plan tests => 4;
+
+    $schema->storage->txn_begin;
+
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+
+    # Create test ILL request
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                backend => 'RapidoILL',
+                status  => 'B_ITEM_RECEIVED'
+            }
+        }
+    );
+
+    # Test with no checkout_id attribute
+    my $checkout = $plugin->get_checkout($ill_request);
+    is( $checkout, undef, 'Returns undef when no checkout_id attribute exists' );
+
+    # Create a checkout and link it to the ILL request
+    my $patron        = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $item          = $builder->build_object( { class => 'Koha::Items' } );
+    my $test_checkout = $builder->build_object(
+        {
+            class => 'Koha::Checkouts',
+            value => {
+                borrowernumber => $patron->id,
+                itemnumber     => $item->id,
+                date_due       => '2025-09-07 23:59:59'
+            }
+        }
+    );
+
+    # Add checkout_id attribute to ILL request
+    $builder->build_object(
+        {
+            class => 'Koha::ILL::Request::Attributes',
+            value => {
+                illrequest_id => $ill_request->id,
+                type          => 'checkout_id',
+                value         => $test_checkout->id
+            }
+        }
+    );
+
+    # Test with valid checkout_id attribute
+    $checkout = $plugin->get_checkout($ill_request);
+    isa_ok( $checkout, 'Koha::Checkout', 'Returns Koha::Checkout object when checkout_id exists' );
+    is( $checkout->id, $test_checkout->id, 'Returns correct checkout object' );
+
+    # Test with undef parameter
+    $checkout = $plugin->get_checkout(undef);
+    is( $checkout, undef, 'Returns undef when passed undef parameter' );
 
     $schema->storage->txn_rollback;
 };

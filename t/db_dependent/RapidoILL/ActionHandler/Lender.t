@@ -292,6 +292,7 @@ subtest 'item_received method with database operations and real CircAction' => s
         }
     );
     $mock_plugin->mock( 'add_or_update_attributes', sub { return; } );
+    $mock_plugin->mock( 'get_checkout', sub { return; } );  # No existing checkout
 
     # Mock logger
     my $mock_logger = Test::MockObject->new();
@@ -395,6 +396,7 @@ subtest 'item_in_transit method with database operations and real CircAction' =>
         }
     );
     $mock_plugin->mock( 'add_or_update_attributes', sub { return; } );
+    $mock_plugin->mock( 'get_checkout', sub { return; } );  # No existing checkout
 
     # Mock logger
     my $mock_logger = Test::MockObject->new();

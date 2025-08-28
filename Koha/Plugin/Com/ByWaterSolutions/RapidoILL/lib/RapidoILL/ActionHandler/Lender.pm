@@ -136,7 +136,7 @@ sub item_received {
 
     Koha::Database->new->schema->txn_do(
         sub {
-            if ( !$req->extended_attributes->search( { type => q{checkout_id} } )->count ) {
+            if ( !$self->{plugin}->get_checkout($req) ) {
                 my $item   = Koha::Items->find( { barcode => $action->itemId } );
                 my $patron = Koha::Patrons->find( $req->borrowernumber );
 
@@ -181,7 +181,7 @@ sub item_in_transit {
 
     Koha::Database->new->schema->txn_do(
         sub {
-            if ( !$req->extended_attributes->search( { type => q{checkout_id} } )->count ) {
+            if ( !$self->{plugin}->get_checkout($req) ) {
                 my $item   = Koha::Items->find( { barcode => $action->itemBarcode } );
                 my $patron = Koha::Patrons->find( $req->borrowernumber );
 

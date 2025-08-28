@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - TBD
+
+### Added
+- [#61] Added `get_checkout` method to retrieve linked Koha::Checkout object from ILL requests
+- [#61] Store prevDueDateTime before updating due_date in borrower_renew for renewal rejection handling
+
+### Changed
+- [#61] Refactor manual checkout searches to use get_checkout method
+
+### Fixed
+- [#61] Update checkout date_due when OWNER_RENEW is received with new dueDateTime
+
 ## [0.7.8] - 2025-08-27
 
 ### Added

@@ -2114,6 +2114,7 @@ sub create_patron_hold {
         circStatus         => $action->circStatus,
         dateCreated        => $action->dateCreated,
         dueDateTime        => $action->dueDateTime,
+        prevDueDateTime    => $action->dueDateTime,
         itemAgencyCode     => $action->itemAgencyCode,
         itemBarcode        => $action->itemBarcode,
         itemId             => $action->itemId,
@@ -2334,6 +2335,26 @@ sub get_ill_requests_from_attribute {
         },
         { join => ['illrequestattributes'] }
     );
+}
+
+=head3 get_checkout
+
+    my $checkout = $plugin->get_checkout($ill_request);
+
+Given an ILL request, returns the linked Koha::Checkout object if any, or undef.
+Uses the checkout_id attribute to find the associated checkout.
+
+=cut
+
+sub get_checkout {
+    my ( $self, $ill_request ) = @_;
+
+    return unless $ill_request;
+
+    my $checkout_id_attr = $ill_request->extended_attributes->search( { type => 'checkout_id' } )->next;
+    return unless $checkout_id_attr;
+
+    return Koha::Checkouts->find( $checkout_id_attr->value );
 }
 
 =head3 add_or_update_attributes

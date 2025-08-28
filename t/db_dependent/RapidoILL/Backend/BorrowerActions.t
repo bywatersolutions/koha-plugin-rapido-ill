@@ -28,6 +28,7 @@ use t::lib::TestBuilder;
 use t::lib::Mocks;
 
 use Koha::Database;
+use Koha::DateUtils qw( dt_from_string );
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
@@ -540,7 +541,7 @@ subtest 'borrower_renew() tests' => sub {
     plan tests => 2;
 
     subtest 'Successful calls' => sub {
-        plan tests => 7;
+        plan tests => 9;
 
         $schema->storage->txn_begin;
 
@@ -548,8 +549,9 @@ subtest 'borrower_renew() tests' => sub {
             {
                 class => 'Koha::ILL::Requests',
                 value => {
-                    backend => 'RapidoILL',
-                    status  => 'B_ITEM_RECEIVED'
+                    backend  => 'RapidoILL',
+                    status   => 'B_ITEM_RECEIVED',
+                    due_date => '2025-09-01 23:59:59'  # Set initial due date
                 }
             }
         );
@@ -599,6 +601,14 @@ subtest 'borrower_renew() tests' => sub {
         # Verify status was updated
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_RENEWAL_REQUESTED', 'Sets correct status' );
+
+        # Verify prevDueDateTime attribute was stored
+        my $prev_due_attr = $illrequest->extended_attributes->search( { type => 'prevDueDateTime' } )->next;
+        ok( $prev_due_attr, 'prevDueDateTime attribute was created' );
+        
+        # Verify prevDueDateTime contains the original due date in epoch format
+        my $original_due_epoch = dt_from_string('2025-09-01 23:59:59')->epoch;
+        is( $prev_due_attr->value, $original_due_epoch, 'prevDueDateTime contains original due date in epoch format' );
 
         $schema->storage->txn_rollback;
     };

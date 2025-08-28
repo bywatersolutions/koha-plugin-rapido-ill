@@ -311,13 +311,10 @@ sub owner_renew {
 
             # [#61] Update checkout due date if we have a new dueDateTime
             if ($due_date) {
-                my $checkout_id_attr = $req->extended_attributes->search( { type => 'checkout_id' } )->next;
-                if ($checkout_id_attr) {
-                    my $checkout = Koha::Checkouts->find( $checkout_id_attr->value );
-                    if ($checkout) {
-                        $checkout->date_due( $due_date->datetime() );
-                        $checkout->store();
-                    }
+                my $checkout = $self->{plugin}->get_checkout($req);
+                if ($checkout) {
+                    $checkout->date_due( $due_date->datetime() );
+                    $checkout->store();
                 }
             }
         }
