@@ -387,7 +387,7 @@ subtest 'item_shipped() tests' => sub {
 };
 
 subtest 'owner_renew() tests' => sub {
-    plan tests => 6;
+    plan tests => 8;
 
     $schema->storage->txn_begin;
 
@@ -398,6 +398,32 @@ subtest 'owner_renew() tests' => sub {
             value => {
                 backend => 'RapidoILL',
                 status  => 'B_ITEM_RECEIVED'
+            }
+        }
+    );
+
+    # Create a checkout for the ILL request
+    my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $item     = $builder->build_object( { class => 'Koha::Items' } );
+    my $checkout = $builder->build_object(
+        {
+            class => 'Koha::Checkouts',
+            value => {
+                borrowernumber => $patron->id,
+                itemnumber     => $item->id,
+                date_due       => '2025-09-07 23:59:59'
+            }
+        }
+    );
+
+    # Add checkout_id attribute to ILL request
+    $builder->build_object(
+        {
+            class => 'Koha::ILL::Request::Attributes',
+            value => {
+                illrequest_id => $ill_request->id,
+                type          => 'checkout_id',
+                value         => $checkout->id
             }
         }
     );
@@ -438,6 +464,10 @@ subtest 'owner_renew() tests' => sub {
         DateTime->from_epoch( epoch => $due_epoch )->ymd . ' ' . DateTime->from_epoch( epoch => $due_epoch )->hms;
     like( $ill_request->due_date, qr/\Q$expected_date\E/, 'due_date contains expected date from epoch' );
 
+    # [#61] Verify checkout due date was also updated
+    $checkout->discard_changes;
+    like( $checkout->date_due, qr/\Q$expected_date\E/, 'checkout due_date updated to match renewal date' );
+
     # Test owner_renew without dueDateTime
     my $circ_action2 = $builder->build_object(
         {
@@ -453,7 +483,8 @@ subtest 'owner_renew() tests' => sub {
         }
     );
 
-    my $previous_due_date = $ill_request->due_date;
+    my $previous_due_date     = $ill_request->due_date;
+    my $previous_checkout_due = $checkout->date_due;
 
     lives_ok {
         $handler->owner_renew($circ_action2)
@@ -463,6 +494,10 @@ subtest 'owner_renew() tests' => sub {
     # Verify due_date unchanged when dueDateTime is undefined
     $ill_request->discard_changes;
     is( $ill_request->due_date, $previous_due_date, 'due_date unchanged when dueDateTime is undefined' );
+
+    # [#61] Verify checkout due date unchanged when no dueDateTime
+    $checkout->discard_changes;
+    is( $checkout->date_due, $previous_checkout_due, 'checkout due_date unchanged when no dueDateTime' );
 
     $schema->storage->txn_rollback;
 };
