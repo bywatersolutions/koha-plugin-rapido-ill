@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Enhanced
 - [#87] Comprehensive test coverage for add_or_update_attributes() method including SQL injection protection, transaction rollback behavior, and SQL function value handling
+- [#88] Add state parameter to sync_circ_requests() method with fallback to default states ['ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED']
 
 ## [0.8.3] - 2025-09-01
 

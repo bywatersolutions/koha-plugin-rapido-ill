@@ -1790,11 +1790,17 @@ sub sync_agencies {
         {
             pod       => $pod,
           [ startTime => $startTime,
-            endTime   => $endTime, ]
+            endTime   => $endTime,
+            state     => $state_array, ]
         }
     );
 
 Syncs circulation requests from the specified I<pod> and returns processing results.
+
+Optional parameters:
+- startTime: Unix timestamp for filtering requests (default: 1700000000)
+- endTime: Unix timestamp for filtering requests (default: current time)
+- state: Array reference of states to sync (default: ['ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED'])
 
 Returns a hashref with the following structure:
 
@@ -1815,8 +1821,6 @@ Returns a hashref with the following structure:
         ]
     }
 
-TODO: Add state parameter.
-
 =cut
 
 sub sync_circ_requests {
@@ -1826,6 +1830,7 @@ sub sync_circ_requests {
 
     my $startTime = $params->{startTime} // "1700000000";
     my $endTime   = $params->{endTime}   // time();
+    my $state     = $params->{state}     // [ 'ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED' ];
 
     my $results = {
         processed => 0,
@@ -1841,7 +1846,7 @@ sub sync_circ_requests {
             startTime => $startTime,
             endTime   => $endTime,
             content   => 'verbose',
-            state     => [ 'ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED' ],
+            state     => $state,
         }
     );
 
