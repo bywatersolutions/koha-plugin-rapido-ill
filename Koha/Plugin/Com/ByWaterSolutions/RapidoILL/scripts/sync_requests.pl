@@ -16,6 +16,7 @@
 # This program comes with ABSOLUTELY NO WARRANTY;
 
 use Modern::Perl;
+use utf8;
 
 use Getopt::Long;
 use Text::Table;
