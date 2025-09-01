@@ -92,7 +92,6 @@ sub handle_from_action {
     my @no_op_statuses = qw(
         BORROWER_RENEW
         ITEM_IN_TRANSIT
-        ITEM_RECEIVED
         PATRON_HOLD
     );
 
@@ -101,6 +100,11 @@ sub handle_from_action {
 
         # No action needed for these statuses
         return;
+    }
+
+    # Special handling for ITEM_RECEIVED - could be renewal rejection
+    if ( $action->lastCircState eq 'ITEM_RECEIVED' ) {
+        return $self->handle_item_received($action);
     }
 
     my $status =
@@ -315,10 +319,91 @@ sub owner_renew {
                 if ($checkout) {
                     $checkout->date_due( $due_date->datetime() );
                     $checkout->store();
+                } else {
+                    $self->{plugin}->logger->warn(
+                        sprintf(
+                            "No checkout found for ILL request %d during renewal approval - could not update checkout due date",
+                            $req->id
+                        )
+                    );
                 }
             }
         }
     );
+
+    return;
+}
+
+=head3 handle_item_received
+
+    $handler->handle_item_received( $action );
+
+Handle incoming I<ITEM_RECEIVED> action. This could be either:
+1. Initial item receipt (no action needed)
+2. Renewal rejection (need to update status)
+
+=cut
+
+sub handle_item_received {
+    my ( $self, $action ) = @_;
+
+    my $req = $action->ill_request;
+
+    # Check if this is a renewal rejection by looking at the current ILL request status
+    # If the request is in a renewal state, this ITEM_RECEIVED is a rejection
+    if ( $req->status eq 'B_ITEM_RENEWAL_REQUESTED' ) {
+
+        Koha::Database->new->schema->txn_do(
+            sub {
+                # Get the previous due date from attributes
+                my $prev_due_attr = $req->extended_attributes->find( { type => 'prevDueDateTime' } );
+                my $prev_due_date;
+
+                if ( $prev_due_attr && $prev_due_attr->value ) {
+                    $prev_due_date = DateTime->from_epoch( epoch => $prev_due_attr->value );
+
+                    # Restore the previous due date in the ILL request
+                    $req->set( { due_date => $prev_due_date->datetime() } );
+
+                    # Update the checkout due date as well
+                    my $checkout = $self->{plugin}->get_checkout($req);
+                    if ($checkout) {
+                        $checkout->date_due( $prev_due_date->datetime() );
+                        $checkout->store();
+                    } else {
+                        $self->{plugin}->logger->warn(
+                            sprintf(
+                                "No checkout found for ILL request %d during renewal rejection - could not restore checkout due date",
+                                $req->id
+                            )
+                        );
+                    }
+                }
+
+                # Renewal was rejected, transition back to received state
+                $req->status('B_ITEM_RECEIVED')->store();
+
+                # Add renewal rejection attribute for staff notices
+                $self->{plugin}->add_or_update_attributes(
+                    {
+                        attributes => { renewal_rejected => \'NOW()' },
+                        request    => $req,
+                    }
+                );
+
+                # Log the renewal rejection
+                $self->{plugin}->logger->info(
+                    sprintf(
+                        "Renewal rejected for ILL request %d (circId: %s) - status reverted to B_ITEM_RECEIVED, due date restored",
+                        $req->id,
+                        $action->circId
+                    )
+                );
+            }
+        );
+    }
+
+    # Otherwise, this is just a regular ITEM_RECEIVED state - no action needed
 
     return;
 }

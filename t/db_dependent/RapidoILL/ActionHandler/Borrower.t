@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use Test::MockObject;
 use Test::Exception;
 
@@ -544,6 +544,11 @@ subtest 'item_received method (borrower-generated - no-op)' => sub {
     # Create a mock action for ITEM_RECEIVED
     my $mock_action = Test::MockObject->new();
     $mock_action->mock( 'lastCircState', sub { return 'ITEM_RECEIVED'; } );
+    
+    # Mock ill_request to return a request with non-renewal status
+    my $mock_ill_request = Test::MockObject->new();
+    $mock_ill_request->mock( 'status', sub { return 'B_ITEM_RECEIVED'; } ); # Not in renewal state
+    $mock_action->mock( 'ill_request', sub { return $mock_ill_request; } );
 
     # Test that ITEM_RECEIVED is handled as no-op (no exception thrown)
     lives_ok {
@@ -627,6 +632,87 @@ subtest 'default_handler method' => sub {
         $handler->default_handler($mock_action)
     }
     'RapidoILL::Exception::UnhandledException', 'default_handler throws UnhandledException for unknown status';
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'handle_item_received renewal rejection' => sub {
+    plan tests => 5;
+
+    $schema->storage->txn_begin;
+
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    my $handler = RapidoILL::ActionHandler::Borrower->new(
+        {
+            pod    => 'test-pod',
+            plugin => $plugin
+        }
+    );
+
+    # Create a real ILL request in renewal state
+    my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+    my $item = $builder->build_object( { class => 'Koha::Items', value => { biblionumber => $biblio->biblionumber } } );
+    
+    my $ill_request = $builder->build_object({
+        class => 'Koha::ILL::Requests',
+        value => {
+            borrowernumber => $patron->borrowernumber,
+            biblio_id      => $biblio->biblionumber,
+            status         => 'B_ITEM_RENEWAL_REQUESTED',
+            due_date       => '2025-02-01 23:59:59'
+        }
+    });
+
+    # Create a checkout for the item
+    my $checkout = Koha::Checkout->new({
+        borrowernumber => $patron->borrowernumber,
+        itemnumber     => $item->itemnumber,
+        date_due       => '2025-02-01 23:59:59',
+        branchcode     => $patron->branchcode,
+    })->store();
+
+    # Link item to ILL request
+    Koha::ILL::Request::Attribute->new({
+        illrequest_id => $ill_request->id,
+        type          => 'item_id',
+        value         => $item->itemnumber,
+        readonly      => 1
+    })->store();
+
+    # Add prevDueDateTime attribute
+    my $prev_due_epoch = 1735689599; # 2024-12-31 23:59:59
+    Koha::ILL::Request::Attribute->new({
+        illrequest_id => $ill_request->id,
+        type          => 'prevDueDateTime',
+        value         => $prev_due_epoch,
+        readonly      => 1
+    })->store();
+
+    # Create mock action for renewal rejection
+    my $mock_action = Test::MockObject->new();
+    $mock_action->mock( 'lastCircState', sub { return 'ITEM_RECEIVED'; } );
+    $mock_action->mock( 'ill_request', sub { return $ill_request; } );
+    $mock_action->mock( 'circId', sub { return 'TEST_CIRC_123'; } );
+
+    # Test renewal rejection handling
+    lives_ok {
+        $handler->handle_item_received($mock_action);
+    } 'Renewal rejection handled without exception';
+
+    # Verify status change
+    $ill_request->discard_changes;
+    is( $ill_request->status, 'B_ITEM_RECEIVED', 'Status reverted to B_ITEM_RECEIVED' );
+
+    # Verify due date restored (compare just the date part, ignore format differences)
+    my $restored_date = $ill_request->due_date;
+    $restored_date =~ s/T/ /; # Convert ISO format to MySQL format if needed
+    like( $restored_date, qr/2024-12-31 23:59:59/, 'Due date restored to previous value' );
+
+    # Verify renewal rejection attribute added
+    my $rejection_attr = $ill_request->extended_attributes->find({ type => 'renewal_rejected' });
+    ok( $rejection_attr, 'Renewal rejection attribute created' );
+    ok( $rejection_attr->value, 'Rejection timestamp recorded' );
 
     $schema->storage->txn_rollback;
 };
