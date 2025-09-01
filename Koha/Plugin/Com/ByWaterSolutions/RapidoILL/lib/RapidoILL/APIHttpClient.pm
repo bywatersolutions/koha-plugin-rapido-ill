@@ -138,7 +138,7 @@ sub post_request {
         $self->logger->info( "Making POST request to " . $endpoint );
 
         if ( $self->logger->is_debug ) {
-            $self->logger->debug( "POST request to " . $endpoint );
+            $self->logger->debug( "POST request headers: Authorization=Bearer [REDACTED], Content-Type=application/json" );
             $self->logger->debug( "Request data: " . encode_json( $args->{data} ) ) if exists $args->{data};
         }
     }
@@ -206,7 +206,7 @@ sub put_request {
         $self->logger->info( "Making PUT request to " . $endpoint );
 
         if ( $self->logger->is_debug ) {
-            $self->logger->debug( "PUT request to " . $endpoint );
+            $self->logger->debug( "PUT request headers: Authorization=Bearer [REDACTED], Content-Type=application/json" );
             $self->logger->debug( "Request data: " . encode_json( $args->{data} ) );
         }
     }
@@ -306,7 +306,7 @@ sub get_request {
         $self->logger->info( "Making GET request to " . $uri->as_string );
 
         if ( $self->logger->is_debug ) {
-            $self->logger->debug( "GET request to " . $uri->as_string );
+            $self->logger->debug( "GET request headers: Authorization=Bearer [REDACTED], Accept=application/json" );
         }
     }
 
@@ -370,7 +370,7 @@ sub delete_request {
         $self->logger->info( "Making DELETE request to " . $endpoint );
 
         if ( $self->logger->is_debug ) {
-            $self->logger->debug( "DELETE request to " . $endpoint );
+            $self->logger->debug( "DELETE request headers: Authorization=Bearer [REDACTED], Accept=application/json" );
         }
     }
 

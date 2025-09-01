@@ -592,7 +592,7 @@ subtest 'delete_request() tests' => sub {
         # Verify debug logging for response content
         # First debug message is the request debug, second is the response body debug
         $logger->debug_like(
-            qr/DELETE request to https:\/\/test\.example\.com\/item\/999/,
+            qr/DELETE request headers: Authorization=Bearer \[REDACTED\], Accept=application\/json/,
             'Debug log for DELETE request'
         );
         $logger->debug_like(
@@ -842,7 +842,7 @@ subtest 'post_request() tests' => sub {
         # Verify debug logging for response content
         # First debug message is the request debug, second is request data, third is the response body debug
         $logger->debug_like(
-            qr/POST request to https:\/\/test\.example\.com\/items/,
+            qr/POST request headers: Authorization=Bearer \[REDACTED\], Content-Type=application\/json/,
             'Debug log for POST request'
         );
         $logger->debug_like(
@@ -1101,7 +1101,7 @@ subtest 'put_request() tests' => sub {
         # Verify debug logging for response content
         # First debug message is the request debug, second is request data, third is the response body debug
         $logger->debug_like(
-            qr/PUT request to https:\/\/test\.example\.com\/items\/999/,
+            qr/PUT request headers: Authorization=Bearer \[REDACTED\], Content-Type=application\/json/,
             'Debug log for PUT request'
         );
         $logger->debug_like(
@@ -1355,7 +1355,7 @@ subtest 'get_request() tests' => sub {
         # Verify debug logging for response content
         # First debug message is the request debug, second is the response body debug
         $logger->debug_like(
-            qr/GET request to https:\/\/test\.example\.com\/items\/999/,
+            qr/GET request headers: Authorization=Bearer \[REDACTED\], Accept=application\/json/,
             'Debug log for GET request'
         );
         $logger->debug_like(
