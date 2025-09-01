@@ -22,7 +22,7 @@ use Test::Exception;
 use Test::MockModule;
 use HTTP::Response;
 use HTTP::Request;
-use JSON qw(encode_json);
+use JSON qw(encode_json decode_json);
 
 use t::lib::Mocks;
 use t::lib::Mocks::Logger;
@@ -102,7 +102,7 @@ subtest 'Dev mode behavior' => sub {
             client_id     => 'test_client',
             client_secret => 'test_secret',
             plugin        => $plugin,
-                pod           => "test-pod",
+            pod           => "test-pod",
             dev_mode      => 1,
         }
     );
@@ -120,7 +120,7 @@ subtest 'Token management methods' => sub {
             client_id     => 'test_client',
             client_secret => 'test_secret',
             plugin        => $plugin,
-                pod           => "test-pod",
+            pod           => "test-pod",
             dev_mode      => 1,
         }
     );
@@ -1429,171 +1429,205 @@ subtest 'Token persistence tests' => sub {
 
     subtest 'Token saving to database' => sub {
         plan tests => 4;
-        
+
         my $stored_data = {};
-        my $plugin = Test::MockObject->new();
-        $plugin->mock('store_data', sub {
-            my ($self, $data) = @_;
-            %$stored_data = (%$stored_data, %$data);
-        });
-        
-        my $client = RapidoILL::APIHttpClient->new({
-            base_url      => 'https://test.example.com',
-            client_id     => 'test_client',
-            client_secret => 'test_secret',
-            plugin        => $plugin,
-            pod           => "test-pod",
-            dev_mode      => 1,
-        });
-        
+        my $plugin      = Test::MockObject->new();
+        $plugin->mock(
+            'store_data',
+            sub {
+                my ( $self, $data ) = @_;
+                %$stored_data = ( %$stored_data, %$data );
+            }
+        );
+
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                pod           => "test-pod",
+                dev_mode      => 1,
+            }
+        );
+
         # Set up token data
         $client->{access_token} = 'test_token_123';
-        $client->{expiration} = DateTime->now()->add(seconds => 600);
-        
+        $client->{expiration}   = DateTime->now()->add( seconds => 600 );
+
         # Save token
         $client->_save_token_to_database();
-        
+
         # Verify storage
         my $token_key = "access_token_test-pod";
-        ok(exists $stored_data->{$token_key}, 'Token data stored with correct pod-specific key');
-        
-        my $token_data = $stored_data->{$token_key};
-        is($token_data->{access_token}, 'test_token_123', 'Access token stored correctly');
-        ok($token_data->{expiration_epoch}, 'Expiration epoch stored');
-        ok($token_data->{cached_at_epoch}, 'Cache timestamp stored');
+        ok( exists $stored_data->{$token_key}, 'Token data stored with correct pod-specific key' );
+
+        my $token_json = $stored_data->{$token_key};
+        my $token_data = decode_json($token_json);
+        is( $token_data->{access_token}, 'test_token_123', 'Access token stored correctly' );
+        ok( $token_data->{expiration_epoch}, 'Expiration epoch stored' );
+        ok( $token_data->{cached_at_epoch},  'Cache timestamp stored' );
     };
 
     subtest 'Token loading from database' => sub {
         plan tests => 5;
-        
-        my $future_time = DateTime->now()->add(seconds => 600);
-        my $token_key = "access_token_test-pod";
+
+        my $future_time = DateTime->now()->add( seconds => 600 );
+        my $token_key   = "access_token_test-pod";
         my $stored_data = {
-            $token_key => {
-                access_token     => 'cached_token_456',
-                expiration_epoch => $future_time->epoch(),
-                cached_at_epoch  => DateTime->now()->epoch(),
-            }
+            $token_key => encode_json(
+                {
+                    access_token     => 'cached_token_456',
+                    expiration_epoch => $future_time->epoch(),
+                    cached_at_epoch  => DateTime->now()->epoch(),
+                }
+            )
         };
-        
+
         my $plugin = Test::MockObject->new();
-        $plugin->mock('retrieve_data', sub {
-            my ($self, $key) = @_;
-            return $stored_data->{$key};
-        });
-        
-        my $client = RapidoILL::APIHttpClient->new({
-            base_url      => 'https://test.example.com',
-            client_id     => 'test_client',
-            client_secret => 'test_secret',
-            plugin        => $plugin,
-            pod           => "test-pod",
-            dev_mode      => 1,
-        });
-        
+        $plugin->mock(
+            'retrieve_data',
+            sub {
+                my ( $self, $key ) = @_;
+                return $stored_data->{$key};
+            }
+        );
+
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                pod           => "test-pod",
+                dev_mode      => 1,
+            }
+        );
+
         # Load token
         $client->_load_token_from_database();
-        
+
         # Verify loading
-        is($client->{access_token}, 'cached_token_456', 'Access token loaded correctly');
-        isa_ok($client->{expiration}, 'DateTime', 'Expiration loaded as DateTime object');
-        is($client->{expiration}->epoch(), $future_time->epoch(), 'Expiration time matches stored value');
-        
+        is( $client->{access_token}, 'cached_token_456', 'Access token loaded correctly' );
+        isa_ok( $client->{expiration}, 'DateTime', 'Expiration loaded as DateTime object' );
+        is( $client->{expiration}->epoch(), $future_time->epoch(), 'Expiration time matches stored value' );
+
         # Test with invalid data
-        $stored_data->{$token_key} = { access_token => 'token', expiration_epoch => 'invalid' };
+        $stored_data->{$token_key} = encode_json( { access_token => 'token', expiration_epoch => 'invalid' } );
         $client->_load_token_from_database();
-        
-        ok(!defined $client->{access_token}, 'Invalid cached data cleared on parse error');
-        ok(!defined $client->{expiration}, 'Invalid expiration cleared on parse error');
+
+        ok( !defined $client->{access_token}, 'Invalid cached data cleared on parse error' );
+        ok( !defined $client->{expiration},   'Invalid expiration cleared on parse error' );
     };
 
     subtest 'Multi-pod token isolation' => sub {
         plan tests => 4;
-        
+
         my $stored_data = {};
-        my $plugin = Test::MockObject->new();
-        $plugin->mock('store_data', sub {
-            my ($self, $data) = @_;
-            %$stored_data = (%$stored_data, %$data);
-        });
-        $plugin->mock('retrieve_data', sub {
-            my ($self, $key) = @_;
-            return $stored_data->{$key};
-        });
-        
+        my $plugin      = Test::MockObject->new();
+        $plugin->mock(
+            'store_data',
+            sub {
+                my ( $self, $data ) = @_;
+                %$stored_data = ( %$stored_data, %$data );
+            }
+        );
+        $plugin->mock(
+            'retrieve_data',
+            sub {
+                my ( $self, $key ) = @_;
+                return $stored_data->{$key};
+            }
+        );
+
         # Create clients for different pods
-        my $client1 = RapidoILL::APIHttpClient->new({
-            base_url      => 'https://pod1.example.com',
-            client_id     => 'client1',
-            client_secret => 'secret1',
-            plugin        => $plugin,
-            pod           => "pod1",
-            dev_mode      => 1,
-        });
-        
-        my $client2 = RapidoILL::APIHttpClient->new({
-            base_url      => 'https://pod2.example.com',
-            client_id     => 'client2',
-            client_secret => 'secret2',
-            plugin        => $plugin,
-            pod           => "pod2",
-            dev_mode      => 1,
-        });
-        
+        my $client1 = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://pod1.example.com',
+                client_id     => 'client1',
+                client_secret => 'secret1',
+                plugin        => $plugin,
+                pod           => "pod1",
+                dev_mode      => 1,
+            }
+        );
+
+        my $client2 = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://pod2.example.com',
+                client_id     => 'client2',
+                client_secret => 'secret2',
+                plugin        => $plugin,
+                pod           => "pod2",
+                dev_mode      => 1,
+            }
+        );
+
         # Set different tokens for each pod
         $client1->{access_token} = 'token_pod1';
-        $client1->{expiration} = DateTime->now()->add(seconds => 600);
+        $client1->{expiration}   = DateTime->now()->add( seconds => 600 );
         $client1->_save_token_to_database();
-        
+
         $client2->{access_token} = 'token_pod2';
-        $client2->{expiration} = DateTime->now()->add(seconds => 600);
+        $client2->{expiration}   = DateTime->now()->add( seconds => 600 );
         $client2->_save_token_to_database();
-        
+
         # Verify separate storage
-        ok(exists $stored_data->{"access_token_pod1"}, 'Pod1 token stored separately');
-        ok(exists $stored_data->{"access_token_pod2"}, 'Pod2 token stored separately');
-        is($stored_data->{"access_token_pod1"}->{access_token}, 'token_pod1', 'Pod1 token correct');
-        is($stored_data->{"access_token_pod2"}->{access_token}, 'token_pod2', 'Pod2 token correct');
+        ok( exists $stored_data->{"access_token_pod1"}, 'Pod1 token stored separately' );
+        ok( exists $stored_data->{"access_token_pod2"}, 'Pod2 token stored separately' );
+
+        my $pod1_data = decode_json( $stored_data->{"access_token_pod1"} );
+        my $pod2_data = decode_json( $stored_data->{"access_token_pod2"} );
+        is( $pod1_data->{access_token}, 'token_pod1', 'Pod1 token correct' );
+        is( $pod2_data->{access_token}, 'token_pod2', 'Pod2 token correct' );
     };
 
     subtest 'Database access optimization for long-running processes' => sub {
         plan tests => 4;
-        
+
         my $db_access_count = 0;
-        my $stored_data = {
-            "access_token_test-pod" => {
-                access_token     => 'cached_token_789',
-                expiration_epoch => DateTime->now()->add(seconds => 600)->epoch(),
-                cached_at_epoch  => DateTime->now()->epoch(),
-            }
+        my $stored_data     = {
+            "access_token_test-pod" => encode_json(
+                {
+                    access_token     => 'cached_token_789',
+                    expiration_epoch => DateTime->now()->add( seconds => 600 )->epoch(),
+                    cached_at_epoch  => DateTime->now()->epoch(),
+                }
+            )
         };
-        
+
         my $plugin = Test::MockObject->new();
-        $plugin->mock('retrieve_data', sub {
-            my ($self, $key) = @_;
-            $db_access_count++;
-            return $stored_data->{$key};
-        });
-        
-        my $client = RapidoILL::APIHttpClient->new({
-            base_url      => 'https://test.example.com',
-            client_id     => 'test_client',
-            client_secret => 'test_secret',
-            plugin        => $plugin,
-            pod           => "test-pod",
-            # No dev_mode - we want real token loading behavior
-        });
-        
+        $plugin->mock(
+            'retrieve_data',
+            sub {
+                my ( $self, $key ) = @_;
+                $db_access_count++;
+                return $stored_data->{$key};
+            }
+        );
+
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                pod           => "test-pod",
+
+                # No dev_mode - we want real token loading behavior
+            }
+        );
+
         # First call should load from database
         my $token1 = $client->get_token();
-        is($db_access_count, 1, 'First get_token() call loads from database');
-        is($token1, 'cached_token_789', 'Token loaded correctly from database');
-        
+        is( $db_access_count, 1,                  'First get_token() call loads from database' );
+        is( $token1,          'cached_token_789', 'Token loaded correctly from database' );
+
         # Subsequent calls should use in-memory cache
         my $token2 = $client->get_token();
         my $token3 = $client->get_token();
-        
-        is($db_access_count, 1, 'Subsequent get_token() calls do not hit database');
-        is($token2, 'cached_token_789', 'In-memory cached token returned');
+
+        is( $db_access_count, 1,                  'Subsequent get_token() calls do not hit database' );
+        is( $token2,          'cached_token_789', 'In-memory cached token returned' );
     };
 };

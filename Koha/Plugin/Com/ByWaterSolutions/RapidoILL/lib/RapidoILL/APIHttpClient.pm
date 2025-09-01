@@ -138,7 +138,8 @@ sub post_request {
         $self->logger->info( "Making POST request to " . $endpoint );
 
         if ( $self->logger->is_debug ) {
-            $self->logger->debug( "POST request headers: Authorization=Bearer [REDACTED], Content-Type=application/json" );
+            $self->logger->debug(
+                "POST request headers: Authorization=Bearer [REDACTED], Content-Type=application/json");
             $self->logger->debug( "Request data: " . encode_json( $args->{data} ) ) if exists $args->{data};
         }
     }
@@ -206,7 +207,7 @@ sub put_request {
         $self->logger->info( "Making PUT request to " . $endpoint );
 
         if ( $self->logger->is_debug ) {
-            $self->logger->debug( "PUT request headers: Authorization=Bearer [REDACTED], Content-Type=application/json" );
+            $self->logger->debug("PUT request headers: Authorization=Bearer [REDACTED], Content-Type=application/json");
             $self->logger->debug( "Request data: " . encode_json( $args->{data} ) );
         }
     }
@@ -306,7 +307,7 @@ sub get_request {
         $self->logger->info( "Making GET request to " . $uri->as_string );
 
         if ( $self->logger->is_debug ) {
-            $self->logger->debug( "GET request headers: Authorization=Bearer [REDACTED], Accept=application/json" );
+            $self->logger->debug("GET request headers: Authorization=Bearer [REDACTED], Accept=application/json");
         }
     }
 
@@ -370,7 +371,7 @@ sub delete_request {
         $self->logger->info( "Making DELETE request to " . $endpoint );
 
         if ( $self->logger->is_debug ) {
-            $self->logger->debug( "DELETE request headers: Authorization=Bearer [REDACTED], Accept=application/json" );
+            $self->logger->debug("DELETE request headers: Authorization=Bearer [REDACTED], Accept=application/json");
         }
     }
 
@@ -531,17 +532,28 @@ sub _load_token_from_database {
     return unless $self->{plugin};
 
     my $token_key  = "access_token_" . $self->{pod};
-    my $token_data = $self->{plugin}->retrieve_data($token_key);
+    my $token_json = $self->{plugin}->retrieve_data($token_key);
 
-    if ( $token_data && ref($token_data) eq 'HASH' ) {
-        $self->{access_token} = $token_data->{access_token};
-        if ( $token_data->{expiration_epoch} ) {
-            try {
-                $self->{expiration} = DateTime->from_epoch( epoch => $token_data->{expiration_epoch} );
-            } catch {
-                delete $self->{access_token};
-                delete $self->{expiration};
-            };
+    if ($token_json) {
+        my $token_data;
+        try {
+            $token_data = decode_json($token_json);
+        } catch {
+
+            # Invalid JSON, ignore and return
+            return;
+        };
+
+        if ( $token_data && ref($token_data) eq 'HASH' ) {
+            $self->{access_token} = $token_data->{access_token};
+            if ( $token_data->{expiration_epoch} ) {
+                try {
+                    $self->{expiration} = DateTime->from_epoch( epoch => $token_data->{expiration_epoch} );
+                } catch {
+                    delete $self->{access_token};
+                    delete $self->{expiration};
+                };
+            }
         }
     }
 }
@@ -567,7 +579,7 @@ sub _save_token_to_database {
         cached_at_epoch  => DateTime->now()->epoch(),
     };
 
-    $self->{plugin}->store_data( { $token_key => $token_data } );
+    $self->{plugin}->store_data( { $token_key => encode_json($token_data) } );
 }
 
 1;
