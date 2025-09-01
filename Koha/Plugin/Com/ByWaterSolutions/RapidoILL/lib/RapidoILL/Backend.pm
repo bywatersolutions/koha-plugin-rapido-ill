@@ -36,8 +36,6 @@ use Koha::Patrons;
 
 use RapidoILL::Exceptions;
 
-#use INNReach::Commands::BorrowingSite;
-
 =head1 NAME
 
 RapidoILL::Backend - Koha ILL Backend for Rapido ILL
@@ -210,6 +208,15 @@ sub status_graph {
             method         => q{},
             next_actions   => [ 'O_ITEM_RECALLED', 'O_ITEM_CHECKED_IN' ],
             ui_method_icon => q{},
+        },
+        O_RENEWAL_REQUESTED => {
+            prev_actions   => ['O_ITEM_RECEIVED_DESTINATION'],
+            id             => 'O_RENEWAL_REQUESTED',
+            name           => 'Renewal requested by borrowing library',
+            ui_method_name => 'Approve renewal',
+            method         => 'renewal_request',
+            next_actions   => ['O_ITEM_RECEIVED_DESTINATION'],
+            ui_method_icon => 'fa-solid fa-clock-rotate-left',
         },
         O_ITEM_RECALLED => {
             prev_actions   => ['O_ITEM_RECEIVED_DESTINATION'],
@@ -945,6 +952,99 @@ sub claims_returned {
         stage   => 'commit',
         next    => 'illview',
         value   => q{},
+    };
+}
+
+=head3 renewal_request
+
+    $backend->renewal_request( $params );
+
+Handle renewal approval/rejection from the UI form.
+
+=cut
+
+sub renewal_request {
+    my ( $self, $params ) = @_;
+
+    my $request = $params->{request};
+    my $decision = $params->{other}->{decision};
+    my $new_due_date = $params->{other}->{new_due_date};
+
+    # Validate decision
+    unless ($decision && ($decision eq 'approve' || $decision eq 'reject')) {
+        return {
+            error   => 1,
+            status  => '',
+            message => 'Invalid decision. Must be "approve" or "reject".',
+        };
+    }
+
+    return try {
+        if ($decision eq 'approve') {
+            # Get the borrower's requested due date from attributes
+            my $borrower_requested_attr = $request->extended_attributes->find({ type => 'borrower_requested_due_date' });
+            my $borrower_requested_due_date = $borrower_requested_attr ? $borrower_requested_attr->value : undef;
+            
+            # Determine which due date to use
+            my $due_date_obj;
+            if ($new_due_date) {
+                # Staff override date
+                try {
+                    $due_date_obj = dt_from_string($new_due_date);
+                } catch {
+                    return {
+                        error   => 1,
+                        status  => '',
+                        message => 'Invalid due date format.',
+                    };
+                };
+            } elsif ($borrower_requested_due_date) {
+                # Use borrower's requested date
+                $due_date_obj = dt_from_string($borrower_requested_due_date, 'iso');
+            }
+
+            # Use plugin's lender_actions method
+            my $lender_actions = $self->{plugin}->lender_actions;
+
+            $lender_actions->process_renewal_decision(
+                $request,
+                {
+                    approve      => 1,
+                    new_due_date => $due_date_obj,
+                }
+            );
+
+            return {
+                error   => 0,
+                status  => '',
+                message => 'Renewal approved successfully.',
+            };
+        } else {
+            # Rejection
+            my $lender_actions = $self->{plugin}->lender_actions;
+
+            $lender_actions->process_renewal_decision(
+                $request,
+                {
+                    approve      => 0,
+                    new_due_date => undef,
+                }
+            );
+
+            return {
+                error   => 0,
+                status  => '',
+                message => 'Renewal rejected successfully.',
+            };
+        }
+
+    } catch {
+        $self->{plugin}->logger->error("Error processing renewal decision: $_");
+        return {
+            error   => 1,
+            status  => '',
+            message => 'Error processing renewal decision. Please try again.',
+        };
     };
 }
 

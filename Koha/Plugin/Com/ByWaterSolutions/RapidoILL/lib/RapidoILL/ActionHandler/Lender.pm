@@ -76,6 +76,7 @@ sub handle_from_action {
     my ( $self, $action ) = @_;
 
     my $status_to_method = {
+        'BORROWER_RENEW'        => \&borrower_renew,
         'BORROWING_SITE_CANCEL' => \&borrowing_site_cancel,
         'ITEM_IN_TRANSIT'       => \&item_in_transit,
         'ITEM_RECEIVED'         => \&item_received,
@@ -120,6 +121,50 @@ sub default_handler {
 }
 
 =head2 Borrower-generated actions
+
+=head3 borrower_renew
+
+    $handler->borrower_renew($action);
+
+Handle incoming I<BORROWER_RENEW> action. Sets status to O_RENEWAL_REQUESTED
+for manual staff intervention.
+
+=cut
+
+sub borrower_renew {
+    my ( $self, $action ) = @_;
+
+    my $req = $action->ill_request;
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            # Store the renewal request details for staff review
+            $self->{plugin}->add_or_update_attributes(
+                {
+                    request    => $req,
+                    attributes => {
+                        renewal_circId => $action->circId,
+                        renewal_requested_date => \'NOW()',
+                        ($action->dueDateTime ? (borrower_requested_due_date => $action->dueDateTime) : ()),
+                    }
+                }
+            );
+
+            # Set status to indicate manual renewal decision needed
+            $req->status('O_RENEWAL_REQUESTED')->store;
+
+            $self->{plugin}->logger->info(
+                sprintf(
+                    "Renewal requested for ILL request %d (circId: %s) - status set to O_RENEWAL_REQUESTED for manual review",
+                    $req->id,
+                    $action->circId
+                )
+            );
+        }
+    );
+
+    return;
+}
 
 =head3 item_received
 
