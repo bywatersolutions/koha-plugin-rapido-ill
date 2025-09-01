@@ -27,6 +27,7 @@ use Koha::Logger;
 use JSON qw(decode_json encode_json);
 use LWP::UserAgent;
 use MIME::Base64 qw( decode_base64url encode_base64url );
+use Try::Tiny qw( catch try );
 use URI          ();
 
 use RapidoILL::Exceptions;
@@ -61,7 +62,7 @@ Constructor for the authenticated HTTP client.
 sub new {
     my ( $class, $args ) = @_;
 
-    my @mandatory_params = qw(base_url client_id client_secret plugin);
+    my @mandatory_params = qw(base_url client_id client_secret plugin pod);
     foreach my $param (@mandatory_params) {
         RapidoILL::Exception::MissingParameter->throw( param => $param )
             unless $args->{$param};
@@ -75,6 +76,7 @@ sub new {
 
     my $self = $class->SUPER::new($args);
     $self->{base_url}       = $base_url;
+    $self->{pod}            = $args->{pod};
     $self->{token_endpoint} = $self->{base_url} . "/view/broker/auth";
     $self->{ua}             = LWP::UserAgent->new();
     $self->{scope}          = "innreach_tp";
@@ -433,10 +435,12 @@ sub get_token {
     my ($self) = @_;
 
     unless ( $self->dev_mode ) {
-
-        # Try to load token from database first
-        $self->_load_token_from_database();
-
+        # Only load from database if we don't have a token in memory yet
+        if ( !$self->{access_token} && !$self->{_token_loaded_from_db} ) {
+            $self->_load_token_from_database();
+            $self->{_token_loaded_from_db} = 1;
+        }
+        
         # If no token exists yet, or if token is expired, refresh it
         if ( !$self->{access_token} || $self->is_token_expired ) {
             if ( $self->logger ) {
@@ -516,7 +520,7 @@ sub is_token_expired {
     $self->_load_token_from_database();
 
 Load cached OAuth2 token from plugin database storage.
-Uses base_url as the cache key to support multiple pods.
+Uses pod-specific key to support multiple pods with separate token caches.
 
 =cut
 
@@ -525,21 +529,19 @@ sub _load_token_from_database {
 
     return unless $self->{plugin};
 
-    my $cache_key  = "oauth2_token_" . $self->_get_cache_key();
-    my $token_data = $self->{plugin}->retrieve_data($cache_key);
+    my $token_key  = "access_token_" . $self->{pod};
+    my $token_data = $self->{plugin}->retrieve_data($token_key);
 
     if ( $token_data && ref($token_data) eq 'HASH' ) {
         $self->{access_token} = $token_data->{access_token};
         if ( $token_data->{expiration_epoch} ) {
-
-            # Convert epoch timestamp back to DateTime object
-            eval { $self->{expiration} = DateTime->from_epoch( epoch => $token_data->{expiration_epoch} ); };
-            if ($@) {
-
-                # If parsing fails, clear the token to force refresh
+            try {
+                $self->{expiration} = DateTime->from_epoch( epoch => $token_data->{expiration_epoch} );
+            }
+            catch {
                 delete $self->{access_token};
                 delete $self->{expiration};
-            }
+            };
         }
     }
 }
@@ -549,7 +551,7 @@ sub _load_token_from_database {
     $self->_save_token_to_database();
 
 Save OAuth2 token to plugin database storage for persistence across script runs.
-Uses base_url as the cache key to support multiple pods.
+Uses pod-specific key that automatically overwrites old tokens for the same pod.
 
 =cut
 
@@ -558,33 +560,14 @@ sub _save_token_to_database {
 
     return unless $self->{plugin} && $self->{access_token};
 
-    my $cache_key  = "oauth2_token_" . $self->_get_cache_key();
+    my $token_key  = "access_token_" . $self->{pod};
     my $token_data = {
         access_token     => $self->{access_token},
         expiration_epoch => $self->{expiration} ? $self->{expiration}->epoch() : undef,
         cached_at_epoch  => DateTime->now()->epoch(),
     };
 
-    $self->{plugin}->store_data( { $cache_key => $token_data } );
-}
-
-=head3 _get_cache_key
-
-    my $key = $self->_get_cache_key();
-
-Generate a cache key based on base_url and client_id to support multiple pods.
-
-=cut
-
-sub _get_cache_key {
-    my ($self) = @_;
-
-    # Create a unique key based on base_url and client_id
-    my $key_string = $self->{base_url} . '|' . $self->{client_id};
-
-    # Use a simple hash to create a shorter, filesystem-safe key
-    use Digest::MD5 qw(md5_hex);
-    return md5_hex($key_string);
+    $self->{plugin}->store_data( { $token_key => $token_data } );
 }
 
 1;

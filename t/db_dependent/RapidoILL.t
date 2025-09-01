@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 use Test::Exception;
 use Test::Warn;
 
@@ -406,6 +406,88 @@ subtest 'get_checkout() tests' => sub {
     $checkout = $plugin->get_checkout(undef);
     is( $checkout, undef, 'Returns undef when passed undef parameter' );
 
+    $schema->storage->txn_rollback;
+};
+
+subtest 'get_http_client() tests' => sub {
+    plan tests => 5;
+    
+    $schema->storage->txn_begin;
+    
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    
+    # Store test configuration
+    my $test_config = q{
+dev03-na:
+  base_url: https://dev03-na.alma.exlibrisgroup.com
+  client_id: test_client_id
+  client_secret: test_client_secret
+  server_code: 12345
+  partners_library_id: TST
+  dev_mode: true
+test-pod:
+  base_url: https://test.example.com
+  client_id: test_client
+  client_secret: test_secret
+  server_code: 67890
+  partners_library_id: TEST
+  dev_mode: true
+};
+    
+    $plugin->store_data({ configuration => $test_config });
+    
+    subtest 'Successful HTTP client creation' => sub {
+        plan tests => 4;
+        
+        my $client = $plugin->get_http_client('dev03-na');
+        
+        isa_ok($client, 'RapidoILL::APIHttpClient', 'Returns APIHttpClient instance');
+        is($client->{base_url}, 'https://dev03-na.alma.exlibrisgroup.com', 'Base URL set correctly');
+        is($client->{pod}, 'dev03-na', 'Pod parameter set correctly');
+        ok($client->{plugin}, 'Plugin reference set');
+    };
+    
+    subtest 'Client caching' => sub {
+        plan tests => 2;
+        
+        my $client1 = $plugin->get_http_client('test-pod');
+        my $client2 = $plugin->get_http_client('test-pod');
+        
+        is($client1, $client2, 'Same client instance returned for same pod');
+        is($client1->{pod}, 'test-pod', 'Cached client has correct pod');
+    };
+    
+    subtest 'Different pods get different clients' => sub {
+        plan tests => 3;
+        
+        my $client1 = $plugin->get_http_client('dev03-na');
+        my $client2 = $plugin->get_http_client('test-pod');
+        
+        isnt($client1, $client2, 'Different client instances for different pods');
+        is($client1->{pod}, 'dev03-na', 'Client1 has correct pod');
+        is($client2->{pod}, 'test-pod', 'Client2 has correct pod');
+    };
+    
+    subtest 'Missing pod parameter' => sub {
+        plan tests => 2;
+        
+        throws_ok {
+            $plugin->get_http_client();
+        } 'RapidoILL::Exception::MissingParameter', 'Dies when pod parameter missing';
+        
+        is($@->param, 'pod', 'Exception indicates missing pod parameter');
+    };
+    
+    subtest 'Invalid pod configuration' => sub {
+        plan tests => 2;
+        
+        throws_ok {
+            $plugin->get_http_client('nonexistent-pod');
+        } 'RapidoILL::Exception::MissingParameter', 'Dies for nonexistent pod configuration';
+        
+        is($@->param, 'base_url', 'Exception indicates missing base_url from undefined configuration');
+    };
+    
     $schema->storage->txn_rollback;
 };
 

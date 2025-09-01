@@ -52,6 +52,7 @@ subtest 'new() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,                            # Skip token refresh in dev mode
             }
         );
@@ -101,6 +102,7 @@ subtest 'Dev mode behavior' => sub {
             client_id     => 'test_client',
             client_secret => 'test_secret',
             plugin        => $plugin,
+                pod           => "test-pod",
             dev_mode      => 1,
         }
     );
@@ -118,6 +120,7 @@ subtest 'Token management methods' => sub {
             client_id     => 'test_client',
             client_secret => 'test_secret',
             plugin        => $plugin,
+                pod           => "test-pod",
             dev_mode      => 1,
         }
     );
@@ -164,6 +167,7 @@ subtest 'refresh_token() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 0,                            # Disable dev mode to test token refresh
             }
         );
@@ -229,6 +233,7 @@ subtest 'refresh_token() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 0,
             }
         );
@@ -295,6 +300,7 @@ subtest 'refresh_token() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 0,
             }
         );
@@ -356,6 +362,7 @@ subtest 'get_token() deferred refresh tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 0,
             }
         );
@@ -392,6 +399,7 @@ subtest 'get_token() deferred refresh tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 0,
             }
         );
@@ -441,6 +449,7 @@ subtest 'delete_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
@@ -490,6 +499,7 @@ subtest 'delete_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
@@ -550,6 +560,7 @@ subtest 'delete_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
@@ -621,6 +632,7 @@ subtest 'delete_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
@@ -680,6 +692,7 @@ subtest 'post_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -734,6 +747,7 @@ subtest 'post_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -795,6 +809,7 @@ subtest 'post_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -871,6 +886,7 @@ subtest 'post_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -935,6 +951,7 @@ subtest 'put_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -989,6 +1006,7 @@ subtest 'put_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -1050,6 +1068,7 @@ subtest 'put_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -1126,6 +1145,7 @@ subtest 'put_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -1190,6 +1210,7 @@ subtest 'get_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -1240,6 +1261,7 @@ subtest 'get_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -1301,6 +1323,7 @@ subtest 'get_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -1372,6 +1395,7 @@ subtest 'get_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
+                pod           => "test-pod",
                 dev_mode      => 1,
             }
         );
@@ -1403,209 +1427,173 @@ subtest 'get_request() tests' => sub {
 subtest 'Token persistence tests' => sub {
     plan tests => 4;
 
-    subtest 'Token cache key generation' => sub {
-        plan tests => 4;
-
-        my $plugin = Test::MockObject->new();
-
-        my $client1 = RapidoILL::APIHttpClient->new(
-            {
-                base_url      => 'https://test1.example.com',
-                client_id     => 'client1',
-                client_secret => 'secret1',
-                plugin        => $plugin,
-                dev_mode      => 1,
-            }
-        );
-
-        my $client2 = RapidoILL::APIHttpClient->new(
-            {
-                base_url      => 'https://test2.example.com',
-                client_id     => 'client2',
-                client_secret => 'secret2',
-                plugin        => $plugin,
-                dev_mode      => 1,
-            }
-        );
-
-        my $key1       = $client1->_get_cache_key();
-        my $key2       = $client2->_get_cache_key();
-        my $key1_again = $client1->_get_cache_key();
-
-        ok( $key1, 'Cache key generated for client1' );
-        ok( $key2, 'Cache key generated for client2' );
-        isnt( $key1, $key2, 'Different clients generate different cache keys' );
-        is( $key1, $key1_again, 'Same client generates consistent cache key' );
-    };
-
     subtest 'Token saving to database' => sub {
         plan tests => 4;
-
+        
         my $stored_data = {};
-        my $plugin      = Test::MockObject->new();
-        $plugin->mock(
-            'store_data',
-            sub {
-                my ( $self, $data ) = @_;
-                %$stored_data = ( %$stored_data, %$data );
-            }
-        );
-
-        my $client = RapidoILL::APIHttpClient->new(
-            {
-                base_url      => 'https://test.example.com',
-                client_id     => 'test_client',
-                client_secret => 'test_secret',
-                plugin        => $plugin,
-                dev_mode      => 1,
-            }
-        );
-
+        my $plugin = Test::MockObject->new();
+        $plugin->mock('store_data', sub {
+            my ($self, $data) = @_;
+            %$stored_data = (%$stored_data, %$data);
+        });
+        
+        my $client = RapidoILL::APIHttpClient->new({
+            base_url      => 'https://test.example.com',
+            client_id     => 'test_client',
+            client_secret => 'test_secret',
+            plugin        => $plugin,
+            pod           => "test-pod",
+            dev_mode      => 1,
+        });
+        
         # Set up token data
         $client->{access_token} = 'test_token_123';
-        $client->{expiration}   = DateTime->now()->add( seconds => 600 );
-
+        $client->{expiration} = DateTime->now()->add(seconds => 600);
+        
         # Save token
         $client->_save_token_to_database();
-
+        
         # Verify storage
-        my $cache_key = "oauth2_token_" . $client->_get_cache_key();
-        ok( exists $stored_data->{$cache_key}, 'Token data stored with correct cache key' );
-
-        my $token_data = $stored_data->{$cache_key};
-        is( $token_data->{access_token}, 'test_token_123', 'Access token stored correctly' );
-        ok( $token_data->{expiration_epoch}, 'Expiration epoch stored' );
-        ok( $token_data->{cached_at_epoch},  'Cache timestamp stored' );
+        my $token_key = "access_token_test-pod";
+        ok(exists $stored_data->{$token_key}, 'Token data stored with correct pod-specific key');
+        
+        my $token_data = $stored_data->{$token_key};
+        is($token_data->{access_token}, 'test_token_123', 'Access token stored correctly');
+        ok($token_data->{expiration_epoch}, 'Expiration epoch stored');
+        ok($token_data->{cached_at_epoch}, 'Cache timestamp stored');
     };
 
     subtest 'Token loading from database' => sub {
         plan tests => 5;
-
-        my $future_time = DateTime->now()->add( seconds => 600 );
-        my $cache_key   = "oauth2_token_test_key";
+        
+        my $future_time = DateTime->now()->add(seconds => 600);
+        my $token_key = "access_token_test-pod";
         my $stored_data = {
-            $cache_key => {
+            $token_key => {
                 access_token     => 'cached_token_456',
                 expiration_epoch => $future_time->epoch(),
                 cached_at_epoch  => DateTime->now()->epoch(),
             }
         };
-
+        
         my $plugin = Test::MockObject->new();
-        $plugin->mock(
-            'retrieve_data',
-            sub {
-                my ( $self, $key ) = @_;
-                return $stored_data->{$key};
-            }
-        );
-
-        my $client = RapidoILL::APIHttpClient->new(
-            {
-                base_url      => 'https://test.example.com',
-                client_id     => 'test_client',
-                client_secret => 'test_secret',
-                plugin        => $plugin,
-                dev_mode      => 1,
-            }
-        );
-
-        # Mock the cache key method to return our test key
-        my $client_mock = Test::MockModule->new('RapidoILL::APIHttpClient');
-        $client_mock->mock( '_get_cache_key', sub { return 'test_key'; } );
-
+        $plugin->mock('retrieve_data', sub {
+            my ($self, $key) = @_;
+            return $stored_data->{$key};
+        });
+        
+        my $client = RapidoILL::APIHttpClient->new({
+            base_url      => 'https://test.example.com',
+            client_id     => 'test_client',
+            client_secret => 'test_secret',
+            plugin        => $plugin,
+            pod           => "test-pod",
+            dev_mode      => 1,
+        });
+        
         # Load token
         $client->_load_token_from_database();
-
+        
         # Verify loading
-        is( $client->{access_token}, 'cached_token_456', 'Access token loaded correctly' );
-        isa_ok( $client->{expiration}, 'DateTime', 'Expiration loaded as DateTime object' );
-        is( $client->{expiration}->epoch(), $future_time->epoch(), 'Expiration time matches stored value' );
-
+        is($client->{access_token}, 'cached_token_456', 'Access token loaded correctly');
+        isa_ok($client->{expiration}, 'DateTime', 'Expiration loaded as DateTime object');
+        is($client->{expiration}->epoch(), $future_time->epoch(), 'Expiration time matches stored value');
+        
         # Test with invalid data
-        $stored_data->{$cache_key} = { access_token => 'token', expiration_epoch => 'invalid' };
+        $stored_data->{$token_key} = { access_token => 'token', expiration_epoch => 'invalid' };
         $client->_load_token_from_database();
-
-        ok( !defined $client->{access_token}, 'Invalid cached data cleared on parse error' );
-        ok( !defined $client->{expiration},   'Invalid expiration cleared on parse error' );
-
-        $client_mock->unmock_all();
+        
+        ok(!defined $client->{access_token}, 'Invalid cached data cleared on parse error');
+        ok(!defined $client->{expiration}, 'Invalid expiration cleared on parse error');
     };
 
-    subtest 'Token persistence integration with get_token()' => sub {
-        plan tests => 6;
-
+    subtest 'Multi-pod token isolation' => sub {
+        plan tests => 4;
+        
         my $stored_data = {};
-        my $plugin      = Test::MockObject->new();
-        $plugin->mock(
-            'store_data',
-            sub {
-                my ( $self, $data ) = @_;
-                %$stored_data = ( %$stored_data, %$data );
-            }
-        );
-        $plugin->mock(
-            'retrieve_data',
-            sub {
-                my ( $self, $key ) = @_;
-                return $stored_data->{$key};
-            }
-        );
+        my $plugin = Test::MockObject->new();
+        $plugin->mock('store_data', sub {
+            my ($self, $data) = @_;
+            %$stored_data = (%$stored_data, %$data);
+        });
+        $plugin->mock('retrieve_data', sub {
+            my ($self, $key) = @_;
+            return $stored_data->{$key};
+        });
+        
+        # Create clients for different pods
+        my $client1 = RapidoILL::APIHttpClient->new({
+            base_url      => 'https://pod1.example.com',
+            client_id     => 'client1',
+            client_secret => 'secret1',
+            plugin        => $plugin,
+            pod           => "pod1",
+            dev_mode      => 1,
+        });
+        
+        my $client2 = RapidoILL::APIHttpClient->new({
+            base_url      => 'https://pod2.example.com',
+            client_id     => 'client2',
+            client_secret => 'secret2',
+            plugin        => $plugin,
+            pod           => "pod2",
+            dev_mode      => 1,
+        });
+        
+        # Set different tokens for each pod
+        $client1->{access_token} = 'token_pod1';
+        $client1->{expiration} = DateTime->now()->add(seconds => 600);
+        $client1->_save_token_to_database();
+        
+        $client2->{access_token} = 'token_pod2';
+        $client2->{expiration} = DateTime->now()->add(seconds => 600);
+        $client2->_save_token_to_database();
+        
+        # Verify separate storage
+        ok(exists $stored_data->{"access_token_pod1"}, 'Pod1 token stored separately');
+        ok(exists $stored_data->{"access_token_pod2"}, 'Pod2 token stored separately');
+        is($stored_data->{"access_token_pod1"}->{access_token}, 'token_pod1', 'Pod1 token correct');
+        is($stored_data->{"access_token_pod2"}->{access_token}, 'token_pod2', 'Pod2 token correct');
+    };
 
-        # Mock successful token refresh
-        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
-        my $mock_ua = bless {}, 'LWP::UserAgent';
-        $ua_mock->mock( 'new', sub { return $mock_ua; } );
-        $ua_mock->mock(
-            'request',
-            sub {
-                my $response = HTTP::Response->new( 200, 'OK' );
-                $response->content(
-                    encode_json(
-                        {
-                            access_token => 'fresh_token_789',
-                            expires_in   => 600,
-                        }
-                    )
-                );
-                $response->header( 'Content-Type', 'application/json' );
-                return $response;
+    subtest 'Database access optimization for long-running processes' => sub {
+        plan tests => 4;
+        
+        my $db_access_count = 0;
+        my $stored_data = {
+            "access_token_test-pod" => {
+                access_token     => 'cached_token_789',
+                expiration_epoch => DateTime->now()->add(seconds => 600)->epoch(),
+                cached_at_epoch  => DateTime->now()->epoch(),
             }
-        );
-
-        my $client = RapidoILL::APIHttpClient->new(
-            {
-                base_url      => 'https://test.example.com',
-                client_id     => 'test_client',
-                client_secret => 'test_secret',
-                plugin        => $plugin,
-            }
-        );
-
-        # First call should refresh and save token
+        };
+        
+        my $plugin = Test::MockObject->new();
+        $plugin->mock('retrieve_data', sub {
+            my ($self, $key) = @_;
+            $db_access_count++;
+            return $stored_data->{$key};
+        });
+        
+        my $client = RapidoILL::APIHttpClient->new({
+            base_url      => 'https://test.example.com',
+            client_id     => 'test_client',
+            client_secret => 'test_secret',
+            plugin        => $plugin,
+            pod           => "test-pod",
+            # No dev_mode - we want real token loading behavior
+        });
+        
+        # First call should load from database
         my $token1 = $client->get_token();
-        is( $token1, 'fresh_token_789', 'First call returns fresh token' );
-
-        my $cache_key = "oauth2_token_" . $client->_get_cache_key();
-        ok( exists $stored_data->{$cache_key}, 'Token saved to database after refresh' );
-
-        # Create new client instance (simulating new script run)
-        my $client2 = RapidoILL::APIHttpClient->new(
-            {
-                base_url      => 'https://test.example.com',
-                client_id     => 'test_client',
-                client_secret => 'test_secret',
-                plugin        => $plugin,
-            }
-        );
-
-        # Second client should load cached token
-        my $token2 = $client2->get_token();
-        is( $token2, 'fresh_token_789', 'Second client loads cached token' );
-        ok( defined $client2->{access_token}, 'Cached token loaded into client2' );
-        ok( defined $client2->{expiration},   'Cached expiration loaded into client2' );
-        ok( !$client2->is_token_expired(),    'Cached token is not expired' );
-
-        $ua_mock->unmock_all();
+        is($db_access_count, 1, 'First get_token() call loads from database');
+        is($token1, 'cached_token_789', 'Token loaded correctly from database');
+        
+        # Subsequent calls should use in-memory cache
+        my $token2 = $client->get_token();
+        my $token3 = $client->get_token();
+        
+        is($db_access_count, 1, 'Subsequent get_token() calls do not hit database');
+        is($token2, 'cached_token_789', 'In-memory cached token returned');
     };
 };

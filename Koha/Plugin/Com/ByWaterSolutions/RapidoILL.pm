@@ -1271,6 +1271,7 @@ sub get_http_client {
                 client_secret => $configuration->{client_secret},
                 base_url      => $configuration->{base_url},
                 plugin        => $self,
+                pod           => $pod,
             }
         );
     }
