@@ -226,7 +226,8 @@ subtest 'refresh_token() tests' => sub {
 
         my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
-        # Constructor should succeed with deferred token refresh
+        # Clear any existing token data to force refresh
+        $plugin->store_data({ "access_token_test-pod" => undef });        # Constructor should succeed with deferred token refresh
         my $client = RapidoILL::APIHttpClient->new(
             {
                 base_url      => 'https://test.example.com',
@@ -294,7 +295,8 @@ subtest 'refresh_token() tests' => sub {
         my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
 
         # Constructor should succeed with deferred token refresh
-        my $client = RapidoILL::APIHttpClient->new(
+        # Clear any existing token data to force refresh
+        $plugin->store_data({ "access_token_test-pod" => undef });        my $client = RapidoILL::APIHttpClient->new(
             {
                 base_url      => 'https://test.example.com',
                 client_id     => 'test_client',
