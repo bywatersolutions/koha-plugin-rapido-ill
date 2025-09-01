@@ -115,7 +115,7 @@ sub dispatch_task {
         'o_cancel_request'  => \&o_cancel_request,
         'b_item_in_transit' => \&b_item_in_transit,
         'b_item_received'   => \&b_item_received,
-        'renewal'           => \&renewal,
+        'b_item_renewal'    => \&b_item_renewal,
         'DEFAULT'           => \&default_handler,
     };
 
@@ -255,15 +255,15 @@ sub b_item_received {
     );
 }
 
-=head3 renewal
+=head3 b_item_renewal
 
-    renewal( { plugin => $plugin, task => $task } );
+    b_item_renewal( { plugin => $plugin, task => $task } );
 
-Handle the renewal action.
+Handle the b_item_renewal action.
 
 =cut
 
-sub renewal {
+sub b_item_renewal {
     my ($params) = @_;
 
     my $task   = $params->{task};

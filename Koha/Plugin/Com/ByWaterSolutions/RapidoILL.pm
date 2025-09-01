@@ -228,7 +228,7 @@ sub install {
                 `object_id`     INT(11) NOT NULL DEFAULT 0,
                 `illrequest_id` BIGINT(20) UNSIGNED NULL DEFAULT NULL,
                 `payload`       TEXT DEFAULT NULL,
-                `action`        ENUM('renewal','checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL,
+                `action`        ENUM('checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','b_item_renewal','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL,
                 `status`        ENUM('queued','retry','success','error','skipped') NOT NULL DEFAULT 'queued',
                 `attempts`      INT(11) NOT NULL DEFAULT 0,
                 `last_error`    VARCHAR(191) DEFAULT NULL,
@@ -331,6 +331,50 @@ sub upgrade {
                 AFTER `pickupLocation`"
             );
         }
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "0.8.0";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        # First, add 'b_item_renewal' to the ENUM (keeping 'renewal' temporarily)
+        $dbh->do(
+            "ALTER TABLE $task_queue
+            MODIFY COLUMN `action` ENUM(
+                'checkin',
+                'checkout',
+                'fill',
+                'cancel',
+                'b_item_in_transit',
+                'b_item_received',
+                'renewal',
+                'b_item_renewal',
+                'o_cancel_request',
+                'o_final_checkin',
+                'o_item_shipped'
+            ) NOT NULL"
+        );
+
+        # Then migrate any existing 'renewal' actions to 'b_item_renewal'
+        $dbh->do("UPDATE $task_queue SET action = 'b_item_renewal' WHERE action = 'renewal'");
+
+        # Finally, remove 'renewal' from the ENUM
+        $dbh->do(
+            "ALTER TABLE $task_queue
+            MODIFY COLUMN `action` ENUM(
+                'checkin',
+                'checkout',
+                'fill',
+                'cancel',
+                'b_item_in_transit',
+                'b_item_received',
+                'b_item_renewal',
+                'o_cancel_request',
+                'o_final_checkin',
+                'o_item_shipped'
+            ) NOT NULL"
+        );
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
@@ -438,7 +482,7 @@ sub after_circ_action {
             {
                 object_type   => 'circulation',
                 object_id     => $checkout->id,
-                action        => 'renewal',
+                action        => 'b_item_renew',
                 pod           => $pod,
                 illrequest_id => $req->id,
                 payload       => { due_date => $checkout->date_due }
