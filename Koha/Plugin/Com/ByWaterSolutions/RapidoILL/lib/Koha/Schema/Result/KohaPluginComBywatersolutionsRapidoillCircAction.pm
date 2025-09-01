@@ -384,12 +384,12 @@ __PACKAGE__->add_unique_constraint(
 );
 
 
-# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-08-15 13:33:16
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:4P1WSWzunh9dkFm1HnL/Jw
+# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-09-01 16:17:50
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:7SF6SroO2nsqRDblgPJzkg
 
 {
     no warnings 'redefine';
-    
+
     sub koha_objects_class {
         'RapidoILL::CircActions';
     }

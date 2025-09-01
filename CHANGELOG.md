@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0] - TBD
+## [0.8.0] - 2025-09-01
 
 ### Added
 - [#61] Added `get_checkout` method to retrieve linked Koha::Checkout object from ILL requests
@@ -13,9 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - [#61] Refactor manual checkout searches to use get_checkout method
+- [#61] Harmonize task types: rename 'renewal' action to 'b_item_renewal' for consistency with borrower action naming pattern
+- [#61] Update task_queue_daemon.pl to use 'b_item_renewal' action type and rename renewal() function to b_item_renewal()
 
 ### Fixed
 - [#61] Update checkout date_due when OWNER_RENEW is received with new dueDateTime
+- [#61] Safe migration of existing 'renewal' task queue actions to 'b_item_renewal' during upgrade
 
 ## [0.7.8] - 2025-08-27
 

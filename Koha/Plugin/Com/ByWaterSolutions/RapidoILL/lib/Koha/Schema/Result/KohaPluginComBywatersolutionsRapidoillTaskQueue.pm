@@ -55,7 +55,7 @@ __PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_task_queue");
 =head2 action
 
   data_type: 'enum'
-  extra: {list => ["renewal","checkin","checkout","fill","cancel","b_item_in_transit","b_item_received","o_cancel_request","o_final_checkin","o_item_shipped"]}
+  extra: {list => ["checkin","checkout","fill","cancel","b_item_in_transit","b_item_received","b_item_renewal","o_cancel_request","o_final_checkin","o_item_shipped"]}
   is_nullable: 0
 
 =head2 status
@@ -118,13 +118,13 @@ __PACKAGE__->add_columns(
     data_type => "enum",
     extra => {
       list => [
-        "renewal",
         "checkin",
         "checkout",
         "fill",
         "cancel",
         "b_item_in_transit",
         "b_item_received",
+        "b_item_renewal",
         "o_cancel_request",
         "o_final_checkin",
         "o_item_shipped",
@@ -173,12 +173,12 @@ __PACKAGE__->add_columns(
 __PACKAGE__->set_primary_key("id");
 
 
-# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-08-15 13:33:16
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:lMxUCc9s1m8SygXSRcDSbg
+# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-09-01 16:17:50
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:FyWqhkI+upzr/4e54kBfmg
 
 {
     no warnings 'redefine';
-    
+
     sub koha_objects_class {
         'RapidoILL::QueuedTasks';
     }
