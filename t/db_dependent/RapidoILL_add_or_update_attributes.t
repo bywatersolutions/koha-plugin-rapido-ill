@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 8;
+use Test::More tests => 11;
 use Test::Exception;
 use Test::Warn;
 
@@ -292,6 +292,107 @@ subtest 'add_or_update_attributes - performance with many attributes' => sub {
     # Verify count
     my $bulk_attrs = $ill_request->extended_attributes->search( { type => { -like => 'bulk_attr_%' } } );
     is( $bulk_attrs->count, 50, 'All 50 bulk attributes were created' );
+};
+
+subtest 'add_or_update_attributes - SQL function values' => sub {
+    plan tests => 3;
+
+    # Test SQL function values like \'NOW()'
+    my $sql_function_attributes = {
+        timestamp_field => \'NOW()',
+        date_field      => \'CURDATE()',
+        time_field      => \'CURTIME()'
+    };
+
+    lives_ok {
+        $plugin->add_or_update_attributes(
+            {
+                request    => $ill_request,
+                attributes => $sql_function_attributes
+            }
+        );
+    }
+    'Successfully handles SQL function values';
+
+    my $stored_attrs = $ill_request->extended_attributes;
+
+    # Verify SQL functions were executed (should contain actual timestamps/dates)
+    my $timestamp_attr = $stored_attrs->find( { type => 'timestamp_field' } );
+    ok( $timestamp_attr && $timestamp_attr->value, 'Timestamp field has a value' );
+
+    my $date_attr = $stored_attrs->find( { type => 'date_field' } );
+    ok( $date_attr && $date_attr->value, 'Date field has a value' );
+};
+
+subtest 'add_or_update_attributes - SQL injection protection' => sub {
+    plan tests => 3;
+
+    # Test potential SQL injection attempts
+    my $malicious_attributes = {
+        sql_injection_1 => "'; DROP TABLE illrequests; --",
+        sql_injection_2 => "1' OR '1'='1",
+        sql_injection_3 => "UNION SELECT * FROM borrowers"
+    };
+
+    lives_ok {
+        $plugin->add_or_update_attributes(
+            {
+                request    => $ill_request,
+                attributes => $malicious_attributes
+            }
+        );
+    }
+    'SQL injection attempts are safely handled';
+
+    # Verify the malicious content is stored as literal strings (not executed)
+    my $stored_attrs = $ill_request->extended_attributes;
+    is(
+        $stored_attrs->find( { type => 'sql_injection_1' } )->value,
+        "'; DROP TABLE illrequests; --",
+        'SQL injection stored as literal string'
+    );
+    is(
+        $stored_attrs->find( { type => 'sql_injection_2' } )->value,
+        "1' OR '1'='1",
+        'Boolean SQL injection stored as literal string'
+    );
+};
+
+subtest 'add_or_update_attributes - transaction rollback behavior' => sub {
+    plan tests => 2;
+
+    # Create a separate transaction to test rollback
+    my $schema = Koha::Database->new->schema;
+
+    my $initial_count = $ill_request->extended_attributes->count;
+
+    eval {
+        $schema->txn_do(
+            sub {
+                # Add some attributes within transaction
+                $plugin->add_or_update_attributes(
+                    {
+                        request    => $ill_request,
+                        attributes => {
+                            tx_test_1 => 'value1',
+                            tx_test_2 => 'value2'
+                        }
+                    }
+                );
+
+                # Verify they exist within transaction
+                my $mid_count = $ill_request->extended_attributes->count;
+                is( $mid_count, $initial_count + 2, 'Attributes added within transaction' );
+
+                # Force rollback
+                die "Intentional rollback";
+            }
+        );
+    };
+
+    # Verify rollback worked (attributes should not exist)
+    my $final_count = $ill_request->extended_attributes->count;
+    is( $final_count, $initial_count, 'Transaction rollback removed attributes' );
 };
 
 $schema->storage->txn_rollback;
