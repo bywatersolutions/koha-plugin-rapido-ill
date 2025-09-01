@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 11;
+use Test::More tests => 12;
 use Test::Exception;
 use Test::MockModule;
 use HTTP::Response;
@@ -367,7 +367,7 @@ subtest 'get_token() deferred refresh tests' => sub {
         my $token = $client->get_token();
 
         # Verify token was obtained
-        is( $token, 'deferred_token_12345', 'Token obtained from deferred refresh' );
+        is( $token,                  'deferred_token_12345', 'Token obtained from deferred refresh' );
         is( $client->{access_token}, 'deferred_token_12345', 'Token stored in client' );
 
         # Verify logging
@@ -398,7 +398,7 @@ subtest 'get_token() deferred refresh tests' => sub {
 
         # Manually set a token and expiration (simulating previous refresh)
         $client->{access_token} = 'cached_token_67890';
-        $client->{expiration} = DateTime->now()->add( hours => 1 );
+        $client->{expiration}   = DateTime->now()->add( hours => 1 );
 
         # Call get_token - should return cached token
         my $token = $client->get_token();
@@ -406,7 +406,7 @@ subtest 'get_token() deferred refresh tests' => sub {
         is( $token, 'cached_token_67890', 'Cached token returned' );
 
         # Verify no refresh logging (no new refresh occurred)
-        is( $logger->count('info'), 0, 'No refresh logs for cached token' );
+        is( $logger->count('info'),  0, 'No refresh logs for cached token' );
         is( $logger->count('error'), 0, 'No error logs for cached token' );
     };
 };
@@ -1396,6 +1396,216 @@ subtest 'get_request() tests' => sub {
         );
 
         # Clean up mock
+        $ua_mock->unmock_all();
+    };
+};
+
+subtest 'Token persistence tests' => sub {
+    plan tests => 4;
+
+    subtest 'Token cache key generation' => sub {
+        plan tests => 4;
+
+        my $plugin = Test::MockObject->new();
+
+        my $client1 = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test1.example.com',
+                client_id     => 'client1',
+                client_secret => 'secret1',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        my $client2 = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test2.example.com',
+                client_id     => 'client2',
+                client_secret => 'secret2',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        my $key1       = $client1->_get_cache_key();
+        my $key2       = $client2->_get_cache_key();
+        my $key1_again = $client1->_get_cache_key();
+
+        ok( $key1, 'Cache key generated for client1' );
+        ok( $key2, 'Cache key generated for client2' );
+        isnt( $key1, $key2, 'Different clients generate different cache keys' );
+        is( $key1, $key1_again, 'Same client generates consistent cache key' );
+    };
+
+    subtest 'Token saving to database' => sub {
+        plan tests => 4;
+
+        my $stored_data = {};
+        my $plugin      = Test::MockObject->new();
+        $plugin->mock(
+            'store_data',
+            sub {
+                my ( $self, $data ) = @_;
+                %$stored_data = ( %$stored_data, %$data );
+            }
+        );
+
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Set up token data
+        $client->{access_token} = 'test_token_123';
+        $client->{expiration}   = DateTime->now()->add( seconds => 600 );
+
+        # Save token
+        $client->_save_token_to_database();
+
+        # Verify storage
+        my $cache_key = "oauth2_token_" . $client->_get_cache_key();
+        ok( exists $stored_data->{$cache_key}, 'Token data stored with correct cache key' );
+
+        my $token_data = $stored_data->{$cache_key};
+        is( $token_data->{access_token}, 'test_token_123', 'Access token stored correctly' );
+        ok( $token_data->{expiration_epoch}, 'Expiration epoch stored' );
+        ok( $token_data->{cached_at_epoch},  'Cache timestamp stored' );
+    };
+
+    subtest 'Token loading from database' => sub {
+        plan tests => 5;
+
+        my $future_time = DateTime->now()->add( seconds => 600 );
+        my $cache_key   = "oauth2_token_test_key";
+        my $stored_data = {
+            $cache_key => {
+                access_token     => 'cached_token_456',
+                expiration_epoch => $future_time->epoch(),
+                cached_at_epoch  => DateTime->now()->epoch(),
+            }
+        };
+
+        my $plugin = Test::MockObject->new();
+        $plugin->mock(
+            'retrieve_data',
+            sub {
+                my ( $self, $key ) = @_;
+                return $stored_data->{$key};
+            }
+        );
+
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+                dev_mode      => 1,
+            }
+        );
+
+        # Mock the cache key method to return our test key
+        my $client_mock = Test::MockModule->new('RapidoILL::APIHttpClient');
+        $client_mock->mock( '_get_cache_key', sub { return 'test_key'; } );
+
+        # Load token
+        $client->_load_token_from_database();
+
+        # Verify loading
+        is( $client->{access_token}, 'cached_token_456', 'Access token loaded correctly' );
+        isa_ok( $client->{expiration}, 'DateTime', 'Expiration loaded as DateTime object' );
+        is( $client->{expiration}->epoch(), $future_time->epoch(), 'Expiration time matches stored value' );
+
+        # Test with invalid data
+        $stored_data->{$cache_key} = { access_token => 'token', expiration_epoch => 'invalid' };
+        $client->_load_token_from_database();
+
+        ok( !defined $client->{access_token}, 'Invalid cached data cleared on parse error' );
+        ok( !defined $client->{expiration},   'Invalid expiration cleared on parse error' );
+
+        $client_mock->unmock_all();
+    };
+
+    subtest 'Token persistence integration with get_token()' => sub {
+        plan tests => 6;
+
+        my $stored_data = {};
+        my $plugin      = Test::MockObject->new();
+        $plugin->mock(
+            'store_data',
+            sub {
+                my ( $self, $data ) = @_;
+                %$stored_data = ( %$stored_data, %$data );
+            }
+        );
+        $plugin->mock(
+            'retrieve_data',
+            sub {
+                my ( $self, $key ) = @_;
+                return $stored_data->{$key};
+            }
+        );
+
+        # Mock successful token refresh
+        my $ua_mock = Test::MockModule->new('LWP::UserAgent');
+        my $mock_ua = bless {}, 'LWP::UserAgent';
+        $ua_mock->mock( 'new', sub { return $mock_ua; } );
+        $ua_mock->mock(
+            'request',
+            sub {
+                my $response = HTTP::Response->new( 200, 'OK' );
+                $response->content(
+                    encode_json(
+                        {
+                            access_token => 'fresh_token_789',
+                            expires_in   => 600,
+                        }
+                    )
+                );
+                $response->header( 'Content-Type', 'application/json' );
+                return $response;
+            }
+        );
+
+        my $client = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+            }
+        );
+
+        # First call should refresh and save token
+        my $token1 = $client->get_token();
+        is( $token1, 'fresh_token_789', 'First call returns fresh token' );
+
+        my $cache_key = "oauth2_token_" . $client->_get_cache_key();
+        ok( exists $stored_data->{$cache_key}, 'Token saved to database after refresh' );
+
+        # Create new client instance (simulating new script run)
+        my $client2 = RapidoILL::APIHttpClient->new(
+            {
+                base_url      => 'https://test.example.com',
+                client_id     => 'test_client',
+                client_secret => 'test_secret',
+                plugin        => $plugin,
+            }
+        );
+
+        # Second client should load cached token
+        my $token2 = $client2->get_token();
+        is( $token2, 'fresh_token_789', 'Second client loads cached token' );
+        ok( defined $client2->{access_token}, 'Cached token loaded into client2' );
+        ok( defined $client2->{expiration},   'Cached expiration loaded into client2' );
+        ok( !$client2->is_token_expired(),    'Cached token is not expired' );
+
         $ua_mock->unmock_all();
     };
 };

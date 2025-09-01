@@ -433,6 +433,10 @@ sub get_token {
     my ($self) = @_;
 
     unless ( $self->dev_mode ) {
+
+        # Try to load token from database first
+        $self->_load_token_from_database();
+
         # If no token exists yet, or if token is expired, refresh it
         if ( !$self->{access_token} || $self->is_token_expired ) {
             if ( $self->logger ) {
@@ -482,6 +486,9 @@ sub refresh_token {
     $self->{expiration} =
         DateTime->now()->add( seconds => $response_content->{expires_in} );
 
+    # Save token to database for persistence across script runs
+    $self->_save_token_to_database();
+
     if ( $self->logger ) {
         $self->logger->info(
             "OAuth2 token refreshed successfully, expires in " . $response_content->{expires_in} . " seconds" );
@@ -502,6 +509,82 @@ sub is_token_expired {
     my ($self) = @_;
 
     return !defined $self->{expiration} || $self->{expiration} < DateTime->now();
+}
+
+=head3 _load_token_from_database
+
+    $self->_load_token_from_database();
+
+Load cached OAuth2 token from plugin database storage.
+Uses base_url as the cache key to support multiple pods.
+
+=cut
+
+sub _load_token_from_database {
+    my ($self) = @_;
+
+    return unless $self->{plugin};
+
+    my $cache_key  = "oauth2_token_" . $self->_get_cache_key();
+    my $token_data = $self->{plugin}->retrieve_data($cache_key);
+
+    if ( $token_data && ref($token_data) eq 'HASH' ) {
+        $self->{access_token} = $token_data->{access_token};
+        if ( $token_data->{expiration_epoch} ) {
+
+            # Convert epoch timestamp back to DateTime object
+            eval { $self->{expiration} = DateTime->from_epoch( epoch => $token_data->{expiration_epoch} ); };
+            if ($@) {
+
+                # If parsing fails, clear the token to force refresh
+                delete $self->{access_token};
+                delete $self->{expiration};
+            }
+        }
+    }
+}
+
+=head3 _save_token_to_database
+
+    $self->_save_token_to_database();
+
+Save OAuth2 token to plugin database storage for persistence across script runs.
+Uses base_url as the cache key to support multiple pods.
+
+=cut
+
+sub _save_token_to_database {
+    my ($self) = @_;
+
+    return unless $self->{plugin} && $self->{access_token};
+
+    my $cache_key  = "oauth2_token_" . $self->_get_cache_key();
+    my $token_data = {
+        access_token     => $self->{access_token},
+        expiration_epoch => $self->{expiration} ? $self->{expiration}->epoch() : undef,
+        cached_at_epoch  => DateTime->now()->epoch(),
+    };
+
+    $self->{plugin}->store_data( { $cache_key => $token_data } );
+}
+
+=head3 _get_cache_key
+
+    my $key = $self->_get_cache_key();
+
+Generate a cache key based on base_url and client_id to support multiple pods.
+
+=cut
+
+sub _get_cache_key {
+    my ($self) = @_;
+
+    # Create a unique key based on base_url and client_id
+    my $key_string = $self->{base_url} . '|' . $self->{client_id};
+
+    # Use a simple hash to create a shorter, filesystem-safe key
+    use Digest::MD5 qw(md5_hex);
+    return md5_hex($key_string);
 }
 
 1;
