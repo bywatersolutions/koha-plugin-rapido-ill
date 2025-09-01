@@ -636,7 +636,7 @@ subtest 'default_handler method' => sub {
     $schema->storage->txn_rollback;
 };
 
-subtest 'handle_item_received renewal rejection' => sub {
+subtest 'item_received renewal rejection' => sub {
     plan tests => 5;
 
     $schema->storage->txn_begin;
@@ -697,7 +697,7 @@ subtest 'handle_item_received renewal rejection' => sub {
 
     # Test renewal rejection handling
     lives_ok {
-        $handler->handle_item_received($mock_action);
+        $handler->item_received($mock_action);
     } 'Renewal rejection handled without exception';
 
     # Verify status change

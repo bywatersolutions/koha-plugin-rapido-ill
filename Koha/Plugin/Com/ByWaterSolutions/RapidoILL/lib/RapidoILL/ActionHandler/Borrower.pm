@@ -84,7 +84,7 @@ sub handle_from_action {
     my $status_to_method = {
         'DEFAULT'       => \&default_handler,
         'FINAL_CHECKIN' => \&final_checkin,
-        'ITEM_RECEIVED' => \&handle_item_received,
+        'ITEM_RECEIVED' => \&item_received,
         'ITEM_SHIPPED'  => \&item_shipped,
         'OWNER_RENEW'   => \&owner_renew,
     };
@@ -330,9 +330,9 @@ sub owner_renew {
     return;
 }
 
-=head3 handle_item_received
+=head3 item_received
 
-    $handler->handle_item_received( $action );
+    $handler->item_received( $action );
 
 Handle incoming I<ITEM_RECEIVED> action. This could be either:
 1. Initial item receipt (no action needed)
@@ -340,7 +340,7 @@ Handle incoming I<ITEM_RECEIVED> action. This could be either:
 
 =cut
 
-sub handle_item_received {
+sub item_received {
     my ( $self, $action ) = @_;
 
     my $req = $action->ill_request;
