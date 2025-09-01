@@ -407,8 +407,8 @@ cd /kohadevbox/plugins/rapido-ill/scripts
 - **Workflow progression**: Simulates real ILL state transitions
 
 **Testing Documentation:**
-- [CURL_TESTING_GUIDE.md](CURL_TESTING_GUIDE.md) - Complete curl-based testing guide
 - `scripts/test_all_endpoints.sh` - Automated test script
 - `scripts/bootstrap_rapido_testing.pl` - Environment setup
+- `scripts/README_MOCK_API.md` - Mock API documentation
 
 The mock API allows full plugin development and testing without requiring access to Rapido services.
