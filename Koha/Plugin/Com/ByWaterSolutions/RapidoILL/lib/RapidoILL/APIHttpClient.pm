@@ -27,7 +27,7 @@ use Koha::Logger;
 use JSON qw(decode_json encode_json);
 use LWP::UserAgent;
 use MIME::Base64 qw( decode_base64url encode_base64url );
-use Try::Tiny qw( catch try );
+use Try::Tiny    qw( catch try );
 use URI          ();
 
 use RapidoILL::Exceptions;
@@ -435,12 +435,13 @@ sub get_token {
     my ($self) = @_;
 
     unless ( $self->dev_mode ) {
+
         # Only load from database if we don't have a token in memory yet
         if ( !$self->{access_token} && !$self->{_token_loaded_from_db} ) {
             $self->_load_token_from_database();
             $self->{_token_loaded_from_db} = 1;
         }
-        
+
         # If no token exists yet, or if token is expired, refresh it
         if ( !$self->{access_token} || $self->is_token_expired ) {
             if ( $self->logger ) {
@@ -537,8 +538,7 @@ sub _load_token_from_database {
         if ( $token_data->{expiration_epoch} ) {
             try {
                 $self->{expiration} = DateTime->from_epoch( epoch => $token_data->{expiration_epoch} );
-            }
-            catch {
+            } catch {
                 delete $self->{access_token};
                 delete $self->{expiration};
             };

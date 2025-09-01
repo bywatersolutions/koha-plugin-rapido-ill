@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - [#86] OAuth2 token persistence to database using plugin->store_data() for reduced API calls across script runs
+- [#86] Database access optimization for long-running processes (task_queue_daemon.pl) - tokens loaded once per process lifetime
+- [#86] Pod-specific token caching with automatic cleanup and multi-pod isolation support
+- [#86] Comprehensive test coverage for token persistence and database optimization scenarios
+
+### Changed
+- [#86] APIHttpClient constructor now requires 'pod' parameter for multi-pod token isolation
+- [#86] get_http_client() method updated to pass pod parameter to APIHttpClient constructor
 
 ## [0.8.1] - 2025-09-01
 
