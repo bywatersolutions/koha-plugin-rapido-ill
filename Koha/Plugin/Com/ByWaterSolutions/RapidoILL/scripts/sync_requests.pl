@@ -32,6 +32,7 @@ binmode( STDOUT, ':encoding(utf8)' );
 my $pod;
 my $end_time;
 my $start_time;
+my $state;
 my $list_pods;
 my $help;
 my $verbose;
@@ -41,6 +42,7 @@ my $result = GetOptions(
     'pod=s'        => \$pod,
     'end_time=s'   => \$end_time,
     'start_time=s' => \$start_time,
+    'state=s@'     => \$state,
     'list_pods'    => \$list_pods,
     'verbose|v'    => \$verbose,
     'quiet|q'      => \$quiet,
@@ -65,6 +67,8 @@ Valid options are:
     --pod <pod_code>      Only sync the specified pod circulation requests
     --start_time <epoch>  Start time range (epoch). [OPTIONAL]
     --end_time <epoch>    End time range (epoch) [OPTIONAL]
+    --state <state>       Circulation states to sync (can be repeated) [OPTIONAL]
+                          Default: ACTIVE COMPLETED CANCELED CREATED
     --list_pods           Print configured pods and exit.
     --verbose|-v          Show detailed processing messages
     --quiet|-q            Suppress all output except errors
@@ -128,6 +132,7 @@ foreach my $pod_code ( @{$pods} ) {
                 pod => $pod_code,
                 ( $start_time ? ( startTime => $start_time ) : () ),
                 ( $end_time   ? ( endTime   => $end_time )   : () ),
+                ( $state      ? ( state     => $state )      : () ),
             }
         );
 
