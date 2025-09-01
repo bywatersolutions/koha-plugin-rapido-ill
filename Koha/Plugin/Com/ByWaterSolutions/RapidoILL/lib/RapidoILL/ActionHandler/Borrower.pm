@@ -84,6 +84,7 @@ sub handle_from_action {
     my $status_to_method = {
         'DEFAULT'       => \&default_handler,
         'FINAL_CHECKIN' => \&final_checkin,
+        'ITEM_RECEIVED' => \&handle_item_received,
         'ITEM_SHIPPED'  => \&item_shipped,
         'OWNER_RENEW'   => \&owner_renew,
     };
@@ -100,11 +101,6 @@ sub handle_from_action {
 
         # No action needed for these statuses
         return;
-    }
-
-    # Special handling for ITEM_RECEIVED - could be renewal rejection
-    if ( $action->lastCircState eq 'ITEM_RECEIVED' ) {
-        return $self->handle_item_received($action);
     }
 
     my $status =
