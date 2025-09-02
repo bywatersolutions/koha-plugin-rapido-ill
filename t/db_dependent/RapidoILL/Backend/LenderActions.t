@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 use Test::MockModule;
 use Test::MockObject;
 use Test::Exception;
@@ -118,22 +118,25 @@ subtest 'cancel_request() tests' => sub {
 
         # Setup real plugin with method mocking for external calls
         my $mock_client = Test::MockObject->new();
-        
+
         # Track API client method calls
         my @client_calls = ();
-        $mock_client->mock( 'lender_cancel', sub { 
-            my ($self, $data, $options) = @_;
-            push @client_calls, { 
-                method => 'lender_cancel', 
-                data => $data,
-                options => $options 
-            };
-            return; 
-        } );
+        $mock_client->mock(
+            'lender_cancel',
+            sub {
+                my ( $self, $data, $options ) = @_;
+                push @client_calls, {
+                    method  => 'lender_cancel',
+                    data    => $data,
+                    options => $options
+                };
+                return;
+            }
+        );
 
         # Mock plugin methods that need external dependencies
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock('get_client', sub { return $mock_client; });
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
 
         my $actions = RapidoILL::Backend::LenderActions->new(
             {
@@ -146,18 +149,18 @@ subtest 'cancel_request() tests' => sub {
 
         my $result;
         lives_ok {
-            $result = $actions->cancel_request($illrequest, { client_options => $client_options });
+            $result = $actions->cancel_request( $illrequest, { client_options => $client_options } );
         }
         'cancel_request executes without error';
 
         # Verify API client method was called correctly
-        is( scalar @client_calls, 1, 'API client method called once' );
+        is( scalar @client_calls,       1,               'API client method called once' );
         is( $client_calls[0]->{method}, 'lender_cancel', 'Correct API method called' );
-        
+
         # Verify client_options were passed through
         my $call_options = $client_calls[0]->{options};
-        is_deeply( $call_options->{timeout}, 60, 'client_options timeout passed through' );
-        is_deeply( $call_options->{force_cancel}, 1, 'client_options force_cancel passed through' );
+        is_deeply( $call_options->{timeout},      60, 'client_options timeout passed through' );
+        is_deeply( $call_options->{force_cancel}, 1,  'client_options force_cancel passed through' );
 
         $illrequest->discard_changes();
         is( $illrequest->status, 'O_ITEM_CANCELLED_BY_US', 'Sets correct status' );
@@ -508,4 +511,153 @@ subtest 'final_checkin() tests' => sub {
 
         $schema->storage->txn_rollback;
     };
+};
+
+subtest 'process_renewal_decision method' => sub {
+    plan tests => 2;
+
+    $schema->storage->txn_begin;
+
+    # Create test data
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+    # Sample configuration for testing
+    my $sample_config_yaml = <<'EOF';
+---
+test-pod:
+  base_url: https://test-pod.example.com
+  client_id: test_client
+  client_secret: test_secret
+  server_code: 12345
+  partners_library_id: %s
+  partners_category: %s
+  default_item_type: %s
+  default_patron_agency: test_agency
+  dev_mode: true
+EOF
+
+    $sample_config_yaml = sprintf(
+        $sample_config_yaml,
+        $library->branchcode,
+        $category->categorycode,
+        $itemtype->itemtype
+    );
+
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
+
+    # Store configuration
+    $plugin->store_data( { configuration => $sample_config_yaml } );
+
+    #my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
+
+    # Create a test ILL request
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                branchcode     => $library->branchcode,
+                borrowernumber => $patron->borrowernumber,
+                backend        => 'RapidoILL',
+                status         => 'O_RENEWAL_REQUESTED',
+            }
+        }
+    );
+
+    # Add required attributes
+    $plugin->add_or_update_attributes(
+        {
+            request    => $ill_request,
+            attributes => {
+                circId => 'TEST_CIRC_001',
+                pod    => 'test-pod',
+            }
+        }
+    );
+
+    # Mock the lender_renew client method to avoid API calls
+    my $renew_decision;
+    my $client_mock = Test::MockModule->new('RapidoILL::Client');
+    $client_mock->mock(
+        'lender_renew',
+        sub {
+            my ( $self, $params ) = @_;
+            if ( $renew_decision eq 'approve' ) {
+                return {
+                    success    => 1,
+                    message    => 'Renewal approved',
+                    newDueDate => '2025-12-31',
+                };
+            } elsif ( $renew_decision eq 'reject' ) {
+                return {
+                    success => 1,
+                    message => 'Renewal rejected',
+                };
+            } else {
+                return {
+                    success => 0,
+                    message => 'Invalid decision',
+                };
+            }
+        }
+    );
+
+    # Create backend instance
+    my $backend = $plugin->new_ill_backend( { request => $ill_request } );
+
+    subtest 'renewal approval' => sub {
+        plan tests => 3;
+
+        $renew_decision = 'approve';
+
+        my $result = $backend->renewal_request(
+            {
+                request => $ill_request,
+                other   => {
+                    decision     => $renew_decision,
+                    new_due_date => '2025-12-31',
+                }
+            }
+        );
+
+        is( $result->{error}, 0, 'No error on approval' );
+        like( $result->{message}, qr/approved successfully/, 'Success message for approval' );
+
+        # Verify status returned to O_ITEM_RECEIVED_DESTINATION
+        $ill_request->discard_changes;
+        is( $ill_request->status, 'O_ITEM_RECEIVED_DESTINATION', 'Status returned to O_ITEM_RECEIVED_DESTINATION' );
+
+        $renew_decision = undef;
+    };
+
+    subtest 'renewal rejection' => sub {
+        plan tests => 3;
+
+        $renew_decision = 'reject';
+
+        # Reset status for rejection test
+        $ill_request->status('O_RENEWAL_REQUESTED')->store();
+
+        my $result = $backend->renewal_request(
+            {
+                request => $ill_request,
+                other   => {
+                    decision => $renew_decision,
+                }
+            }
+        );
+
+        is( $result->{error}, 0, 'No error on rejection' );
+        like( $result->{message}, qr/rejected successfully/, 'Success message for rejection' );
+
+        # Verify status returned to O_ITEM_RECEIVED_DESTINATION
+        $ill_request->discard_changes;
+        is( $ill_request->status, 'O_ITEM_RECEIVED_DESTINATION', 'Status returned to O_ITEM_RECEIVED_DESTINATION' );
+
+        $renew_decision = undef;
+    };
+
+    $schema->storage->txn_rollback;
 };

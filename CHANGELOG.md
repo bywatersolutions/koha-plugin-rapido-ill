@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.2] - 2025-09-02
 
+### Added
+- [#90] Lender side renewal handling with `lender_renew` method in RapidoILL::Client
+- [#90] Comprehensive test coverage for `lender_renew` method in Client.t
+
 ### Fixed
 - Fixed UTF-8 double-encoding issue in RapidoILL::Client that caused corrupted characters (e.g., "FilosofÃ­a" instead of "Filosofía")
 - Added proper UTF-8 encoding support to bootstrap_rapido_testing.pl script

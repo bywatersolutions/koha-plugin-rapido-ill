@@ -966,14 +966,14 @@ Handle renewal approval/rejection from the UI form.
 sub renewal_request {
     my ( $self, $params ) = @_;
 
-    my $request = $params->{request};
-    my $decision = $params->{other}->{decision};
+    my $request      = $params->{request};
+    my $decision     = $params->{other}->{decision};
     my $new_due_date = $params->{other}->{new_due_date};
 
-    my $pod = $self->{plugin}->get_req_pod( $request );
+    my $pod = $self->{plugin}->get_req_pod($request);
 
     # Validate decision
-    unless ($decision && ($decision eq 'approve' || $decision eq 'reject')) {
+    unless ( $decision && ( $decision eq 'approve' || $decision eq 'reject' ) ) {
         return {
             error   => 1,
             status  => '',
@@ -982,14 +982,17 @@ sub renewal_request {
     }
 
     return try {
-        if ($decision eq 'approve') {
+        if ( $decision eq 'approve' ) {
+
             # Get the borrower's requested due date from attributes
-            my $borrower_requested_attr = $request->extended_attributes->find({ type => 'borrower_requested_due_date' });
+            my $borrower_requested_attr =
+                $request->extended_attributes->find( { type => 'borrower_requested_due_date' } );
             my $borrower_requested_due_date = $borrower_requested_attr ? $borrower_requested_attr->value : undef;
-            
+
             # Determine which due date to use
             my $due_date_obj;
             if ($new_due_date) {
+
                 # Staff override date
                 try {
                     $due_date_obj = dt_from_string($new_due_date);
@@ -1001,8 +1004,9 @@ sub renewal_request {
                     };
                 };
             } elsif ($borrower_requested_due_date) {
+
                 # Use borrower's requested date
-                $due_date_obj = dt_from_string($borrower_requested_due_date, 'iso');
+                $due_date_obj = dt_from_string( $borrower_requested_due_date, 'iso' );
             }
 
             # Use plugin's lender_actions method
@@ -1020,6 +1024,7 @@ sub renewal_request {
                 message => 'Renewal approved successfully.',
             };
         } else {
+
             # Rejection
             $self->{plugin}->get_lender_actions($pod)->process_renewal_decision(
                 $request,
