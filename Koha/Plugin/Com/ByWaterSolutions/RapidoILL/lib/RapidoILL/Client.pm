@@ -115,7 +115,7 @@ sub locals {
             response_body  => $response->decoded_content || 'No response body'
         ) unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -162,7 +162,7 @@ sub lender_cancel {
             response_body  => $response->decoded_content || 'No response body'
         ) unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -219,7 +219,7 @@ sub lender_visiting_patron_checkout {
         RapidoILL::Exception::RequestFailed->throw( method => 'lender_visiting_patron_checkout', response => $response )
             unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -252,7 +252,7 @@ sub lender_checkin {
         RapidoILL::Exception::RequestFailed->throw( method => 'lender_checkin', response => $response )
             unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -296,7 +296,7 @@ sub lender_shipped {
             response_body  => $response->decoded_content
         ) unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -331,7 +331,7 @@ sub borrower_item_received {
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_received', response => $response )
             unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -364,7 +364,7 @@ sub borrower_receive_unshipped {
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_receive_unshipped', response => $response )
             unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -402,7 +402,7 @@ sub borrower_cancel {
             response_body  => $response->decoded_content || 'No response body'
         ) unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -450,7 +450,7 @@ sub borrower_renew {
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_renew', response => $response )
             unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -483,7 +483,7 @@ sub borrower_item_returned {
         RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_returned', response => $response )
             unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;
@@ -532,7 +532,7 @@ sub circulation_requests {
         RapidoILL::Exception::RequestFailed->throw( method => 'circulation_requests', response => $response )
             unless $response->is_success;
 
-        return decode_json( encode( 'UTF-8', $response->decoded_content ) );
+        return decode_json( $response->decoded_content );
     }
 
     return;

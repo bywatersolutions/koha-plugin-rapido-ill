@@ -116,6 +116,30 @@
                 }
             ]
         },
+        "lending_received": {
+            "data": [
+                {
+                    "author": "Kernighan, Brian W",
+                    "borrowerCode": "derecho",
+                    "lenderCode": "11747",
+                    "callNumber": "005.133 KER",
+                    "circId": "CIRC002",
+                    "circStatus": "ACTIVE",
+                    "lastCircState": "ITEM_RECEIVED",
+                    "dateCreated": "2025-08-15T08:43:56Z",
+                    "dueDateTime": "2025-09-07T11:43:56Z",
+                    "itemBarcode": "3999900000018",
+                    "itemId": "3999900000018",
+                    "lastUpdated": "2025-08-15T09:43:56Z",
+                    "needBefore": "2025-09-14T11:43:56Z",
+                    "patronAgencyCode": "derecho",
+                    "patronId": "23529000152273",
+                    "patronName": "Marcus Welch",
+                    "requestId": "REQ002",
+                    "title": "The C programming language"
+                }
+            ]
+        },
         "lending_shipped": {
             "data": [
                 {
@@ -548,6 +572,10 @@
                 },
                 {
                     "endpoint": "circulation_requests",
+                    "response": "lending_received"
+                },
+                {
+                    "endpoint": "circulation_requests",
                     "response": "lending_in_transit"
                 },
                 {
@@ -641,6 +669,10 @@
         "lender_renew_accept": {
             "description": "Lender side of renewal request acceptance",
             "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "lending_initial"
+                },
                 {
                     "endpoint": "circulation_requests",
                     "response": "lending_shipped"

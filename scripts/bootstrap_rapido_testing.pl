@@ -4,6 +4,9 @@
 # Sets up everything needed to test the Rapido plugin with mock API
 
 use Modern::Perl;
+use utf8;
+binmode(STDOUT, ':encoding(UTF-8)');
+binmode(STDERR, ':encoding(UTF-8)');
 use DBI;
 use YAML::XS;
 use JSON;

@@ -4,6 +4,8 @@
 # Based on actual RapidoILL::Client API paths, without problematic modules
 
 use Modern::Perl;
+use utf8;
+use Encode qw(decode_utf8);
 use Mojolicious::Lite -signatures;
 use Mojo::JSON qw(decode_json encode_json);
 use Getopt::Long;
@@ -81,7 +83,7 @@ sub list_scenarios {
     # Load config to get scenarios
     my $config = {};
     if ( -f $config_file ) {
-        open my $fh, '<', $config_file or die "Cannot open $config_file: $!";
+        open my $fh, '<:encoding(UTF-8)', $config_file or die "Cannot open $config_file: $!";
         my $json_text = do { local $/; <$fh> };
         close $fh;
         $config = decode_json($json_text);
@@ -138,7 +140,7 @@ sub load_config {
 
         # Load existing config
         eval {
-            open my $fh, '<', $config_file or die "Cannot open $config_file: $!";
+            open my $fh, '<:encoding(UTF-8)', $config_file or die "Cannot open $config_file: $!";
             my $json_text = do { local $/; <$fh> };
             close $fh;
             $config = decode_json($json_text);
@@ -241,7 +243,7 @@ get '/view/broker/circ/circrequests' => sub ($c) {
         $rapido_item->{borrowerCode}       = $item->{borrowerCode} || $item->{patronAgencyCode};
         $rapido_item->{lenderCode}         = $item->{lenderCode};
         $rapido_item->{puaLocalServerCode} = $item->{puaLocalServerCode} || $item->{patronAgencyCode};
-        $rapido_item->{lastCircState}      = $item->{circStatus};    # Map circStatus to lastCircState
+        $rapido_item->{lastCircState}      = $item->{lastCircState};    # Use actual lastCircState
         $rapido_item->{itemId}             = $item->{itemId};
         $rapido_item->{patronId}           = $item->{patronId};
 
