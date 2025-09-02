@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2025-09-02
+
+### Fixed
+- Fixed UTF-8 double-encoding issue in RapidoILL::Client that caused corrupted characters (e.g., "FilosofÃ­a" instead of "Filosofía")
+- Added proper UTF-8 encoding support to bootstrap_rapido_testing.pl script
+- Enhanced mock server with UTF-8 file handling and lender renewal endpoints
+- Fixed lastCircState mapping in mock server to use correct field instead of circStatus
+- Added comprehensive mocking to renewal backend tests to eliminate dependency on running mock server
+
 ## [0.9.1] - 2025-09-01
 
 ### Fixed

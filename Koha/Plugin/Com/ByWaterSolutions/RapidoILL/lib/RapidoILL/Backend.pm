@@ -970,6 +970,8 @@ sub renewal_request {
     my $decision = $params->{other}->{decision};
     my $new_due_date = $params->{other}->{new_due_date};
 
+    my $pod = $self->{plugin}->get_req_pod( $request );
+
     # Validate decision
     unless ($decision && ($decision eq 'approve' || $decision eq 'reject')) {
         return {
@@ -1004,9 +1006,7 @@ sub renewal_request {
             }
 
             # Use plugin's lender_actions method
-            my $lender_actions = $self->{plugin}->lender_actions;
-
-            $lender_actions->process_renewal_decision(
+            $self->{plugin}->get_lender_actions($pod)->process_renewal_decision(
                 $request,
                 {
                     approve      => 1,
@@ -1021,9 +1021,7 @@ sub renewal_request {
             };
         } else {
             # Rejection
-            my $lender_actions = $self->{plugin}->lender_actions;
-
-            $lender_actions->process_renewal_decision(
+            $self->{plugin}->get_lender_actions($pod)->process_renewal_decision(
                 $request,
                 {
                     approve      => 0,
@@ -1043,7 +1041,7 @@ sub renewal_request {
         return {
             error   => 1,
             status  => '',
-            message => 'Error processing renewal decision. Please try again.',
+            message => "Error processing renewal decision. Please try again: $_",
         };
     };
 }
