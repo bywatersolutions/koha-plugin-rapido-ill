@@ -258,6 +258,54 @@ sub lender_checkin {
     return;
 }
 
+=head3 lender_renew
+
+    $client->lender_renew(
+        {
+            circId      => $circId,
+            dueDateTime => $due_date,
+        },
+      [ { skip_api_request => 0 | 1 } ]
+    );
+
+=cut
+
+sub lender_renew {
+    my ( $self, $params, $options ) = @_;
+
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId dueDateTime)], } );
+
+    if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
+
+        # Handle both DateTime objects and strings for dueDateTime
+        my $due_datetime_epoch;
+        if ( ref( $params->{dueDateTime} ) && $params->{dueDateTime}->can('epoch') ) {
+
+            # Already a DateTime object
+            $due_datetime_epoch = $params->{dueDateTime}->epoch;
+        } else {
+
+            # String that needs conversion
+            $due_datetime_epoch = dt_from_string( $params->{dueDateTime} )->epoch;
+        }
+
+        my $response = $self->{ua}->post_request(
+            {
+                endpoint => '/view/broker/circ/' . $params->{circId} . '/lenderrenew',
+                data     => { dueDateTime => $due_datetime_epoch },
+                context  => 'lender_renew'
+            }
+        );
+
+        RapidoILL::Exception::RequestFailed->throw( method => 'lender_renew', response => $response )
+            unless $response->is_success;
+
+        return decode_json( $response->decoded_content );
+    }
+
+    return;
+}
+
 =head3 lender_shipped
 
     $client->lender_shipped(
