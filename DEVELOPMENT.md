@@ -337,6 +337,66 @@ subtest 'refresh_token() tests' => sub {
 };
 ```
 
+### LenderActions Testing Best Practices
+
+**Method-Level Testing Pattern**:
+```perl
+# Test LenderActions methods directly instead of going through backend
+lives_ok {
+    $plugin->get_lender_actions($pod)->process_renewal_decision(
+        $ill_request,
+        {
+            approve        => 1,
+            new_due_date   => dt_from_string('2025-12-31'),
+            client_options => { skip_api_request => 1 }
+        }
+    );
+} 'Method executes without throwing exceptions';
+```
+
+**Real Test Data Setup**:
+```perl
+# Create real test objects instead of complex mocking
+my $item     = $builder->build_sample_item({ itype => $itemtype->itemtype });
+my $checkout = $builder->build_object({
+    class => 'Koha::Checkouts',
+    value => { itemnumber => $item->itemnumber }
+});
+
+# Add proper attributes to ILL request
+$plugin->add_or_update_attributes({
+    request    => $ill_request,
+    attributes => {
+        circId      => 'TEST_CIRC_001',
+        pod         => 'test-pod',
+        itemId      => $item->itemnumber,
+        checkout_id => $checkout->id,
+    }
+});
+```
+
+**Exception Handling in Methods**:
+```perl
+# Wrap methods in try/catch for proper error handling
+return try {
+    Koha::Database->schema->storage->txn_do(sub {
+        # Method implementation
+    });
+    return $self;
+} catch {
+    RapidoILL::Exception->throw(
+        sprintf("Unhandled exception: %s", $_)
+    );
+}
+```
+
+**Key Principles**:
+- **Direct method testing**: Test LenderActions methods directly, not through backend layer
+- **Real data over mocking**: Use actual Koha objects (checkouts, items) instead of complex mocks
+- **Skip API calls**: Use `skip_api_request => 1` in client_options instead of mocking HTTP
+- **Exception safety**: Wrap methods in try/catch blocks to capture and handle errors properly
+- **Performance optimization**: Use `$self->{pod}` instead of `get_req_pod($req)` calls
+
 ### Common Testing Pitfalls
 
 1. **Missing Plugin Parameter**: APIHttpClient requires `plugin` parameter - always provide it

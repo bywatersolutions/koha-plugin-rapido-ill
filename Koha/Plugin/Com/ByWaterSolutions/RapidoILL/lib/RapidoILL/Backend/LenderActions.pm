@@ -19,6 +19,7 @@ package RapidoILL::Backend::LenderActions;
 
 use Modern::Perl;
 
+use Try::Tiny qw(catch try);
 use Koha::Database;
 
 use RapidoILL::Exceptions;
@@ -248,12 +249,12 @@ sub final_checkin {
 
     $actions->process_renewal_decision( $ill_request, $params );
 
-Process a renewal decision (approval or rejection) from the lender.
+Process a renewal approval from the lender. Rejection is not supported by the Rapido API.
 
 Parameters:
 - $ill_request: The ILL request object
 - $params: Hashref with:
-  - approve: Boolean indicating approval (true) or rejection (false)
+  - approve: Must be true (rejections not supported)
   - new_due_date: New due date if approved (optional)
   - client_options: Options to pass to the Rapido client
 
@@ -266,85 +267,68 @@ sub process_renewal_decision {
     my $new_due_date = $params->{new_due_date};
     my $options      = $params->{client_options} // {};
 
-    Koha::Database->schema->storage->txn_do(
-        sub {
-            my $circId = $self->{plugin}->get_req_circ_id($req);
-            my $pod    = $self->{plugin}->get_req_pod($req);
+    return try {
+        Koha::Database->schema->storage->txn_do(
+            sub {
+                my $circId = $self->{plugin}->get_req_circ_id($req);
+                my $pod    = $self->{pod};
 
-            if ($approve) {
+                if ($approve) {
 
-                # Approval: update due date if provided and notify Rapido
-                if ($new_due_date) {
+                    # Update due date if provided
+                    if ($new_due_date) {
 
-                    # Update checkout due date
-                    my $checkout = $self->{plugin}->get_checkout($req);
-                    if ($checkout) {
-                        $checkout->date_due($new_due_date)->store();
+                        # Update checkout due date
+                        my $checkout = $self->{plugin}->get_checkout($req);
+                        if ($checkout) {
+                            $checkout->date_due($new_due_date)->store();
+                        }
+
+                        # Store new due date in attributes
+                        $self->{plugin}->add_or_update_attributes(
+                            {
+                                request    => $req,
+                                attributes => {
+                                    due_date              => $new_due_date,
+                                    renewal_approved_date => \'NOW()',
+                                }
+                            }
+                        );
                     }
 
-                    # Store new due date in attributes
-                    $self->{plugin}->add_or_update_attributes(
+                    # Notify Rapido of approval
+                    $self->{plugin}->get_client($pod)->lender_renew(
                         {
-                            request    => $req,
-                            attributes => {
-                                due_date              => $new_due_date,
-                                renewal_approved_date => \'NOW()',
-                            }
-                        }
+                            circId => $circId,
+                            ( $new_due_date ? ( dueDateTime => $new_due_date->epoch ) : () ),
+                        },
+                        $options
                     );
+
+                    $self->{plugin}->logger->info(
+                        sprintf(
+                            "Renewal approved for ILL request %d (circId: %s)",
+                            $req->id,
+                            $circId
+                        )
+                    );
+
+                    # Return to ITEM_RECEIVED status after approval
+                    $req->status('O_ITEM_RECEIVED_DESTINATION')->store();
                 }
 
-                # Notify Rapido of approval
-                $self->{plugin}->get_client($pod)->lender_renew(
-                    {
-                        circId => $circId,
-                        ( $new_due_date ? ( dueDateTime => $new_due_date->epoch ) : () ),
-                    },
-                    $options
-                );
-
-                $self->{plugin}->logger->info(
-                    sprintf(
-                        "Renewal approved for ILL request %d (circId: %s)",
-                        $req->id,
-                        $circId
-                    )
-                );
-            } else {
-
-                # Rejection: notify Rapido without due date change
-                $self->{plugin}->add_or_update_attributes(
-                    {
-                        request    => $req,
-                        attributes => {
-                            renewal_rejected_date => \'NOW()',
-                        }
-                    }
-                );
-
-                # Notify Rapido of rejection (no dueDateTime parameter)
-                $self->{plugin}->get_client($pod)->lender_renew(
-                    {
-                        circId => $circId,
-                    },
-                    $options
-                );
-
-                $self->{plugin}->logger->info(
-                    sprintf(
-                        "Renewal rejected for ILL request %d (circId: %s)",
-                        $req->id,
-                        $circId
-                    )
-                );
+                # Note: Rejection is not supported by the Rapido API as per Ex Libris announcement
             }
-
-            # Return to ITEM_RECEIVED status regardless of approval/rejection
-            $req->status('O_ITEM_RECEIVED_DESTINATION')->store();
-        }
-    );
-
-    return $self;
+        );
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    }
 }
 
 1;

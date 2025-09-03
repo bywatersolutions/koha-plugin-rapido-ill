@@ -26,8 +26,10 @@ use Test::Exception;
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Logger;
 
 use Koha::Database;
+use Koha::DateUtils qw(dt_from_string);
 use Koha::Holds;
 use Koha::Old::Holds;
 
@@ -39,6 +41,7 @@ BEGIN {
 
 my $schema  = Koha::Database->new->schema;
 my $builder = t::lib::TestBuilder->new;
+my $logger  = t::lib::Mocks::Logger->new();
 
 subtest 'new() tests' => sub {
 
@@ -513,7 +516,8 @@ subtest 'final_checkin() tests' => sub {
     };
 };
 
-subtest 'process_renewal_decision method' => sub {
+subtest 'process_renewal_decision() method' => sub {
+
     plan tests => 2;
 
     $schema->storage->txn_begin;
@@ -524,10 +528,12 @@ subtest 'process_renewal_decision method' => sub {
     my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
     my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
 
+    my $pod = "test-pod";
+
     # Sample configuration for testing
     my $sample_config_yaml = <<'EOF';
 ---
-test-pod:
+%s:
   base_url: https://test-pod.example.com
   client_id: test_client
   client_secret: test_secret
@@ -541,6 +547,7 @@ EOF
 
     $sample_config_yaml = sprintf(
         $sample_config_yaml,
+        $pod,
         $library->branchcode,
         $category->categorycode,
         $itemtype->itemtype
@@ -551,7 +558,14 @@ EOF
     # Store configuration
     $plugin->store_data( { configuration => $sample_config_yaml } );
 
-    #my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
+    # Create test data
+    my $item     = $builder->build_sample_item( { itype => $itemtype->itemtype } );
+    my $checkout = $builder->build_object(
+        {
+            class => 'Koha::Checkouts',
+            value => { itemnumber => $item->itemnumber }
+        }
+    );
 
     # Create a test ILL request
     my $ill_request = $builder->build_object(
@@ -560,6 +574,7 @@ EOF
             value => {
                 branchcode     => $library->branchcode,
                 borrowernumber => $patron->borrowernumber,
+                biblio_id      => $item->biblionumber,
                 backend        => 'RapidoILL',
                 status         => 'O_RENEWAL_REQUESTED',
             }
@@ -571,93 +586,29 @@ EOF
         {
             request    => $ill_request,
             attributes => {
-                circId => 'TEST_CIRC_001',
-                pod    => 'test-pod',
-            }
-        }
-    );
-
-    # Mock the lender_renew client method to avoid API calls
-    my $renew_decision;
-    my $client_mock = Test::MockModule->new('RapidoILL::Client');
-    $client_mock->mock(
-        'lender_renew',
-        sub {
-            my ( $self, $params ) = @_;
-            if ( $renew_decision eq 'approve' ) {
-                return {
-                    success    => 1,
-                    message    => 'Renewal approved',
-                    newDueDate => '2025-12-31',
-                };
-            } elsif ( $renew_decision eq 'reject' ) {
-                return {
-                    success => 1,
-                    message => 'Renewal rejected',
-                };
-            } else {
-                return {
-                    success => 0,
-                    message => 'Invalid decision',
-                };
+                circId      => 'TEST_CIRC_001',
+                pod         => 'test-pod',
+                itemId      => $item->itemnumber,
+                checkout_id => $checkout->id,
             }
         }
     );
 
     # Create backend instance
-    my $backend = $plugin->new_ill_backend( { request => $ill_request } );
-
-    subtest 'renewal approval' => sub {
-        plan tests => 3;
-
-        $renew_decision = 'approve';
-
-        my $result = $backend->renewal_request(
+    lives_ok {
+        $plugin->get_lender_actions($pod)->process_renewal_decision(
+            $ill_request,
             {
-                request => $ill_request,
-                other   => {
-                    decision     => $renew_decision,
-                    new_due_date => '2025-12-31',
-                }
+                approve        => 1,
+                new_due_date   => dt_from_string('2025-12-31'),
+                client_options => { skip_api_request => 1 }
             }
         );
-
-        is( $result->{error}, 0, 'No error on approval' );
-        like( $result->{message}, qr/approved successfully/, 'Success message for approval' );
-
-        # Verify status returned to O_ITEM_RECEIVED_DESTINATION
-        $ill_request->discard_changes;
-        is( $ill_request->status, 'O_ITEM_RECEIVED_DESTINATION', 'Status returned to O_ITEM_RECEIVED_DESTINATION' );
-
-        $renew_decision = undef;
     };
 
-    subtest 'renewal rejection' => sub {
-        plan tests => 3;
-
-        $renew_decision = 'reject';
-
-        # Reset status for rejection test
-        $ill_request->status('O_RENEWAL_REQUESTED')->store();
-
-        my $result = $backend->renewal_request(
-            {
-                request => $ill_request,
-                other   => {
-                    decision => $renew_decision,
-                }
-            }
-        );
-
-        is( $result->{error}, 0, 'No error on rejection' );
-        like( $result->{message}, qr/rejected successfully/, 'Success message for rejection' );
-
-        # Verify status returned to O_ITEM_RECEIVED_DESTINATION
-        $ill_request->discard_changes;
-        is( $ill_request->status, 'O_ITEM_RECEIVED_DESTINATION', 'Status returned to O_ITEM_RECEIVED_DESTINATION' );
-
-        $renew_decision = undef;
-    };
+    # Verify status returned to O_ITEM_RECEIVED_DESTINATION
+    $ill_request->discard_changes;
+    is( $ill_request->status, 'O_ITEM_RECEIVED_DESTINATION', 'Status returned to O_ITEM_RECEIVED_DESTINATION' );
 
     $schema->storage->txn_rollback;
 };

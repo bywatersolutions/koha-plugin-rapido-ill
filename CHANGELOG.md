@@ -5,17 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.3] - 2025-09-03
+
+### Removed
+- [#93] Removed renewal rejection code path from LenderActions as per Ex Libris announcement that Rapido API does not support rejections
+- [#93] Removed renewal rejection tests that were testing unsupported functionality
 
 ### Added
 - [#92] Added `epoch_to_end_of_day()` helper method for consistent DateTime conversion with end-of-day normalization
 - [#92] Comprehensive test coverage for `epoch_to_end_of_day()` method
-
-### Changed
-- [#92] Refactored epoch timestamp conversions in renewal request handling to use new helper method
-- [#92] Simplified date normalization code by centralizing end-of-day logic
-
-## [0.9.3] - 2025-09-03
 
 ### Changed
 - [#90] Renamed renewal template from `approve_renewal.tt` to `renewal_request.inc` to match backend method naming
@@ -24,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#90] Enhanced error handling in renewal template with specific error messages for different failure conditions
 - [#90] Integrated proper flatpickr date picker following Koha's standard implementation patterns
 - [#90] Used native JavaScript DOMContentLoaded instead of jQuery for better template insertion compatibility
+- [#92] Refactored epoch timestamp conversions in renewal request handling to use new helper method
+- [#92] Simplified date normalization code by centralizing end-of-day logic
+- [#93] Wrapped `process_renewal_decision` method in try/catch block for proper error handling and exception capture
+- [#93] Improved performance by using `$self->{pod}` instead of `get_req_pod($req)` call
+- [#93] Enhanced test approach to directly test LenderActions methods instead of going through backend layer
+- [#93] Simplified test setup by using real test data (checkouts, items) instead of complex mocking
+- [#93] Used `skip_api_request` client option in tests instead of mocking API calls
 
 ### Fixed
 - [#90] Fixed renewal request template to properly display borrower's requested due date
