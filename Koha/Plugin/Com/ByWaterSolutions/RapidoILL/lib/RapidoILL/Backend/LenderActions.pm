@@ -106,35 +106,43 @@ sub cancel_request {
     $params //= {};
     my $options = $params->{client_options} // {};
 
-    Koha::Database->schema->storage->txn_do(
-        sub {
-            my $attrs = $req->extended_attributes;
+    return try {
+        Koha::Database->schema->storage->txn_do(
+            sub {
+                my $attrs = $req->extended_attributes;
 
-            my $circId = $self->{plugin}->get_req_circ_id($req);
-            my $pod    = $self->{plugin}->get_req_pod($req);
+                my $circId = $self->{plugin}->get_req_circ_id($req);
+                my $pod    = $self->{plugin}->get_req_pod($req);
 
-            my $patronName = $attrs->find( { type => 'patronName' } )->value;
+                my $patronName = $attrs->find( { type => 'patronName' } )->value;
 
-            # Cancel after the request status change, so the condition for the hook is not met
-            my $hold = Koha::Holds->find( $attrs->find( { type => 'hold_id' } )->value );
-            $hold->cancel
-                if $hold;
+                # Cancel after the request status change, so the condition for the hook is not met
+                my $hold = Koha::Holds->find( $attrs->find( { type => 'hold_id' } )->value );
+                $hold->cancel
+                    if $hold;
 
-            # notify Rapido. Throws an exception if failed
-            $self->{plugin}->get_client($pod)->lender_cancel(
-                {
-                    circId     => $circId,
-                    localBibId => $req->biblio_id,
-                    patronName => $patronName,
-                },
-                $options
-            );
+                # notify Rapido. Throws an exception if failed
+                $self->{plugin}->get_client($pod)->lender_cancel(
+                    {
+                        circId     => $circId,
+                        localBibId => $req->biblio_id,
+                        patronName => $patronName,
+                    },
+                    $options
+                );
 
-            $req->status('O_ITEM_CANCELLED_BY_US')->store;
-        }
-    );
-
-    return $self;
+                $req->status('O_ITEM_CANCELLED_BY_US')->store;
+            }
+        );
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    }
 }
 
 =head3 item_shipped
@@ -159,54 +167,62 @@ sub item_shipped {
     my $circId = $self->{plugin}->get_req_circ_id($req);
     my $pod    = $self->{plugin}->get_req_pod($req);
 
-    Koha::Database->schema->storage->txn_do(
-        sub {
-            my $attrs  = $req->extended_attributes;
-            my $itemId = $attrs->find( { type => 'itemId' } )->value;
+    return try {
+        Koha::Database->schema->storage->txn_do(
+            sub {
+                my $attrs  = $req->extended_attributes;
+                my $itemId = $attrs->find( { type => 'itemId' } )->value;
 
-            my $item     = Koha::Items->find( { barcode => $itemId } );
-            my $patron   = Koha::Patrons->find( $req->borrowernumber );
-            my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
+                my $item     = Koha::Items->find( { barcode => $itemId } );
+                my $patron   = Koha::Patrons->find( $req->borrowernumber );
+                my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
 
-            if ($checkout) {
-                if ( $checkout->borrowernumber != $req->borrowernumber ) {
-                    RapidoILL::Exception->throw(
-                        sprintf(
-                            "Request borrowernumber (%s) doesn't match the checkout borrowernumber (%s)",
-                            $checkout->borrowernumber, $req->borrowernumber
-                        )
-                    );
+                if ($checkout) {
+                    if ( $checkout->borrowernumber != $req->borrowernumber ) {
+                        RapidoILL::Exception->throw(
+                            sprintf(
+                                "Request borrowernumber (%s) doesn't match the checkout borrowernumber (%s)",
+                                $checkout->borrowernumber, $req->borrowernumber
+                            )
+                        );
+                    }
+
+                    # else {} # The item is already checked out to the right patron
+                } else {    # no checkout, proceed
+                    $checkout = $self->{plugin}->add_issue( { patron => $patron, barcode => $item->barcode } );
                 }
 
-                # else {} # The item is already checked out to the right patron
-            } else {    # no checkout, proceed
-                $checkout = $self->{plugin}->add_issue( { patron => $patron, barcode => $item->barcode } );
+                # record checkout_id
+                $self->{plugin}->add_or_update_attributes(
+                    {
+                        request    => $req,
+                        attributes => { checkout_id => $checkout->id },
+                    }
+                );
+
+                # update status
+                $req->status('O_ITEM_SHIPPED')->store;
+
+                # notify Rapido. Throws an exception if failed
+                $self->{plugin}->get_client($pod)->lender_shipped(
+                    {
+                        callNumber  => $item->itemcallnumber,
+                        circId      => $circId,
+                        itemBarcode => $item->barcode,
+                    },
+                    $options
+                );
             }
-
-            # record checkout_id
-            $self->{plugin}->add_or_update_attributes(
-                {
-                    request    => $req,
-                    attributes => { checkout_id => $checkout->id },
-                }
-            );
-
-            # update status
-            $req->status('O_ITEM_SHIPPED')->store;
-
-            # notify Rapido. Throws an exception if failed
-            $self->{plugin}->get_client($pod)->lender_shipped(
-                {
-                    callNumber  => $item->itemcallnumber,
-                    circId      => $circId,
-                    itemBarcode => $item->barcode,
-                },
-                $options
-            );
-        }
-    );
-
-    return $self;
+        );
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    }
 }
 
 =head3 final_checkin
@@ -228,21 +244,29 @@ sub final_checkin {
     $params //= {};
     my $options = $params->{client_options} // {};
 
-    Koha::Database->schema->storage->txn_do(
-        sub {
-            my $circId = $self->{plugin}->get_req_circ_id($req);
-            my $pod    = $self->{plugin}->get_req_pod($req);
+    return try {
+        Koha::Database->schema->storage->txn_do(
+            sub {
+                my $circId = $self->{plugin}->get_req_circ_id($req);
+                my $pod    = $self->{plugin}->get_req_pod($req);
 
-            # update status with paper trail
-            $req->status('O_ITEM_CHECKED_IN')->store();
-            $req->status('COMP')->store();
+                # update status with paper trail
+                $req->status('O_ITEM_CHECKED_IN')->store();
+                $req->status('COMP')->store();
 
-            # notify Rapido. Throws an exception if failed
-            $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, }, $options );
-        }
-    );
-
-    return $self;
+                # notify Rapido. Throws an exception if failed
+                $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, }, $options );
+            }
+        );
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    }
 }
 
 =head3 process_renewal_decision
