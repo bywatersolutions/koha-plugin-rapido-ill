@@ -2613,4 +2613,25 @@ sub get_lender_action_handler {
     return $self->{lender_action_handler}->{$pod};
 }
 
+=head3 epoch_to_end_of_day
+
+    my $datetime = $plugin->epoch_to_end_of_day($epoch_timestamp);
+
+Convert an epoch timestamp to a DateTime object with time set to 23:59:59.
+This ensures consistency with Koha's end-of-day date handling.
+
+=cut
+
+sub epoch_to_end_of_day {
+    my ( $self, $epoch ) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw( param => 'epoch' )
+        unless defined $epoch;
+
+    my $dt = DateTime->from_epoch( epoch => $epoch );
+    $dt->set_hour(23)->set_minute(59)->set_second(59);
+    
+    return $dt;
+}
+
 1;

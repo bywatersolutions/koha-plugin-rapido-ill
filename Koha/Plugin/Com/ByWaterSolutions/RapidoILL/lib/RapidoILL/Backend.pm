@@ -990,10 +990,7 @@ sub renewal_request {
         my $borrower_requested_due_date;
 
         if ( $borrower_requested_attr && $borrower_requested_attr->value ) {
-            $borrower_requested_due_date = DateTime->from_epoch( epoch => $borrower_requested_attr->value );
-
-            # Set time to 23:59:59 for Koha consistency
-            $borrower_requested_due_date->set_hour(23)->set_minute(59)->set_second(59);
+            $borrower_requested_due_date = $self->{plugin}->epoch_to_end_of_day( $borrower_requested_attr->value );
         }
 
         return {
@@ -1037,10 +1034,7 @@ sub renewal_request {
             } elsif ($borrower_requested_due_date) {
 
                 # Use borrower's requested date - convert from epoch
-                $due_date_obj = DateTime->from_epoch( epoch => $borrower_requested_due_date );
-
-                # Set time to 23:59:59 for Koha consistency
-                $due_date_obj->set_hour(23)->set_minute(59)->set_second(59);
+                $due_date_obj = $self->{plugin}->epoch_to_end_of_day( $borrower_requested_due_date );
             }
 
             # Process renewal decision

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- [#92] Added `epoch_to_end_of_day()` helper method for consistent DateTime conversion with end-of-day normalization
+- [#92] Comprehensive test coverage for `epoch_to_end_of_day()` method
+
+### Changed
+- [#92] Refactored epoch timestamp conversions in renewal request handling to use new helper method
+- [#92] Simplified date normalization code by centralizing end-of-day logic
+
+## [0.9.3] - 2025-09-03
+
+### Changed
+- [#90] Renamed renewal template from `approve_renewal.tt` to `renewal_request.inc` to match backend method naming
+- [#90] Improved date handling in renewal requests to use proper DateTime objects instead of raw epoch timestamps
+- [#90] Normalized all due dates to 23:59:59 (end of day) for consistency with Koha's date handling expectations
+- [#90] Enhanced error handling in renewal template with specific error messages for different failure conditions
+- [#90] Integrated proper flatpickr date picker following Koha's standard implementation patterns
+- [#90] Used native JavaScript DOMContentLoaded instead of jQuery for better template insertion compatibility
+
+### Fixed
+- [#90] Fixed renewal request template to properly display borrower's requested due date
+- [#90] Disabled renewal rejection button with explanatory tooltip (API does not support rejection)
+- [#90] Applied Koha coding standards using official tidy.pl script for consistent code formatting
+
 ## [0.9.2] - 2025-09-02
 
 ### Added
