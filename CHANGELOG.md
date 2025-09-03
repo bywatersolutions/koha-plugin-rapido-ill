@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - [#94] Wrapped all LenderActions methods in try/catch blocks for consistent exception handling and error capture
+- [#94] Wrapped all BorrowerActions methods in try/catch blocks for consistent exception handling and error capture
 - [#94] Improved error safety across cancel_request, item_shipped, and final_checkin methods following process_renewal_decision pattern
+- [#94] Enhanced exception handling for borrower_receive_unshipped, item_in_transit, borrower_cancel, and borrower_renew methods
+- [#94] Fixed Try::Tiny import in BorrowerActions to properly include catch and try functions
 
 ## [0.9.3] - 2025-09-03
 

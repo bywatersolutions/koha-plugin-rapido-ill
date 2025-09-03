@@ -19,7 +19,7 @@ package RapidoILL::Backend::BorrowerActions;
 
 use Modern::Perl;
 
-use Try::Tiny;
+use Try::Tiny qw(catch try);
 use Koha::Database;
 use Koha::DateUtils qw( dt_from_string );
 
@@ -112,56 +112,64 @@ sub borrower_receive_unshipped {
     my $barcode    = $params->{barcode};
     my $options    = $params->{client_options} // {};
 
-    Koha::Database->new->schema->txn_do(
-        sub {
-            # check if already catalogued. INN-Reach requires no barcode collision
-            my $existing_item = Koha::Items->find( { barcode => $barcode } );
+    return try {
+        Koha::Database->new->schema->txn_do(
+            sub {
+                # check if already catalogued. INN-Reach requires no barcode collision
+                my $existing_item = Koha::Items->find( { barcode => $barcode } );
 
-            if ($existing_item) {
+                if ($existing_item) {
 
-                # already exists, add suffix
-                my $i = 1;
-                my $done;
+                    # already exists, add suffix
+                    my $i = 1;
+                    my $done;
 
-                while ( !$done ) {
-                    my $tmp_barcode = $barcode . "-$i";
-                    $existing_item = Koha::Items->find( { barcode => $tmp_barcode } );
+                    while ( !$done ) {
+                        my $tmp_barcode = $barcode . "-$i";
+                        $existing_item = Koha::Items->find( { barcode => $tmp_barcode } );
 
-                    if ( !$existing_item ) {
-                        $barcode = $tmp_barcode;
-                        $done    = 1;
+                        if ( !$existing_item ) {
+                            $barcode = $tmp_barcode;
+                            $done    = 1;
+                        }
+
+                        $i++;
                     }
 
-                    $i++;
+                    $attributes->{barcode_collision} = 1;
                 }
 
-                $attributes->{barcode_collision} = 1;
+                my $config = $self->{plugin}->configuration->{ $self->{pod} };
+
+                # Create the MARC record and item
+                my $item = $self->{plugin}->add_virtual_record_and_item(
+                    {
+                        request    => $request,
+                        attributes => $attributes,
+                    }
+                );
+
+                $request->set(
+                    {
+                        biblio_id => $item->biblionumber,
+                    }
+                );
+                $request->status('B_ITEM_RECEIVED')->store();
+
+                if ( $options && $options->{notify_rapido} ) {
+                    $self->{plugin}->get_client( $self->{pod} )->borrower_receive_unshipped( {}, $options );
+                }
             }
-
-            my $config = $self->{plugin}->configuration->{ $self->{pod} };
-
-            # Create the MARC record and item
-            my $item = $self->{plugin}->add_virtual_record_and_item(
-                {
-                    request    => $request,
-                    attributes => $attributes,
-                }
-            );
-
-            $request->set(
-                {
-                    biblio_id => $item->biblionumber,
-                }
-            );
-            $request->status('B_ITEM_RECEIVED')->store();
-
-            if ( $options && $options->{notify_rapido} ) {
-                $self->{plugin}->get_client( $self->{pod} )->borrower_receive_unshipped( {}, $options );
-            }
-        }
-    );
-
-    return $self;
+        );
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    }
 }
 
 =head3 item_in_transit
@@ -187,41 +195,49 @@ sub item_in_transit {
 
     my $circId = $self->{plugin}->get_req_circ_id($req);
 
-    Koha::Database->new->schema->txn_do(
-        sub {
-            # Return the item first
-            my $barcode = $attrs->find( { type => 'itemBarcode' } )->value;
+    return try {
+        Koha::Database->new->schema->txn_do(
+            sub {
+                # Return the item first
+                my $barcode = $attrs->find( { type => 'itemBarcode' } )->value;
 
-            my $item = Koha::Items->find( { barcode => $barcode } );
+                my $item = Koha::Items->find( { barcode => $barcode } );
 
-            if ($item) {    # is the item still on the database
-                my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
+                if ($item) {    # is the item still on the database
+                    my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
 
-                if ($checkout) {
-                    $self->{plugin}->add_return( { barcode => $barcode } );
-                }
-            }
-
-            my $biblio = Koha::Biblios->find( $req->biblio_id );
-
-            if ($biblio) {    # is the biblio still on the database
-                              # Remove the virtual items. there should only be one
-                my $items = $biblio->items;
-                while ( my $item = $items->next ) {
-                    $item->delete;
+                    if ($checkout) {
+                        $self->{plugin}->add_return( { barcode => $barcode } );
+                    }
                 }
 
-                # Remove the virtual biblio
-                $biblio->delete;
+                my $biblio = Koha::Biblios->find( $req->biblio_id );
+
+                if ($biblio) {    # is the biblio still on the database
+                                  # Remove the virtual items. there should only be one
+                    my $items = $biblio->items;
+                    while ( my $item = $items->next ) {
+                        $item->delete;
+                    }
+
+                    # Remove the virtual biblio
+                    $biblio->delete;
+                }
+
+                $req->status('B_ITEM_IN_TRANSIT')->store;
+
+                $self->{plugin}->get_client( $self->{pod} )->borrower_item_returned( { circId => $circId }, $options );
             }
-
-            $req->status('B_ITEM_IN_TRANSIT')->store;
-
-            $self->{plugin}->get_client( $self->{pod} )->borrower_item_returned( { circId => $circId }, $options );
-        }
-    );
-
-    return $self;
+        );
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    }
 }
 
 =head3 borrower_cancel
@@ -245,15 +261,23 @@ sub borrower_cancel {
 
     my $circId = $self->{plugin}->get_req_circ_id($req);
 
-    Koha::Database->new->schema->txn_do(
-        sub {
-            $req->status('B_ITEM_CANCELLED_BY_US')->store;
+    return try {
+        Koha::Database->new->schema->txn_do(
+            sub {
+                $req->status('B_ITEM_CANCELLED_BY_US')->store;
 
-            $self->{plugin}->get_client( $self->{pod} )->borrower_cancel( { circId => $circId }, $options );
-        }
-    );
-
-    return $self;
+                $self->{plugin}->get_client( $self->{pod} )->borrower_cancel( { circId => $circId }, $options );
+            }
+        );
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    }
 }
 
 =head3 borrower_renew
@@ -279,39 +303,47 @@ sub borrower_renew {
 
     my $circId = $self->{plugin}->get_req_circ_id($req);
 
-    Koha::Database->new->schema->txn_do(
-        sub {
-            $req->status('B_ITEM_RENEWAL_REQUESTED')->store;
+    return try {
+        Koha::Database->new->schema->txn_do(
+            sub {
+                $req->status('B_ITEM_RENEWAL_REQUESTED')->store;
 
-            # Convert due_date to DateTime with end-of-day time (23:59:59)
-            my $due_datetime = dt_from_string( $params->{due_date} );
-            $due_datetime->set_time_zone('local');
-            $due_datetime->set( hour => 23, minute => 59, second => 59 );
+                # Convert due_date to DateTime with end-of-day time (23:59:59)
+                my $due_datetime = dt_from_string( $params->{due_date} );
+                $due_datetime->set_time_zone('local');
+                $due_datetime->set( hour => 23, minute => 59, second => 59 );
 
-            # Store current due_date as prevDueDateTime before updating
-            if ( $req->due_date ) {
-                my $prev_due_epoch = dt_from_string( $req->due_date )->epoch;
-                $self->{plugin}->add_or_update_attributes(
+                # Store current due_date as prevDueDateTime before updating
+                if ( $req->due_date ) {
+                    my $prev_due_epoch = dt_from_string( $req->due_date )->epoch;
+                    $self->{plugin}->add_or_update_attributes(
+                        {
+                            request    => $req,
+                            attributes => { prevDueDateTime => $prev_due_epoch }
+                        }
+                    );
+                }
+
+                $req->set( { due_date => $due_datetime->datetime() } )->store();
+
+                $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
                     {
-                        request    => $req,
-                        attributes => { prevDueDateTime => $prev_due_epoch }
-                    }
+                        circId      => $circId,
+                        dueDateTime => $due_datetime
+                    },
+                    $options
                 );
             }
-
-            $req->set( { due_date => $due_datetime->datetime() } )->store();
-
-            $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
-                {
-                    circId      => $circId,
-                    dueDateTime => $due_datetime
-                },
-                $options
-            );
-        }
-    );
-
-    return $self;
+        );
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    }
 }
 
 1;
