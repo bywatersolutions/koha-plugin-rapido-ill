@@ -210,13 +210,23 @@ sub status_graph {
             ui_method_icon => q{},
         },
         O_RENEWAL_REQUESTED => {
-            prev_actions   => ['O_ITEM_RECEIVED_DESTINATION'],
+            prev_actions   => [],
             id             => 'O_RENEWAL_REQUESTED',
             name           => 'Renewal requested by borrowing library',
-            ui_method_name => 'Approve renewal',
+            ui_method_name => '',
+            method         => '',
+            next_actions   => ['O_RENEWAL_HANDLED'],
+            ui_method_icon => '',
+        },
+        O_RENEWAL_HANDLED => {    # not a real status
+            prev_actions   => ['O_RENEWAL_REQUESTED'],
+            id             => 'O_RENEWAL_HANDLED',
+            name           => 'Renewal requested by borrowing library',
+            ui_method_name => 'Handle renewal',
             method         => 'renewal_request',
             next_actions   => ['O_ITEM_RECEIVED_DESTINATION'],
-            ui_method_icon => 'fa-solid fa-clock-rotate-left',
+            ui_method_icon => 'fa-clock-rotate-left',
+
         },
         O_ITEM_RECALLED => {
             prev_actions   => ['O_ITEM_RECEIVED_DESTINATION'],
@@ -969,15 +979,30 @@ sub renewal_request {
     my $request      = $params->{request};
     my $decision     = $params->{other}->{decision};
     my $new_due_date = $params->{other}->{new_due_date};
+    my $stage        = $params->{other}->{stage};
 
     my $pod = $self->{plugin}->get_req_pod($request);
 
-    # Validate decision
-    unless ( $decision && ( $decision eq 'approve' || $decision eq 'reject' ) ) {
+    if ( !$stage || $stage eq 'init' ) {
+
+        # Get borrower's requested due date and convert from epoch
+        my $borrower_requested_attr = $request->extended_attributes->find( { type => 'borrower_requested_due_date' } );
+        my $borrower_requested_due_date;
+
+        if ( $borrower_requested_attr && $borrower_requested_attr->value ) {
+            $borrower_requested_due_date = DateTime->from_epoch( epoch => $borrower_requested_attr->value );
+
+            # Set time to 23:59:59 for Koha consistency
+            $borrower_requested_due_date->set_hour(23)->set_minute(59)->set_second(59);
+        }
+
         return {
-            error   => 1,
-            status  => '',
-            message => 'Invalid decision. Must be "approve" or "reject".',
+            error   => 0,
+            status  => q{},
+            message => q{},
+            method  => 'renewal_request',
+            stage   => 'form',
+            value   => { borrower_requested_due_date => $borrower_requested_due_date }
         };
     }
 
@@ -996,48 +1021,40 @@ sub renewal_request {
                 # Staff override date
                 try {
                     $due_date_obj = dt_from_string($new_due_date);
+                    # Set time to 23:59:59 for Koha consistency
+                    $due_date_obj->set_hour(23)->set_minute(59)->set_second(59);
                 } catch {
                     return {
                         error   => 1,
-                        status  => '',
-                        message => 'Invalid due date format.',
+                        status  => 'invalid_due_date',
+                        message => "Invalid due date passed: $_",
+                        method  => 'renewal_request',
+                        stage   => 'commit',
+                        next    => 'illview',
+                        value   => q{},
                     };
                 };
             } elsif ($borrower_requested_due_date) {
 
-                # Use borrower's requested date
-                $due_date_obj = dt_from_string( $borrower_requested_due_date, 'iso' );
+                # Use borrower's requested date - convert from epoch
+                $due_date_obj = DateTime->from_epoch( epoch => $borrower_requested_due_date );
+
+                # Set time to 23:59:59 for Koha consistency
+                $due_date_obj->set_hour(23)->set_minute(59)->set_second(59);
             }
 
-            # Use plugin's lender_actions method
-            $self->{plugin}->get_lender_actions($pod)->process_renewal_decision(
-                $request,
-                {
-                    approve      => 1,
-                    new_due_date => $due_date_obj,
-                }
-            );
+            # Process renewal decision
+            $self->{plugin}->get_lender_actions($pod)
+                ->process_renewal_decision( $request, { approve => 1, new_due_date => $due_date_obj } );
 
             return {
                 error   => 0,
                 status  => '',
-                message => 'Renewal approved successfully.',
-            };
-        } else {
-
-            # Rejection
-            $self->{plugin}->get_lender_actions($pod)->process_renewal_decision(
-                $request,
-                {
-                    approve      => 0,
-                    new_due_date => undef,
-                }
-            );
-
-            return {
-                error   => 0,
-                status  => '',
-                message => 'Renewal rejected successfully.',
+                message => "Request renewed",
+                method  => 'renewal_request',
+                stage   => 'commit',
+                next    => 'illview',
+                value   => q{},
             };
         }
 
@@ -1045,8 +1062,12 @@ sub renewal_request {
         $self->{plugin}->logger->error("Error processing renewal decision: $_");
         return {
             error   => 1,
-            status  => '',
-            message => "Error processing renewal decision. Please try again: $_",
+            status  => 'error_on_renewal',
+            message => "Error processing renewal decision: $_",
+            method  => 'renewal_request',
+            stage   => 'commit',
+            next    => 'illview',
+            value   => q{},
         };
     };
 }
