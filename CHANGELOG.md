@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#98] Refactored Backend->item_received() to delegate business logic to BorrowerActions->item_received() following established architectural pattern
 - [#98] Updated task_queue_daemon.pl b_item_received handler to delegate to BorrowerActions->item_received() eliminating code duplication
 - [#99] Refactored Backend->return_uncirculated() to delegate business logic to BorrowerActions->return_uncirculated() following established architectural pattern
+- [#100] Updated APIController.pm to use standard Koha logging and exception handling methods instead of legacy InnReach references
 
 ### Added
 - [#98] Added BorrowerActions->item_received() method with proper client_options support and exception handling

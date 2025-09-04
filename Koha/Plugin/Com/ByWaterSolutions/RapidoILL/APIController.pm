@@ -245,7 +245,7 @@ sub get_print_slip {
                 }
             }
         } else {
-            $plugin->innreach_warn("Not sure where I am");
+            $plugin->logger->warn("Unable to determine request type for print slip generation");
         }
 
         my $slip = C4::Letters::GetPreparedLetter(
@@ -283,7 +283,7 @@ sub get_print_slip {
             data   => Encode::encode( 'UTF-8', $template->output() )
         );
     } catch {
-        return $c->unhandled_innreach_exception($_);
+        return $c->unhandled_exception($_);
     };
 }
 
