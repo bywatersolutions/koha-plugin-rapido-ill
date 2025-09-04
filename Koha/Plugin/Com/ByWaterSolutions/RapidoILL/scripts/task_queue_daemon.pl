@@ -235,24 +235,10 @@ Handle the b_item_received action.
 sub b_item_received {
     my ($params) = @_;
 
-    my $task   = $params->{task};
-    my $plugin = $params->{plugin};
+    my $req = $params->{task}->ill_request;
+    my $pod = $params->{plugin}->get_req_pod($req);
 
-    Koha::Database->schema->storage->txn_do(
-        sub {
-
-            my $req = $task->ill_request();
-
-            $req->status('B_ITEM_RECEIVED')->store;
-
-            # notify Rapido. Throws an exception if failed
-            $plugin->get_client( $plugin->get_req_pod($req) )->borrower_item_received(
-                {
-                    circId => $plugin->get_req_circ_id($req),
-                }
-            );
-        }
-    );
+    $params->{plugin}->get_borrower_actions($pod)->item_received($req);
 }
 
 =head3 b_item_renewal
