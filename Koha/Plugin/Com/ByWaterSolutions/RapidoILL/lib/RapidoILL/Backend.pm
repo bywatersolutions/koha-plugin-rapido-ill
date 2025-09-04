@@ -515,22 +515,12 @@ item check-in has taken place.
 sub item_checkin {
     my ( $self, $params ) = @_;
 
-    my $req   = $params->{request};
-    my $attrs = $req->extended_attributes;
-
-    my $circId = $attrs->find( { type => 'circId' } )->value;
-    my $pod    = $attrs->find( { type => 'pod' } )->value;
+    my $request = $params->{request};
+    my $pod     = $self->{plugin}->get_req_pod($request);
 
     return try {
-        Koha::Database->schema->storage->txn_do(
-            sub {
-                # update status
-                $req->status('O_ITEM_CHECKED_IN')->store;
+        $self->{plugin}->get_lender_actions($pod)->final_checkin($request);
 
-                # notify Rapido. Throws an exception if failed
-                $self->{plugin}->get_client($pod)->lender_checkin( { circId => $circId, } );
-            }
-        );
         return {
             error   => 0,
             status  => q{},
