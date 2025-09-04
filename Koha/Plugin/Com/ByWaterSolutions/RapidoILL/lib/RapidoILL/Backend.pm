@@ -999,6 +999,7 @@ sub renewal_request {
                 # Staff override date
                 try {
                     $due_date_obj = dt_from_string($new_due_date);
+
                     # Set time to 23:59:59 for Koha consistency
                     $due_date_obj->set_hour(23)->set_minute(59)->set_second(59);
                 } catch {
@@ -1015,7 +1016,7 @@ sub renewal_request {
             } elsif ($borrower_requested_due_date) {
 
                 # Use borrower's requested date - convert from epoch
-                $due_date_obj = $self->{plugin}->epoch_to_end_of_day( $borrower_requested_due_date );
+                $due_date_obj = $self->{plugin}->epoch_to_end_of_day($borrower_requested_due_date);
             }
 
             # Process renewal decision

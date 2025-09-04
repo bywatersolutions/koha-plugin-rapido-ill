@@ -112,7 +112,7 @@ sub cancel_request {
                 my $attrs = $req->extended_attributes;
 
                 my $circId = $self->{plugin}->get_req_circ_id($req);
-                my $pod    = $self->{plugin}->get_req_pod($req);
+                my $pod    = $self->{pod};
 
                 my $patronName = $attrs->find( { type => 'patronName' } )->value;
 
@@ -165,7 +165,7 @@ sub item_shipped {
     my $options = $params->{client_options} // {};
 
     my $circId = $self->{plugin}->get_req_circ_id($req);
-    my $pod    = $self->{plugin}->get_req_pod($req);
+    my $pod    = $self->{pod};
 
     return try {
         Koha::Database->schema->storage->txn_do(
@@ -248,7 +248,7 @@ sub final_checkin {
         Koha::Database->schema->storage->txn_do(
             sub {
                 my $circId = $self->{plugin}->get_req_circ_id($req);
-                my $pod    = $self->{plugin}->get_req_pod($req);
+                my $pod    = $self->{pod};
 
                 # update status with paper trail
                 $req->status('O_ITEM_CHECKED_IN')->store();
