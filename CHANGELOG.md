@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#93] Refactored Backend->cancel_request() to delegate business logic to LenderActions->cancel_request() following established architectural pattern
 - [#93] Optimized LenderActions methods to use constructor pod parameter instead of querying get_req_pod() for better performance
 
+### Fixed
+- [#93] Enhanced LenderActions->cancel_request() to gracefully handle missing patronName and hold_id attributes with appropriate logging instead of throwing exceptions
+
 ## [0.9.3] - 2025-09-03
 
 ### Removed

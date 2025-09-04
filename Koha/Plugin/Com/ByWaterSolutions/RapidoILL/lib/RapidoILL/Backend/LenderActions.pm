@@ -114,12 +114,33 @@ sub cancel_request {
                 my $circId = $self->{plugin}->get_req_circ_id($req);
                 my $pod    = $self->{pod};
 
-                my $patronName = $attrs->find( { type => 'patronName' } )->value;
+                # Handle missing patronName attribute gracefully
+                my $patronName = '';
+                my $patronName_attr = $attrs->find( { type => 'patronName' } );
+                if ($patronName_attr) {
+                    $patronName = $patronName_attr->value;
+                } else {
+                    $self->{plugin}->logger->warn(
+                        sprintf(
+                            "Missing patronName attribute for ILL request %d, using empty string",
+                            $req->id
+                        )
+                    );
+                }
 
-                # Cancel after the request status change, so the condition for the hook is not met
-                my $hold = Koha::Holds->find( $attrs->find( { type => 'hold_id' } )->value );
-                $hold->cancel
-                    if $hold;
+                # Handle missing hold_id attribute gracefully
+                my $hold_id_attr = $attrs->find( { type => 'hold_id' } );
+                if ($hold_id_attr) {
+                    my $hold = Koha::Holds->find( $hold_id_attr->value );
+                    $hold->cancel if $hold;
+                } else {
+                    $self->{plugin}->logger->warn(
+                        sprintf(
+                            "Missing hold_id attribute for ILL request %d, skipping hold cancellation",
+                            $req->id
+                        )
+                    );
+                }
 
                 # notify Rapido. Throws an exception if failed
                 $self->{plugin}->get_client($pod)->lender_cancel(
