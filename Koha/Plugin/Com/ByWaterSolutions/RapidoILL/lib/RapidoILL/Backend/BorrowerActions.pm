@@ -346,4 +346,45 @@ sub borrower_renew {
     }
 }
 
+=head3 item_received
+
+Method to notify the owning site that the item has been received.
+
+=cut
+
+sub item_received {
+    my ( $self, $req, $params ) = @_;
+
+    $params //= {};
+    my $options = $params->{client_options} // {};
+
+    return try {
+        Koha::Database->schema->storage->txn_do(
+            sub {
+                my $circId = $self->{plugin}->get_req_circ_id($req);
+
+                # Update status
+                $req->status('B_ITEM_RECEIVED')->store;
+
+                # Notify Rapido API
+                $self->{plugin}->get_client( $self->{pod} )->borrower_item_received(
+                    {
+                        circId => $circId,
+                    },
+                    $options
+                );
+            }
+        );
+
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    };
+}
+
 1;
