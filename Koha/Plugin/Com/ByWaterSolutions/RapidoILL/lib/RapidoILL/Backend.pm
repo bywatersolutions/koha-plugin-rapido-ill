@@ -923,7 +923,7 @@ sub renewal_request {
 
             # Process renewal decision
             $self->{plugin}->get_lender_actions($pod)
-                ->process_renewal_decision( $request, { approve => 1, new_due_date => $due_date_obj } );
+                ->renewal_request( $request, { approve => 1, new_due_date => $due_date_obj } );
 
             return {
                 error   => 0,

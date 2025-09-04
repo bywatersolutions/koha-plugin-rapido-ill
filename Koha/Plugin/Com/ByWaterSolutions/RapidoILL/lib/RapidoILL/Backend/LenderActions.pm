@@ -290,9 +290,9 @@ sub final_checkin {
     }
 }
 
-=head3 process_renewal_decision
+=head3 renewal_request
 
-    $actions->process_renewal_decision( $ill_request, $params );
+    $actions->renewal_request( $ill_request, $params );
 
 Process a renewal approval from the lender. Rejection is not supported by the Rapido API.
 
@@ -305,7 +305,7 @@ Parameters:
 
 =cut
 
-sub process_renewal_decision {
+sub renewal_request {
     my ( $self, $req, $params ) = @_;
 
     my $approve      = $params->{approve} // 0;

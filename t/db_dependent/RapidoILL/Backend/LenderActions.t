@@ -623,7 +623,7 @@ subtest 'final_checkin() tests' => sub {
     };
 };
 
-subtest 'process_renewal_decision() method' => sub {
+subtest 'renewal_request() tests' => sub {
 
     plan tests => 2;
 
@@ -703,7 +703,7 @@ EOF
 
     # Create backend instance
     lives_ok {
-        $plugin->get_lender_actions($pod)->process_renewal_decision(
+        $plugin->get_lender_actions($pod)->renewal_request(
             $ill_request,
             {
                 approve        => 1,
