@@ -9,7 +9,7 @@
   [% base_url = "/cgi-bin/koha/ill/ill-requests.pl" %]
   [% proceed_url = base_url _ "?method=receive_unshipped&stage=confirm" _
                    "&illrequest_id=" _ request.illrequest_id %]
-  <form id="innreach_receiveunshipped_form" method="POST" action=[% proceed_url %]>
+  <form id="rapido_receiveunshipped_form" method="POST" action=[% proceed_url %]>
       [% INCLUDE 'csrf-token.inc' %]
       <input type="hidden" name="op"      value="cud-receive_unshipped" />
       <input type="hidden" name="method"  value="receive_unshipped" />

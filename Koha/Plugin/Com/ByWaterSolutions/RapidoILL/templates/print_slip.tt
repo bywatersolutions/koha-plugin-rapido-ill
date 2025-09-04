@@ -13,7 +13,7 @@
 
 [% INCLUDE 'slip-print.inc' #printThenClose %]
 </head>
-<body id="innreach_circ_printslip" class="circ">
+<body id="rapido_circ_printslip" class="circ">
 <div id="receipt">
 
 [% IF ( slip ) %][% slip | $raw %][% ELSE %]No slip template found[% END %]

@@ -9,7 +9,7 @@
   [% base_url = "/cgi-bin/koha/ill/ill-requests.pl" %]
   [% proceed_url = base_url _ "?method=item_recalled&stage=confirm" _
                    "&illrequest_id=" _ request.illrequest_id %]
-    <form id="innreach_recall_form" method="POST" action=[% proceed_url %]>
+    <form id="rapido_recall_form" method="POST" action=[% proceed_url %]>
         [% INCLUDE 'csrf-token.inc' %]
         <input type="hidden" name="op"     value="cud-item_recalled" />
         <input type="hidden" name="method" value="item_recalled" />
