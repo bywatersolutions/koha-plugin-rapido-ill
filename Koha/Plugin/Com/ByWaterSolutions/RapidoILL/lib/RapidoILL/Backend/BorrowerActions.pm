@@ -393,6 +393,14 @@ sub item_received {
 Method to notify the owning site that the item is being returned uncirculated
 and perform cleanup of biblio, items, and holds.
 
+This method expects the following data to exist (created during item_shipped):
+- Biblio: The temporary biblio record created for the ILL request
+- Hold: The hold placed on the biblio for the requesting patron
+- Item: The unique item record created and attached to the biblio
+
+If any of these are missing, warnings will be logged but the method will continue
+to ensure the API notification is sent and status is updated.
+
 =cut
 
 sub return_uncirculated {
@@ -414,24 +422,55 @@ sub return_uncirculated {
                     $options
                 );
 
-                # Cleanup biblio, items, and holds
+                # Cleanup biblio, items, and holds (created during item_shipped)
                 my $biblio = Koha::Biblios->find( $req->biblio_id );
 
                 if ($biblio) {
+                    # Remove hold(s) - should be exactly one hold for the requesting patron
                     my $holds = $biblio->holds;
-
-                    # Remove hold(s)
+                    my $hold_count = 0;
+                    
                     while ( my $hold = $holds->next ) {
                         $hold->cancel;
+                        $hold_count++;
+                    }
+                    
+                    if ( $hold_count == 0 ) {
+                        $self->{plugin}->logger->warn(
+                            "[return_uncirculated] No holds found for biblio " . $req->biblio_id . 
+                            " (ILL request " . $req->id . ") - hold should have been created during item_shipped"
+                        );
                     }
 
-                    # Remove item(s)
+                    # Remove item(s) - should be exactly one item created during item_shipped
                     my $items = $biblio->items;
+                    my $item_count = 0;
+                    
                     while ( my $item = $items->next ) {
                         $item->safe_delete;
+                        $item_count++;
+                    }
+                    
+                    if ( $item_count == 0 ) {
+                        $self->{plugin}->logger->warn(
+                            "[return_uncirculated] No items found for biblio " . $req->biblio_id . 
+                            " (ILL request " . $req->id . ") - item should have been created during item_shipped"
+                        );
+                    } elsif ( $item_count > 1 ) {
+                        $self->{plugin}->logger->warn(
+                            "[return_uncirculated] Multiple items ($item_count) found for biblio " . $req->biblio_id . 
+                            " (ILL request " . $req->id . ") - expected exactly one item"
+                        );
                     }
 
+                    # Delete the biblio record
                     DelBiblio( $req->biblio_id );
+                } else {
+                    $self->{plugin}->logger->warn(
+                        "[return_uncirculated] Biblio " . $req->biblio_id . 
+                        " not found for ILL request " . $req->id . 
+                        " - biblio should have been created during item_shipped"
+                    );
                 }
 
                 # Update status
