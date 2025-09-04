@@ -63,7 +63,7 @@ subtest 'new() tests' => sub {
 
 subtest 'cancel_request() tests' => sub {
 
-    plan tests => 2;
+    plan tests => 4;
 
     subtest 'Successful calls' => sub {
         plan tests => 8;
@@ -173,6 +173,113 @@ subtest 'cancel_request() tests' => sub {
         ok( $cancelled_hold, 'Hold was cancelled and moved to old_reserves table' );
 
         is( $result, $actions, 'Returns self for method chaining' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Missing patronName attribute' => sub {
+        plan tests => 2;
+
+        $schema->storage->txn_begin;
+
+        # Setup test data without patronName attribute
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'NEW',
+                }
+            }
+        );
+
+        # Add attributes WITHOUT patronName
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId  => 'test_circ_123',
+                    # patronName missing intentionally
+                }
+            }
+        );
+
+        # Mock client to avoid external calls
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock('lender_cancel', sub { return; });
+        
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock('get_client', sub { return $mock_client; });
+
+        # DESIRED BEHAVIOR: Should succeed with warning instead of throwing exception
+        my $result;
+        lives_ok {
+            $result = $plugin->get_lender_actions('test_pod')->cancel_request($illrequest);
+        }
+        'cancel_request succeeds when patronName attribute is missing';
+
+        # Verify status was updated
+        $illrequest->discard_changes();
+        is( $illrequest->status, 'O_ITEM_CANCELLED_BY_US', 'Status updated despite missing patronName' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Missing hold_id attribute' => sub {
+        plan tests => 2;
+
+        $schema->storage->txn_begin;
+
+        # Setup test data without hold_id attribute
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'NEW',
+                }
+            }
+        );
+
+        # Add attributes WITHOUT hold_id
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId     => 'test_circ_123',
+                    patronName => 'Test Patron',
+                    # hold_id missing intentionally
+                }
+            }
+        );
+
+        # Mock client to avoid external calls
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock('lender_cancel', sub { return; });
+        
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock('get_client', sub { return $mock_client; });
+
+        # DESIRED BEHAVIOR: Should succeed with warning instead of throwing exception
+        my $result;
+        lives_ok {
+            $result = $plugin->get_lender_actions('test_pod')->cancel_request($illrequest);
+        }
+        'cancel_request succeeds when hold_id attribute is missing';
+
+        # Verify status was updated
+        $illrequest->discard_changes();
+        is( $illrequest->status, 'O_ITEM_CANCELLED_BY_US', 'Status updated despite missing hold_id' );
 
         $schema->storage->txn_rollback;
     };
