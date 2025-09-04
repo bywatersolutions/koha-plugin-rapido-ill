@@ -410,61 +410,11 @@ shipped.
 sub item_shipped {
     my ( $self, $params ) = @_;
 
-    my $req   = $params->{request};
-    my $attrs = $req->extended_attributes;
-
-    my $circId = $attrs->find( { type => 'circId' } )->value;
-    my $pod    = $attrs->find( { type => 'pod' } )->value;
-    my $itemId = $attrs->find( { type => 'itemId' } )->value;
-
-    my $item = Koha::Items->find( { barcode => $itemId } );
+    my $request = $params->{request};
+    my $pod     = $self->{plugin}->get_req_pod($request);
 
     return try {
-        Koha::Database->schema->storage->txn_do(
-            sub {
-                my $patron   = Koha::Patrons->find( $req->borrowernumber );
-                my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
-
-                if ($checkout) {
-                    if ( $checkout->borrowernumber != $req->borrowernumber ) {
-                        return {
-                            error   => 1,
-                            status  => 'error_on_checkout',
-                            message => "Item checked out to another patron.",
-                            method  => 'item_shipped',
-                            stage   => 'commit',
-                            value   => q{},
-                        };
-                    }
-
-                    # else {} # The item is already checked out to the right patron
-                } else {    # no checkout, proceed
-                    $checkout = $self->{plugin}->add_issue( { patron => $patron, barcode => $item->barcode } );
-                }
-
-                # record checkout_id
-                Koha::ILL::Request::Attribute->new(
-                    {
-                        illrequest_id => $req->illrequest_id,
-                        type          => 'checkout_id',
-                        value         => $checkout->id,
-                        readonly      => 0
-                    }
-                )->store;
-
-                # update status
-                $req->status('O_ITEM_SHIPPED')->store;
-
-                # notify Rapido. Throws an exception if failed
-                $self->{plugin}->get_client($pod)->lender_shipped(
-                    {
-                        callNumber  => $item->itemcallnumber,
-                        circId      => $circId,
-                        itemBarcode => $item->barcode,
-                    }
-                );
-            }
-        );
+        $self->{plugin}->get_lender_actions($pod)->item_shipped($request);
 
         return {
             error   => 0,
