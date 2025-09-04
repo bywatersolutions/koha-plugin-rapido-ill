@@ -22,6 +22,7 @@ use Modern::Perl;
 use Try::Tiny qw(catch try);
 use Koha::Database;
 use Koha::DateUtils qw( dt_from_string );
+use C4::Biblio qw( DelBiblio );
 
 use RapidoILL::Exceptions;
 
@@ -373,6 +374,68 @@ sub item_received {
                     },
                     $options
                 );
+            }
+        );
+
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    };
+}
+
+=head3 return_uncirculated
+
+Method to notify the owning site that the item is being returned uncirculated
+and perform cleanup of biblio, items, and holds.
+
+=cut
+
+sub return_uncirculated {
+    my ( $self, $req, $params ) = @_;
+
+    $params //= {};
+    my $options = $params->{client_options} // {};
+
+    return try {
+        Koha::Database->schema->storage->txn_do(
+            sub {
+                my $circId = $self->{plugin}->get_req_circ_id($req);
+
+                # Notify Rapido API first
+                $self->{plugin}->get_client( $self->{pod} )->borrower_return_uncirculated(
+                    {
+                        circId => $circId,
+                    },
+                    $options
+                );
+
+                # Cleanup biblio, items, and holds
+                my $biblio = Koha::Biblios->find( $req->biblio_id );
+
+                if ($biblio) {
+                    my $holds = $biblio->holds;
+
+                    # Remove hold(s)
+                    while ( my $hold = $holds->next ) {
+                        $hold->cancel;
+                    }
+
+                    # Remove item(s)
+                    my $items = $biblio->items;
+                    while ( my $item = $items->next ) {
+                        $item->safe_delete;
+                    }
+
+                    DelBiblio( $req->biblio_id );
+                }
+
+                # Update status
+                $req->status('B_ITEM_RETURN_UNCIRCULATED')->store;
             }
         );
 

@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - [#98] Added BorrowerActions->item_received() method with proper client_options support and exception handling
+- [#99] Added Client->borrower_return_uncirculated() method for Rapido API endpoint /view/broker/circ/{circId}/returnuncirculated
+- [#99] Added BorrowerActions->return_uncirculated() method replicating InnReach logic with Rapido API calls and proper biblio cleanup
 
 ### Fixed
 - [#93] Enhanced LenderActions->cancel_request() to gracefully handle missing patronName and hold_id attributes with appropriate logging instead of throwing exceptions

@@ -537,6 +537,36 @@ sub borrower_item_returned {
     return;
 }
 
+=head3 borrower_return_uncirculated
+
+    $client->borrower_return_uncirculated({ circId => $circ_id });
+
+Notify the owning site that the item is being returned uncirculated.
+
+=cut
+
+sub borrower_return_uncirculated {
+    my ( $self, $params, $options ) = @_;
+
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
+
+    if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
+        my $response = $self->{ua}->post_request(
+            {
+                endpoint => '/view/broker/circ/' . $params->{circId} . '/returnuncirculated',
+                context  => 'borrower_return_uncirculated'
+            }
+        );
+
+        RapidoILL::Exception::RequestFailed->throw( method => 'borrower_return_uncirculated', response => $response )
+            unless $response->is_success;
+
+        return decode_json( $response->decoded_content );
+    }
+
+    return;
+}
+
 =head2 General client methods
 
 =head3 circulation_requests
