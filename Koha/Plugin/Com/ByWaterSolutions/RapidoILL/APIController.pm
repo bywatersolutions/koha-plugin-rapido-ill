@@ -200,14 +200,10 @@ sub get_print_slip {
         $plugin->{cgi} = CGI->new;    # required by C4::Auth::gettemplate and friends
         my $template = $plugin->get_template( { file => 'templates/print_slip.tt' } );
 
-        my $req = $plugin->get_ill_rs()->find($illrequest_id);
+        my $req = Koha::ILL::Requests->find($illrequest_id);
 
-        unless ($req) {
-            return $c->render(
-                status  => 404,
-                openapi => { error => 'Object not found' }
-            );
-        }
+        return $c->render_resource_not_found("ILL request")
+            unless $req;
 
         my $illrequestattributes = {};
         my $attributes           = $req->extended_attributes;
