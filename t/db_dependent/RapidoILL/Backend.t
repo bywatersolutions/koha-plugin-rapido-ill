@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 2;
+use Test::More tests => 3;
 use Test::MockModule;
 use Test::MockObject;
 use Test::Exception;
@@ -38,7 +38,7 @@ BEGIN {
 my $schema  = Koha::Database->new->schema;
 my $builder = t::lib::TestBuilder->new;
 
-subtest 'item_shipped() delegation tests' => sub {
+subtest 'item_shipped() tests' => sub {
 
     plan tests => 2;
 
@@ -173,4 +173,127 @@ subtest 'item_shipped() delegation tests' => sub {
     };
 };
 
-done_testing();
+subtest 'item_checkin() tests' => sub {
+
+    plan tests => 2;
+
+    subtest 'Successful delegation to LenderActions' => sub {
+        plan tests => 4;
+
+        $schema->storage->txn_begin;
+
+        # Setup test data
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'O_ITEM_IN_TRANSIT',
+                }
+            }
+        );
+
+        # Add required attributes
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => 'test_circ_789',
+                    pod    => 'test_pod',
+                }
+            }
+        );
+
+        # Mock LenderActions to track delegation
+        my $lender_actions_called = 0;
+        my $mock_lender_actions = Test::MockObject->new();
+        $mock_lender_actions->mock(
+            'final_checkin',
+            sub {
+                my ( $self, $request, $params ) = @_;
+                $lender_actions_called = 1;
+                return $self;  # Return self for chaining
+            }
+        );
+
+        # Mock plugin to return our mock LenderActions
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_lender_actions', sub { return $mock_lender_actions; } );
+        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+
+        # Create Backend instance
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        # Test delegation - this should call LenderActions->final_checkin()
+        my $result;
+        lives_ok {
+            $result = $backend->item_checkin( { request => $illrequest } );
+        }
+        'Backend item_checkin executes without error';
+
+        # Verify delegation occurred
+        is( $lender_actions_called, 1, 'LenderActions->final_checkin was called' );
+
+        # Verify return structure matches expected Backend format
+        is( ref($result), 'HASH', 'Returns hash structure' );
+        is( $result->{method}, 'item_checkin', 'Returns correct method name' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Error handling delegation' => sub {
+        plan tests => 2;
+
+        $schema->storage->txn_begin;
+
+        # Setup minimal test data
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'O_ITEM_IN_TRANSIT',
+                }
+            }
+        );
+
+        # Mock LenderActions to throw exception
+        my $mock_lender_actions = Test::MockObject->new();
+        $mock_lender_actions->mock(
+            'final_checkin',
+            sub {
+                die "LenderActions error";
+            }
+        );
+
+        # Mock plugin
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_lender_actions', sub { return $mock_lender_actions; } );
+        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+
+        # Create Backend instance
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        # Test error handling
+        my $result;
+        lives_ok {
+            $result = $backend->item_checkin( { request => $illrequest } );
+        }
+        'Backend item_checkin handles LenderActions errors gracefully';
+
+        # Verify error response structure
+        is( $result->{error}, 1, 'Returns error status when LenderActions fails' );
+
+        $schema->storage->txn_rollback;
+    };
+};
