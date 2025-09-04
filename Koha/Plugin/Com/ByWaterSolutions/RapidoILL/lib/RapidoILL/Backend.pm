@@ -594,40 +594,27 @@ received.
 sub item_received {
     my ( $self, $params ) = @_;
 
-    my $req   = $params->{request};
-    my $attrs = $req->extended_attributes;
-
-    my $circId = $attrs->find( { type => 'circId' } )->value;
-    my $pod    = $attrs->find( { type => 'pod' } )->value;
+    my $request = $params->{request};
+    my $pod     = $self->{plugin}->get_req_pod($request);
 
     return try {
-        Koha::Database->schema->storage->txn_do(
-            sub {
-                $req->status('B_ITEM_RECEIVED')->store;
+        $self->{plugin}->get_borrower_actions($pod)->item_received($request);
 
-                # notify Rapido. Throws an exception if failed
-                $self->{plugin}->get_client($pod)->borrower_item_received(
-                    {
-                        circId => $circId,
-                    }
-                );
-                return {
-                    error   => 0,
-                    status  => q{},
-                    message => q{},
-                    method  => 'item_received',
-                    stage   => 'commit',
-                    next    => 'illview',
-                    value   => q{},
-                };
-            }
-        );
+        return {
+            error   => 0,
+            status  => q{},
+            message => q{},
+            method  => 'item_received',
+            stage   => 'commit',
+            next    => 'illview',
+            value   => q{},
+        };
     } catch {
         $self->{plugin}->logger->warn("[item_received] $_");
         return {
             status   => 'error',
             error    => 1,
-            message  => "$_ | " . $_->method . " - " . $_->response->decoded_content,
+            message  => "$_",
             stage    => 'init',
             method   => 'item_received',
             template => 'item_received',

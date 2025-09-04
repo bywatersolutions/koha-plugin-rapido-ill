@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#93] Optimized LenderActions methods to use constructor pod parameter instead of querying get_req_pod() for better performance
 - [#95] Refactored Backend->item_shipped() to delegate business logic to LenderActions->item_shipped() following established architectural pattern
 - [#96] Refactored Backend->item_checkin() to delegate business logic to LenderActions->final_checkin() following established architectural pattern
+- [#98] Refactored Backend->item_received() to delegate business logic to BorrowerActions->item_received() following established architectural pattern
+
+### Added
+- [#98] Added BorrowerActions->item_received() method with proper client_options support and exception handling
 
 ### Fixed
 - [#93] Enhanced LenderActions->cancel_request() to gracefully handle missing patronName and hold_id attributes with appropriate logging instead of throwing exceptions
