@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - [#93] Enhanced LenderActions->cancel_request() to gracefully handle missing patronName and hold_id attributes with appropriate logging instead of throwing exceptions
+- [#102] Fixed incorrect method call pickup_location_to_id() to use correct method name pickup_location_to_library_id()
 
 ## [0.9.3] - 2025-09-03
 

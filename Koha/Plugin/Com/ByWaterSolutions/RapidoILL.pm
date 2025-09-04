@@ -2463,7 +2463,7 @@ sub add_or_update_attributes {
 
 =head3 pickup_location_to_library_id
 
-    my $library_id = $plugin->pickup_location_to_id(
+    my $library_id = $plugin->pickup_location_to_library_id(
         {
             pickupLocation => $pickupLocation,
             pod            => $pod,
