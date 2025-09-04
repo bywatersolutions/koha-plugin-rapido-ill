@@ -2,6 +2,19 @@
 
 Comprehensive development documentation for the Rapido ILL plugin, including setup, testing, and architecture notes.
 
+## API Integration
+
+### OAuth Configuration
+
+**OAuth Scope**: The plugin uses `innreach_tp` as the OAuth scope in APIHttpClient.pm. 
+
+**Important**: This scope name is **correct and required by Rapido**. Despite the "innreach" naming, this is the actual scope that Rapido expects for third-party integrations. Do not change this value.
+
+```perl
+# In APIHttpClient.pm - DO NOT MODIFY
+$self->{scope} = "innreach_tp";  # Required by Rapido API
+```
+
 ## Code Quality Standards
 
 ### Mandatory Pre-Commit Workflow
