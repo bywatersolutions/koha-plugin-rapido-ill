@@ -66,26 +66,6 @@ sub new {
     return $self;
 }
 
-=head3 _throw_request_failed
-
-    $self->_throw_request_failed($method, $response);
-
-Helper method to throw RequestFailed exceptions with detailed HTTP information.
-
-=cut
-
-sub _throw_request_failed {
-    my ( $self, $method, $response ) = @_;
-
-    RapidoILL::Exception::RequestFailed->throw(
-        method         => $method,
-        response       => $response,
-        status_code    => $response->code,
-        status_message => $response->message,
-        response_body  => $response->decoded_content || 'No response body'
-    );
-}
-
 =head2 Client methods
 
 =head3 locals
