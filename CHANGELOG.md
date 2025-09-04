@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#94] Improved error safety across cancel_request, item_shipped, and final_checkin methods following process_renewal_decision pattern
 - [#94] Enhanced exception handling for borrower_receive_unshipped, item_in_transit, borrower_cancel, and borrower_renew methods
 - [#94] Fixed Try::Tiny import in BorrowerActions to properly include catch and try functions
+- [#93] Refactored Backend->cancel_request() to delegate business logic to LenderActions->cancel_request() following established architectural pattern
 
 ## [0.9.3] - 2025-09-03
 

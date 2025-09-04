@@ -613,41 +613,22 @@ is on O_ITEM_REQUESTED status.
 sub cancel_request {
     my ( $self, $params ) = @_;
 
-    my $req = $params->{request};
+    my $request = $params->{request};
+    my $pod     = $self->{plugin}->get_req_pod($request);
 
     return try {
-        Koha::Database->schema->storage->txn_do(
-            sub {
-                my $attrs = $req->extended_attributes;
 
-                my $circId     = $attrs->find( { type => 'circId' } )->value;
-                my $pod        = $attrs->find( { type => 'pod' } )->value;
-                my $patronName = $attrs->find( { type => 'patronName' } )->value;
+        $self->{plugin}->get_lender_actions($pod)->cancel_request($request);
 
-                $req->status('O_ITEM_CANCELLED_BY_US')->store;
-
-                # Cancel after the request status change, so the condition for the hook is not met
-                my $hold = Koha::Holds->find( $attrs->find( { type => 'hold_id' } )->value );
-                $hold->cancel
-                    if $hold;
-
-                # notify Rapido. Throws an exception if failed
-                $self->{plugin}->get_client($pod)->lender_cancel(
-                    {
-                        circId     => $circId,
-                        localBibId => $req->biblio_id,
-                        patronName => $patronName,
-                    }
-                );
-
-                return {
-                    status  => q{},
-                    message => q{},
-                    method  => 'illview',
-                    stage   => 'commit',
-                };
-            }
-        );
+        return {
+            error   => 0,
+            status  => q{},
+            message => q{},
+            method  => 'cancel_request',
+            stage   => 'commit',
+            next    => 'illview',
+            value   => q{},
+        };
     } catch {
         $self->{plugin}->logger->warn("[cancel_request] $_");
         return {
