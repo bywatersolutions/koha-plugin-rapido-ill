@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 use Test::MockModule;
 use Test::MockObject;
 use Test::Exception;
@@ -652,6 +652,128 @@ subtest 'borrower_renew() tests' => sub {
         # Verify transaction rollback
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_RECEIVED', 'Status unchanged after transaction rollback' );
+
+        $schema->storage->txn_rollback;
+    };
+};
+
+subtest 'item_received() tests' => sub {
+
+    plan tests => 2;
+
+    subtest 'Successful calls' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        # Setup test data
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'B_ITEM_SHIPPED',
+                }
+            }
+        );
+
+        # Add required attributes
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => 'test_circ_received_123',
+                }
+            }
+        );
+
+        # Mock client to avoid external calls
+        my $mock_client = Test::MockObject->new();
+        my @client_calls = ();
+        $mock_client->mock(
+            'borrower_item_received',
+            sub {
+                my ( $self, $data ) = @_;
+                push @client_calls, {
+                    method => 'borrower_item_received',
+                    data   => $data
+                };
+                return;
+            }
+        );
+
+        # Mock plugin get_client method
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+
+        my $result;
+        lives_ok {
+            $result = $plugin->get_borrower_actions('test_pod')->item_received($illrequest);
+        }
+        'item_received executes without error';
+
+        # Verify status was updated
+        $illrequest->discard_changes();
+        is( $illrequest->status, 'B_ITEM_RECEIVED', 'Sets correct status' );
+
+        # Verify API client method was called correctly
+        is( scalar @client_calls, 1, 'API client method called once' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Error cases' => sub {
+        plan tests => 2;
+
+        $schema->storage->txn_begin;
+
+        # Setup test data
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'B_ITEM_SHIPPED',
+                }
+            }
+        );
+
+        # Add required attributes
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => 'test_circ_received_456',
+                }
+            }
+        );
+
+        # Mock client to throw exception
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock( 'borrower_item_received', sub { die "API Error"; } );
+
+        # Mock plugin get_client method
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+
+        throws_ok {
+            $plugin->get_borrower_actions('test_pod')->item_received($illrequest);
+        }
+        qr/API Error/, 'Throws exception on API failure';
+
+        # Verify transaction rollback
+        $illrequest->discard_changes();
+        is( $illrequest->status, 'B_ITEM_SHIPPED', 'Status unchanged after transaction rollback' );
 
         $schema->storage->txn_rollback;
     };
