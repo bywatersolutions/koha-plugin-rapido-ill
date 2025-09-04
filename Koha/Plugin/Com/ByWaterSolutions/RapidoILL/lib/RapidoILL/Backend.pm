@@ -735,56 +735,31 @@ sent back to them and is in transit.
 sub return_uncirculated {
     my ( $self, $params ) = @_;
 
-    my $req   = $params->{request};
-    my $attrs = $req->extended_attributes;
+    my $request = $params->{request};
+    my $pod     = $self->{plugin}->get_req_pod($request);
 
-    my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
-    my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
+    return try {
+        $self->{plugin}->get_borrower_actions($pod)->return_uncirculated($request);
 
-    my $response = $self->{plugin}->get_http_client($centralCode)->post_request(
-        {
-            endpoint    => "/innreach/v2/circ/returnuncirculated/$trackingId/$centralCode",
-            centralCode => $centralCode,
-        }
-    );
-
-    Koha::Database->new->schema->txn_do(
-        sub {
-            # Cleanup!
-            my $biblio = Koha::Biblios->find( $req->biblio_id );
-
-            if ($biblio) {
-                my $holds = $biblio->holds;
-
-                # Remove hold(s)
-                while ( my $hold = $holds->next ) {
-                    $hold->cancel;
-                }
-
-                # Remove item(s)
-                my $items = $biblio->items;
-                while ( my $item = $items->next ) {
-                    $item->safe_delete;
-                }
-
-                DelBiblio( $req->biblio_id );
-            } else {
-                $self->{plugin}->innreach_warn(
-                    'Linked biblio_id (' . $req->biblio_id . ') not on the DB for ILL request (' . $req->id . ')' );
-            }
-        }
-    );
-
-    $req->status('B_ITEM_RETURN_UNCIRCULATED')->store;
-
-    return {
-        error   => 0,
-        status  => q{},
-        message => q{},
-        method  => 'return_uncirculated',
-        stage   => 'commit',
-        next    => 'illview',
-        value   => q{},
+        return {
+            error   => 0,
+            status  => q{},
+            message => q{},
+            method  => 'return_uncirculated',
+            stage   => 'commit',
+            next    => 'illview',
+            value   => q{},
+        };
+    } catch {
+        $self->{plugin}->logger->warn("[return_uncirculated] $_");
+        return {
+            error   => 1,
+            message => "$_",
+            method  => 'return_uncirculated',
+            stage   => 'commit',
+            status  => 'error',
+            value   => q{},
+        };
     };
 }
 
