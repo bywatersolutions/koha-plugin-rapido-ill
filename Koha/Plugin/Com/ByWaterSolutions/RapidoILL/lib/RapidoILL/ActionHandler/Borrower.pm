@@ -87,6 +87,7 @@ sub handle_from_action {
         'ITEM_RECEIVED' => \&item_received,
         'ITEM_SHIPPED'  => \&item_shipped,
         'OWNER_RENEW'   => \&owner_renew,
+        'RECALL'        => \&recall,
     };
 
     # Statuses that require no action from borrower perspective
@@ -400,6 +401,36 @@ sub item_received {
     }
 
     # Otherwise, this is just a regular ITEM_RECEIVED state - no action needed
+
+    return;
+}
+
+=head3 recall
+
+    $handler->recall( $action );
+
+Handle incoming I<RECALL> action. Transitions the ILL request to B_ITEM_RECALLED status.
+
+=cut
+
+sub recall {
+    my ( $self, $action ) = @_;
+
+    my $req = $action->ill_request;
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            $req->status('B_ITEM_RECALLED')->store;
+
+            $self->{plugin}->logger->info(
+                sprintf(
+                    "Item recalled for ILL request %d (circId: %s) - status set to B_ITEM_RECALLED",
+                    $req->id,
+                    $action->circId
+                )
+            );
+        }
+    );
 
     return;
 }

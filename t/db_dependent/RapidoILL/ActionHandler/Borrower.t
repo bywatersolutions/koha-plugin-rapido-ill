@@ -17,12 +17,13 @@
 
 use Modern::Perl;
 
-use Test::More tests => 11;
+use Test::More tests => 12;
 use Test::MockObject;
 use Test::Exception;
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Logger;
 
 use Koha::Database;
 use Koha::ILL::Requests;
@@ -34,6 +35,7 @@ use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 my $schema  = Koha::Database->new->schema;
 my $builder = t::lib::TestBuilder->new;
+my $logger  = t::lib::Mocks::Logger->new();
 
 subtest 'Constructor and basic functionality' => sub {
     plan tests => 3;
@@ -713,6 +715,70 @@ subtest 'item_received renewal rejection' => sub {
     my $rejection_attr = $ill_request->extended_attributes->find({ type => 'renewal_rejected' });
     ok( $rejection_attr, 'Renewal rejection attribute created' );
     ok( $rejection_attr->value, 'Rejection timestamp recorded' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'recall method with database operations and real CircAction' => sub {
+
+    plan tests => 3;
+
+    $schema->storage->txn_begin;
+
+    # Create test data
+    my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->id,
+                biblio_id      => $biblio->id,
+                backend        => 'RapidoILL',
+                status         => 'B_ITEM_RECEIVED',
+            }
+        }
+    );
+
+    # Create CircAction for RECALL
+    my $circ_action = $builder->build_object(
+        {
+            class => 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL::CircAction',
+            value => {
+                illRequestId  => $ill_request->id,
+                lastCircState => 'RECALL',
+                circId        => 'test-circ-123',
+            }
+        }
+    );
+
+    # Create plugin and handler
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    my $handler = RapidoILL::ActionHandler::Borrower->new(
+        {
+            plugin => $plugin,
+            pod    => 'test-pod',
+        }
+    );
+
+    # Clear logger before test
+    $logger->clear();
+
+    # Test RECALL handling
+    lives_ok {
+        $handler->handle_from_action($circ_action);
+    } 'RECALL action handled without error';
+
+    # Verify status change
+    $ill_request->discard_changes;
+    is( $ill_request->status, 'B_ITEM_RECALLED', 'Request status updated to B_ITEM_RECALLED' );
+
+    # Verify logging
+    $logger->info_like(
+        qr/Item recalled for ILL request \d+ \(circId: test-circ-123\) - status set to B_ITEM_RECALLED/,
+        'Recall action logged correctly'
+    );
 
     $schema->storage->txn_rollback;
 };

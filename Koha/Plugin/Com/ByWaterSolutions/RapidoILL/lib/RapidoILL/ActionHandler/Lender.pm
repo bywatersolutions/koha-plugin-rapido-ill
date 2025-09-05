@@ -18,7 +18,7 @@ package RapidoILL::ActionHandler::Lender;
 use Modern::Perl;
 
 use List::MoreUtils qw( any );
-use Try::Tiny qw(catch try);
+use Try::Tiny       qw(catch try);
 
 use Koha::Database;
 use Koha::Items;
@@ -88,10 +88,12 @@ sub handle_from_action {
         FINAL_CHECKIN
         ITEM_HOLD
         ITEM_SHIPPED
+        RECALL
     );
 
     # Check if this is a no-op status first
     if ( any { $_ eq $action->lastCircState } @no_op_statuses ) {
+
         # No action needed for these statuses (triggered by us)
         return;
     }
@@ -143,9 +145,9 @@ sub borrower_renew {
                 {
                     request    => $req,
                     attributes => {
-                        renewal_circId => $action->circId,
+                        renewal_circId         => $action->circId,
                         renewal_requested_date => \'NOW()',
-                        ($action->dueDateTime ? (borrower_requested_due_date => $action->dueDateTime) : ()),
+                        ( $action->dueDateTime ? ( borrower_requested_due_date => $action->dueDateTime ) : () ),
                     }
                 }
             );
@@ -276,12 +278,12 @@ sub borrowing_site_cancel {
             $req->status('O_ITEM_CANCELLED')->store;
 
             # Cancel any associated hold if it exists
-            my $attrs = $req->extended_attributes;
+            my $attrs        = $req->extended_attributes;
             my $hold_id_attr = $attrs->find( { type => 'hold_id' } );
-            
-            if ( $hold_id_attr ) {
+
+            if ($hold_id_attr) {
                 my $hold = Koha::Holds->find( $hold_id_attr->value );
-                if ( $hold ) {
+                if ($hold) {
                     $hold->cancel;
                 }
             }

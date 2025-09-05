@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - [#97] Implemented item_recalled backend method with proper Client library support and LenderActions integration
+- [#97] Added RECALL circLastState handling: no-op for lender side, transitions to B_ITEM_RECALLED status for borrower side
 
 ### Removed
 - [#103] Removed invalid 'claimed returned' flow from both lender and borrower sides including O_ITEM_CLAIMED_RETURNED and B_ITEM_CLAIMED_RETURNED statuses and claims_returned method

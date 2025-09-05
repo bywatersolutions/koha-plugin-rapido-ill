@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 7;
+use Test::More tests => 8;
 use Test::MockObject;
 use Test::Exception;
 
@@ -532,6 +532,63 @@ subtest 'borrowing_site_cancel method with database operations and real CircActi
     # Verify request status was updated
     $ill_request_no_hold->discard_changes;
     is( $ill_request_no_hold->status, 'O_ITEM_CANCELLED', 'Request status updated even without hold' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'recall method (lender-generated - no-op)' => sub {
+
+    plan tests => 2;
+
+    $schema->storage->txn_begin;
+
+    # Create test data
+    my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->id,
+                biblio_id      => $biblio->id,
+                backend        => 'RapidoILL',
+                status         => 'O_ITEM_RECEIVED_DESTINATION',
+            }
+        }
+    );
+
+    # Create CircAction for RECALL
+    my $circ_action = $builder->build_object(
+        {
+            class => 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL::CircAction',
+            value => {
+                illRequestId  => $ill_request->id,
+                lastCircState => 'RECALL',
+                circId        => 'test-circ-123',
+            }
+        }
+    );
+
+    # Create plugin and handler
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    my $handler = RapidoILL::ActionHandler::Lender->new(
+        {
+            plugin => $plugin,
+            pod    => 'test-pod',
+        }
+    );
+
+    # Test that RECALL is handled as no-op
+    my $original_status = $ill_request->status;
+    
+    lives_ok {
+        $handler->handle_from_action($circ_action);
+    } 'RECALL action handled without error (no-op)';
+
+    # Verify status unchanged (no-op)
+    $ill_request->discard_changes;
+    is( $ill_request->status, $original_status, 'Request status unchanged (RECALL is no-op for lender)' );
 
     $schema->storage->txn_rollback;
 };
