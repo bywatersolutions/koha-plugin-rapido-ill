@@ -546,10 +546,10 @@ subtest 'item_received method (borrower-generated - no-op)' => sub {
     # Create a mock action for ITEM_RECEIVED
     my $mock_action = Test::MockObject->new();
     $mock_action->mock( 'lastCircState', sub { return 'ITEM_RECEIVED'; } );
-    
+
     # Mock ill_request to return a request with non-renewal status
     my $mock_ill_request = Test::MockObject->new();
-    $mock_ill_request->mock( 'status', sub { return 'B_ITEM_RECEIVED'; } ); # Not in renewal state
+    $mock_ill_request->mock( 'status', sub { return 'B_ITEM_RECEIVED'; } );    # Not in renewal state
     $mock_action->mock( 'ill_request', sub { return $mock_ill_request; } );
 
     # Test that ITEM_RECEIVED is handled as no-op (no exception thrown)
@@ -643,7 +643,7 @@ subtest 'item_received renewal rejection' => sub {
 
     $schema->storage->txn_begin;
 
-    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    my $plugin  = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
     my $handler = RapidoILL::ActionHandler::Borrower->new(
         {
             pod    => 'test-pod',
@@ -655,52 +655,61 @@ subtest 'item_received renewal rejection' => sub {
     my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
     my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
     my $item = $builder->build_object( { class => 'Koha::Items', value => { biblionumber => $biblio->biblionumber } } );
-    
-    my $ill_request = $builder->build_object({
-        class => 'Koha::ILL::Requests',
-        value => {
-            borrowernumber => $patron->borrowernumber,
-            biblio_id      => $biblio->biblionumber,
-            status         => 'B_ITEM_RENEWAL_REQUESTED',
-            due_date       => '2025-02-01 23:59:59'
+
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                biblio_id      => $biblio->biblionumber,
+                status         => 'B_ITEM_RENEWAL_REQUESTED',
+                due_date       => '2025-02-01 23:59:59'
+            }
         }
-    });
+    );
 
     # Create a checkout for the item
-    my $checkout = Koha::Checkout->new({
-        borrowernumber => $patron->borrowernumber,
-        itemnumber     => $item->itemnumber,
-        date_due       => '2025-02-01 23:59:59',
-        branchcode     => $patron->branchcode,
-    })->store();
+    my $checkout = Koha::Checkout->new(
+        {
+            borrowernumber => $patron->borrowernumber,
+            itemnumber     => $item->itemnumber,
+            date_due       => '2025-02-01 23:59:59',
+            branchcode     => $patron->branchcode,
+        }
+    )->store();
 
     # Link item to ILL request
-    Koha::ILL::Request::Attribute->new({
-        illrequest_id => $ill_request->id,
-        type          => 'item_id',
-        value         => $item->itemnumber,
-        readonly      => 1
-    })->store();
+    Koha::ILL::Request::Attribute->new(
+        {
+            illrequest_id => $ill_request->id,
+            type          => 'item_id',
+            value         => $item->itemnumber,
+            readonly      => 1
+        }
+    )->store();
 
     # Add prevDueDateTime attribute
-    my $prev_due_epoch = 1735689599; # 2024-12-31 23:59:59
-    Koha::ILL::Request::Attribute->new({
-        illrequest_id => $ill_request->id,
-        type          => 'prevDueDateTime',
-        value         => $prev_due_epoch,
-        readonly      => 1
-    })->store();
+    my $prev_due_epoch = 1735689599;    # 2024-12-31 23:59:59
+    Koha::ILL::Request::Attribute->new(
+        {
+            illrequest_id => $ill_request->id,
+            type          => 'prevDueDateTime',
+            value         => $prev_due_epoch,
+            readonly      => 1
+        }
+    )->store();
 
     # Create mock action for renewal rejection
     my $mock_action = Test::MockObject->new();
     $mock_action->mock( 'lastCircState', sub { return 'ITEM_RECEIVED'; } );
-    $mock_action->mock( 'ill_request', sub { return $ill_request; } );
-    $mock_action->mock( 'circId', sub { return 'TEST_CIRC_123'; } );
+    $mock_action->mock( 'ill_request',   sub { return $ill_request; } );
+    $mock_action->mock( 'circId',        sub { return 'TEST_CIRC_123'; } );
 
     # Test renewal rejection handling
     lives_ok {
         $handler->item_received($mock_action);
-    } 'Renewal rejection handled without exception';
+    }
+    'Renewal rejection handled without exception';
 
     # Verify status change
     $ill_request->discard_changes;
@@ -708,22 +717,23 @@ subtest 'item_received renewal rejection' => sub {
 
     # Verify due date restored (compare just the date part, ignore format differences)
     my $restored_date = $ill_request->due_date;
-    $restored_date =~ s/T/ /; # Convert ISO format to MySQL format if needed
+    $restored_date =~ s/T/ /;    # Convert ISO format to MySQL format if needed
     like( $restored_date, qr/2024-12-31 23:59:59/, 'Due date restored to previous value' );
 
     # Verify renewal rejection attribute added
-    my $rejection_attr = $ill_request->extended_attributes->find({ type => 'renewal_rejected' });
-    ok( $rejection_attr, 'Renewal rejection attribute created' );
+    my $rejection_attr = $ill_request->extended_attributes->find( { type => 'renewal_rejected' } );
+    ok( $rejection_attr,        'Renewal rejection attribute created' );
     ok( $rejection_attr->value, 'Rejection timestamp recorded' );
 
     $schema->storage->txn_rollback;
 };
 
-subtest 'recall method with database operations and real CircAction' => sub {
+subtest 'recall() tests' => sub {
 
     plan tests => 3;
 
     $schema->storage->txn_begin;
+    $logger->clear();
 
     # Create test data
     my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
@@ -744,31 +754,24 @@ subtest 'recall method with database operations and real CircAction' => sub {
     # Create CircAction for RECALL
     my $circ_action = $builder->build_object(
         {
-            class => 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL::CircAction',
+            class => 'RapidoILL::CircActions',
             value => {
-                illRequestId  => $ill_request->id,
+                illrequest_id => $ill_request->id,
                 lastCircState => 'RECALL',
                 circId        => 'test-circ-123',
             }
         }
     );
 
-    # Create plugin and handler
+    # Create plugin
     my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
-    my $handler = RapidoILL::ActionHandler::Borrower->new(
-        {
-            plugin => $plugin,
-            pod    => 'test-pod',
-        }
-    );
-
-    # Clear logger before test
-    $logger->clear();
 
     # Test RECALL handling
     lives_ok {
-        $handler->handle_from_action($circ_action);
-    } 'RECALL action handled without error';
+        $plugin->get_action_handler( { pod => 'test-pod', perspective => 'borrower' } )
+            ->handle_from_action($circ_action);
+    }
+    'RECALL action handled without error';
 
     # Verify status change
     $ill_request->discard_changes;

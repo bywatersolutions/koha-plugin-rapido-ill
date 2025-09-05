@@ -292,7 +292,7 @@ subtest 'item_received method with database operations and real CircAction' => s
         }
     );
     $mock_plugin->mock( 'add_or_update_attributes', sub { return; } );
-    $mock_plugin->mock( 'get_checkout', sub { return; } );  # No existing checkout
+    $mock_plugin->mock( 'get_checkout',             sub { return; } );    # No existing checkout
 
     # Mock logger
     my $mock_logger = Test::MockObject->new();
@@ -396,7 +396,7 @@ subtest 'item_in_transit method with database operations and real CircAction' =>
         }
     );
     $mock_plugin->mock( 'add_or_update_attributes', sub { return; } );
-    $mock_plugin->mock( 'get_checkout', sub { return; } );  # No existing checkout
+    $mock_plugin->mock( 'get_checkout',             sub { return; } );    # No existing checkout
 
     # Mock logger
     my $mock_logger = Test::MockObject->new();
@@ -536,7 +536,7 @@ subtest 'borrowing_site_cancel method with database operations and real CircActi
     $schema->storage->txn_rollback;
 };
 
-subtest 'recall method (lender-generated - no-op)' => sub {
+subtest 'handle_from_action() tests' => sub {
 
     plan tests => 2;
 
@@ -561,9 +561,9 @@ subtest 'recall method (lender-generated - no-op)' => sub {
     # Create CircAction for RECALL
     my $circ_action = $builder->build_object(
         {
-            class => 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL::CircAction',
+            class => 'RapidoILL::CircActions',
             value => {
-                illRequestId  => $ill_request->id,
+                illrequest_id => $ill_request->id,
                 lastCircState => 'RECALL',
                 circId        => 'test-circ-123',
             }
@@ -571,7 +571,7 @@ subtest 'recall method (lender-generated - no-op)' => sub {
     );
 
     # Create plugin and handler
-    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    my $plugin  = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
     my $handler = RapidoILL::ActionHandler::Lender->new(
         {
             plugin => $plugin,
@@ -581,10 +581,11 @@ subtest 'recall method (lender-generated - no-op)' => sub {
 
     # Test that RECALL is handled as no-op
     my $original_status = $ill_request->status;
-    
+
     lives_ok {
         $handler->handle_from_action($circ_action);
-    } 'RECALL action handled without error (no-op)';
+    }
+    'RECALL action handled without error (no-op)';
 
     # Verify status unchanged (no-op)
     $ill_request->discard_changes;
