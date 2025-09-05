@@ -495,7 +495,6 @@ sub after_circ_action {
             any { $req->status eq $_ }
             qw(O_ITEM_CANCELLED
             O_ITEM_CANCELLED_BY_US
-            O_ITEM_CLAIMED_RETURNED
             O_ITEM_IN_TRANSIT
             O_ITEM_RETURN_UNCIRCULATED
             O_ITEM_RECEIVED_DESTINATION)
@@ -2630,7 +2629,7 @@ sub epoch_to_end_of_day {
 
     my $dt = DateTime->from_epoch( epoch => $epoch );
     $dt->set_hour(23)->set_minute(59)->set_second(59);
-    
+
     return $dt;
 }
 

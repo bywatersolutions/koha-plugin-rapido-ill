@@ -237,17 +237,8 @@ sub status_graph {
             next_actions   => [],
             ui_method_icon => 'fa-exclamation-circle',
         },
-        O_ITEM_CLAIMED_RETURNED => {
-            prev_actions   => ['O_ITEM_RECEIVED_DESTINATION'],
-            id             => 'O_ITEM_CLAIMED_RETURNED',
-            name           => 'Item claimed returned at borrowing library',
-            ui_method_name => q{},
-            method         => q{},
-            next_actions   => [],
-            ui_method_icon => q{},
-        },
         O_ITEM_IN_TRANSIT => {
-            prev_actions   => [ 'O_ITEM_RECEIVED_DESTINATION', 'O_ITEM_CLAIMED_RETURNED' ],
+            prev_actions   => ['O_ITEM_RECEIVED_DESTINATION'],
             id             => 'O_ITEM_IN_TRANSIT',
             name           => 'Item in transit from borrowing library',
             ui_method_name => q{},
@@ -256,7 +247,7 @@ sub status_graph {
             ui_method_icon => 'fa-inbox',
         },
         O_ITEM_RETURN_UNCIRCULATED => {
-            prev_actions   => [ 'O_ITEM_RECEIVED_DESTINATION', 'O_ITEM_CLAIMED_RETURNED' ],
+            prev_actions   => ['O_ITEM_RECEIVED_DESTINATION'],
             id             => 'O_ITEM_RETURN_UNCIRCULATED',
             name           => 'Item in transit from borrowing library (uncirculated)',
             ui_method_name => q{},
@@ -326,10 +317,7 @@ sub status_graph {
             name           => 'Item received',
             ui_method_name => 'Receive item',
             method         => 'item_received',
-            next_actions   => [
-                'B_ITEM_IN_TRANSIT', 'B_ITEM_CLAIMED_RETURNED',
-                'B_ITEM_RETURN_UNCIRCULATED'
-            ],
+            next_actions   => [ 'B_ITEM_IN_TRANSIT', 'B_ITEM_RETURN_UNCIRCULATED' ],
             ui_method_icon => 'fa-inbox',
         },
         B_ITEM_RENEWAL_REQUESTED => {
@@ -359,17 +347,8 @@ sub status_graph {
             next_actions   => ['B_ITEM_IN_TRANSIT'],
             ui_method_icon => q{},
         },
-        B_ITEM_CLAIMED_RETURNED => {
-            prev_actions   => ['B_ITEM_RECEIVED'],
-            id             => 'B_ITEM_CLAIMED_RETURNED',
-            name           => 'Claimed as returned',
-            ui_method_name => 'Claim returned',
-            method         => 'claims_returned',
-            next_actions   => ['B_ITEM_IN_TRANSIT'],
-            ui_method_icon => 'fa-exclamation-triangle',
-        },
         B_ITEM_IN_TRANSIT => {
-            prev_actions   => [ 'B_ITEM_RECEIVED', 'B_ITEM_CLAIMED_RETURNED' ],
+            prev_actions   => ['B_ITEM_RECEIVED'],
             id             => 'B_ITEM_IN_TRANSIT',
             name           => 'Item in transit to owning library',
             ui_method_name => 'Item in transit',
@@ -808,43 +787,6 @@ sub borrower_cancel {
         };
 
         return $result;
-    };
-}
-
-=head3 claims_returned
-
-Method triggered by the UI, to notify the owning site that the item has been
-claimed returned.
-
-=cut
-
-sub claims_returned {
-    my ( $self, $params ) = @_;
-
-    my $req   = $params->{request};
-    my $attrs = $req->extended_attributes;
-
-    my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
-    my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
-
-    my $response = $self->{plugin}->get_http_client($centralCode)->post_request(
-        {
-            endpoint    => "/innreach/v2/circ/claimsreturned/$trackingId/$centralCode",
-            centralCode => $centralCode,
-            data        => { claimsReturnedDate => dt_from_string()->epoch }
-        }
-    );
-
-    $req->status('B_ITEM_CLAIMED_RETURNED')->store;
-
-    return {
-        error   => 0,
-        status  => q{},
-        message => q{},
-        method  => 'claims_returned',
-        stage   => 'commit',
-        next    => 'illview',
-        value   => q{},
     };
 }
 
