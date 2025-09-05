@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - [#97] Implemented item_recalled backend method with proper Client library support and LenderActions integration
 - [#97] Added RECALL circLastState handling: no-op for lender side, transitions to B_ITEM_RECALLED status for borrower side
+- [#104] Added t::lib::Mocks::Rapido module for standardized plugin testing following Koha's mocking patterns
 
 ### Removed
 - [#103] Removed invalid 'claimed returned' flow from both lender and borrower sides including O_ITEM_CLAIMED_RETURNED and B_ITEM_CLAIMED_RETURNED statuses and claims_returned method
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#94] Fixed Try::Tiny import in BorrowerActions to properly include catch and try functions
 - [#93] Refactored Backend->cancel_request() to delegate business logic to LenderActions->cancel_request() following established architectural pattern
 - [#90] Renamed LenderActions->process_renewal_decision() to renewal_request() for consistency with other method naming patterns
+- [#90] Consolidated Lender_renewal.t into Lender.t as renewal() tests subtest using t::lib::Mocks::Rapido for standardized testing
 - [#95] Refactored Backend->item_shipped() to delegate business logic to LenderActions->item_shipped() following established architectural pattern
 - [#96] Refactored Backend->item_checkin() to delegate business logic to LenderActions->final_checkin() following established architectural pattern
 - [#98] Refactored Backend->item_received() to delegate business logic to BorrowerActions->item_received() following established architectural pattern

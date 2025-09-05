@@ -24,6 +24,7 @@ use Test::Exception;
 use t::lib::TestBuilder;
 use t::lib::Mocks;
 use t::lib::Mocks::Logger;
+use t::lib::Mocks::Rapido;
 
 use Koha::Database;
 use Koha::ILL::Requests;
@@ -736,8 +737,11 @@ subtest 'recall() tests' => sub {
     $logger->clear();
 
     # Create test data
-    my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
-    my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+    my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $biblio   = $builder->build_object( { class => 'Koha::Biblios' } );
 
     my $ill_request = $builder->build_object(
         {
@@ -763,15 +767,27 @@ subtest 'recall() tests' => sub {
         }
     );
 
-    # Create plugin
-    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    # Create plugin with mock configuration
+    my $plugin = t::lib::Mocks::Rapido->new(
+        {
+            library  => $library,
+            category => $category,
+            itemtype => $itemtype
+        }
+    );
 
-    # Test RECALL handling
+    my $handler = RapidoILL::ActionHandler::Borrower->new(
+        {
+            plugin => $plugin,
+            pod    => 'test-pod',
+        }
+    );
+
+    # Test recall method directly
     lives_ok {
-        $plugin->get_action_handler( { pod => 'test-pod', perspective => 'borrower' } )
-            ->handle_from_action($circ_action);
+        $handler->recall($circ_action);
     }
-    'RECALL action handled without error';
+    'recall method executes without error';
 
     # Verify status change
     $ill_request->discard_changes;

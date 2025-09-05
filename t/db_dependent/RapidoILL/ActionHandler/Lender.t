@@ -17,12 +17,13 @@
 
 use Modern::Perl;
 
-use Test::More tests => 8;
+use Test::More tests => 9;
 use Test::MockObject;
 use Test::Exception;
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Rapido;
 
 use Koha::Database;
 use Koha::ILL::Requests;
@@ -590,6 +591,88 @@ subtest 'handle_from_action() tests' => sub {
     # Verify status unchanged (no-op)
     $ill_request->discard_changes;
     is( $ill_request->status, $original_status, 'Request status unchanged (RECALL is no-op for lender)' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'renewal() tests' => sub {
+
+    plan tests => 4;
+
+    $schema->storage->txn_begin;
+
+    # Create test data
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+    my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+
+    # Create plugin with mock configuration
+    my $plugin = t::lib::Mocks::Rapido->new(
+        {
+            library  => $library,
+            category => $category,
+            itemtype => $itemtype
+        }
+    );
+
+    # Create test ILL request
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                branchcode     => $library->branchcode,
+                borrowernumber => $patron->borrowernumber,
+                backend        => 'RapidoILL',
+                status         => 'O_ITEM_RECEIVED_DESTINATION',
+            }
+        }
+    );
+
+    # Add required attributes
+    $plugin->add_or_update_attributes(
+        {
+            request    => $ill_request,
+            attributes => {
+                circId => 'TEST_CIRC_001',
+                pod    => 'test-pod',
+            }
+        }
+    );
+
+    # Create CircAction using TestBuilder
+    my $circ_action = $builder->build_object(
+        {
+            class => 'RapidoILL::CircActions',
+            value => {
+                illrequest_id => $ill_request->id,
+                lastCircState => 'BORROWER_RENEW',
+                circId        => 'TEST_CIRC_001',
+            }
+        }
+    );
+
+    # Mock the RapidoILL::Client
+    my $client_module = Test::MockModule->new('RapidoILL::Client');
+    $client_module->mock( 'lender_renew', sub { return 1; } );
+
+    # Create handler using plugin method
+    my $handler = $plugin->get_lender_action_handler('test-pod');
+
+    # Test borrower_renew method
+    lives_ok {
+        $handler->borrower_renew($circ_action);
+    }
+    'borrower_renew processes without exception';
+
+    # Verify status changed to O_RENEWAL_REQUESTED
+    $ill_request->discard_changes;
+    is( $ill_request->status, 'O_RENEWAL_REQUESTED', 'Status set to O_RENEWAL_REQUESTED' );
+
+    # Verify renewal attributes were added
+    my $renewal_circId_attr = $ill_request->extended_attributes->find( { type => 'renewal_circId' } );
+    ok( $renewal_circId_attr, 'Renewal circId attribute created' );
+    is( $renewal_circId_attr->value, 'TEST_CIRC_001', 'Renewal circId stored correctly' );
 
     $schema->storage->txn_rollback;
 };
