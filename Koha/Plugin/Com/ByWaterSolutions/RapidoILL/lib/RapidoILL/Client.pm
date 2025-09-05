@@ -330,6 +330,41 @@ sub lender_shipped {
     return;
 }
 
+=head3 lender_recall
+
+    $client->lender_recall(
+        {
+            circId      => $circId,
+            dueDateTime => $due_date_epoch,
+        },
+      [ { skip_api_request => 0 | 1 } ]
+    );
+
+=cut
+
+sub lender_recall {
+    my ( $self, $params, $options ) = @_;
+
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId dueDateTime)], } );
+
+    if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
+        my $response = $self->{ua}->post_request(
+            {
+                endpoint => '/view/broker/circ/' . $params->{circId} . '/lenderrecall',
+                data     => { dueDateTime => $params->{dueDateTime} },
+                context  => 'lender_recall'
+            }
+        );
+
+        RapidoILL::Exception::RequestFailed->throw( method => 'lender_recall', response => $response )
+            unless $response->is_success;
+
+        return decode_json( $response->decoded_content );
+    }
+
+    return;
+}
+
 =head2 BORROWING SITE Client methods
 
 =head3 borrower_item_received

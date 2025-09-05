@@ -115,7 +115,7 @@ sub cancel_request {
                 my $pod    = $self->{pod};
 
                 # Handle missing patronName attribute gracefully
-                my $patronName = '';
+                my $patronName      = '';
                 my $patronName_attr = $attrs->find( { type => 'patronName' } );
                 if ($patronName_attr) {
                     $patronName = $patronName_attr->value;
@@ -374,6 +374,60 @@ sub renewal_request {
             )
         );
     }
+}
+
+=head3 item_recalled
+
+    $actions->item_recalled( $ill_request, $params );
+
+Recall an item from the borrowing library.
+
+Parameters:
+- $ill_request: The ILL request object
+- $params: Hashref with:
+  - recall_due_date: New due date for the recalled item (DateTime object)
+  - client_options: Options to pass to the Rapido client (optional)
+
+=cut
+
+sub item_recalled {
+    my ( $self, $req, $params ) = @_;
+
+    $params //= {};
+    my $options         = $params->{client_options} // {};
+    my $recall_due_date = $params->{recall_due_date};
+
+    RapidoILL::Exception::MissingParameter->throw( param => 'recall_due_date' )
+        unless $recall_due_date;
+
+    my $circId = $self->{plugin}->get_req_circ_id($req);
+    my $pod    = $self->{pod};
+
+    return try {
+        Koha::Database->schema->storage->txn_do(
+            sub {
+                # notify Rapido. Throws an exception if failed
+                $self->{plugin}->get_client($pod)->lender_recall(
+                    {
+                        circId      => $circId,
+                        dueDateTime => $recall_due_date->epoch,
+                    },
+                    $options
+                );
+
+                # update status
+                $req->status('O_ITEM_RECALLED')->store;
+            }
+        );
+        return $self;
+    } catch {
+        RapidoILL::Exception->throw(
+            sprintf(
+                "Unhandled exception: %s",
+                $_
+            )
+        );
+    };
 }
 
 1;

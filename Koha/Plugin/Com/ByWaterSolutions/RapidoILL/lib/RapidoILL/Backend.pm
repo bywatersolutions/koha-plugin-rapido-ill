@@ -438,29 +438,18 @@ sub item_recalled {
             stage   => 'form'
         };
     } else {
-        my $req   = $params->{request};
-        my $attrs = $req->extended_attributes;
+        my $req = $params->{request};
+        my $pod = $self->{plugin}->get_req_pod($req);
 
-        my $trackingId  = $attrs->find( { type => 'trackingId' } )->value;
-        my $centralCode = $attrs->find( { type => 'centralCode' } )->value;
-        my $itemId      = $attrs->find( { type => 'itemId' } )->value;
-
-        my $recall_due_date =
-            dt_from_string( $params->{other}->{recall_due_date} );
+        my $recall_due_date = dt_from_string( $params->{other}->{recall_due_date} );
 
         return try {
-
-            my $response = $self->{plugin}->get_http_client($centralCode)->post_request(
+            $self->{plugin}->get_lender_action_handler($pod)->item_recalled(
+                $req,
                 {
-                    endpoint    => "/innreach/v2/circ/recall/$trackingId/$centralCode",
-                    centralCode => $centralCode,
-                    data        => {
-                        dueDateTime => $recall_due_date->epoch,
-                    }
+                    recall_due_date => $recall_due_date,
                 }
             );
-
-            $req->status('O_ITEM_RECALLED')->store;
 
             return {
                 error   => 0,

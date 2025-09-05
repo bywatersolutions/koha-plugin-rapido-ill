@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 use Test::MockModule;
 use Test::MockObject;
 use Test::Exception;
@@ -718,4 +718,126 @@ EOF
     is( $ill_request->status, 'O_ITEM_RECEIVED_DESTINATION', 'Status returned to O_ITEM_RECEIVED_DESTINATION' );
 
     $schema->storage->txn_rollback;
+};
+
+subtest 'item_recalled() tests' => sub {
+
+    plan tests => 2;
+
+    # Sample configuration for testing
+    my $sample_config_yaml = <<'EOF';
+test-pod:
+  base_url: https://test.example.com
+  client_id: test_client
+  client_secret: test_secret
+  server_code: 12345
+  partners_library_id: TEST
+  dev_mode: true
+EOF
+
+    subtest 'Successful calls' => sub {
+
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        # Create test data
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+        my $ill_request = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->id,
+                    biblio_id      => $biblio->id,
+                    backend        => 'RapidoILL',
+                    status         => 'O_ITEM_RECEIVED_DESTINATION',
+                }
+            }
+        );
+
+        # Add required attributes
+        $builder->build_object(
+            {
+                class => 'Koha::ILL::Request::Attributes',
+                value => {
+                    illrequest_id => $ill_request->id,
+                    type          => 'circId',
+                    value         => 'test-circ-123',
+                }
+            }
+        );
+
+        # Mock client to avoid external calls
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock( 'lender_recall', sub { return; } );
+
+        # Mock plugin methods before instantiation
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+
+        # Create plugin instance
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        $plugin->store_data( { configuration => $sample_config_yaml } );
+
+        # Test successful item recall
+        my $recall_due_date = dt_from_string('2025-12-31');
+
+        $logger->clear();
+
+        lives_ok {
+            $plugin->get_lender_actions('test-pod')->item_recalled(
+                $ill_request,
+                {
+                    recall_due_date => $recall_due_date,
+                    client_options  => { skip_api_request => 1 }
+                }
+            );
+        } 'item_recalled executes without error';
+
+        # Verify status change
+        $ill_request->discard_changes;
+        is( $ill_request->status, 'O_ITEM_RECALLED', 'Status updated to O_ITEM_RECALLED' );
+
+        # Verify client method was called with correct parameters
+        my ( $method, $args ) = $mock_client->next_call();
+        is( $method, 'lender_recall', 'lender_recall method called on client' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Error cases' => sub {
+
+        plan tests => 1;
+
+        $schema->storage->txn_begin;
+
+        # Create test data
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+
+        my $ill_request = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->id,
+                    biblio_id      => $biblio->id,
+                    backend        => 'RapidoILL',
+                    status         => 'O_ITEM_RECEIVED_DESTINATION',
+                }
+            }
+        );
+
+        # Create plugin instance
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        $plugin->store_data( { configuration => $sample_config_yaml } );
+
+        # Test missing recall_due_date parameter
+        throws_ok {
+            $plugin->get_lender_actions('test-pod')->item_recalled( $ill_request, {} );
+        } 'RapidoILL::Exception::MissingParameter', 'Throws exception when recall_due_date is missing';
+
+        $schema->storage->txn_rollback;
+    };
 };
