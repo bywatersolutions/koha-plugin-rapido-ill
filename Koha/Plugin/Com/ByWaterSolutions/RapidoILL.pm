@@ -235,6 +235,7 @@ sub install {
                 `timestamp`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 `pod`           VARCHAR(10) NOT NULL,
                 `run_after`     TIMESTAMP NULL DEFAULT NULL,
+                `library_id`    VARCHAR(10) NULL DEFAULT NULL,
                 PRIMARY KEY (`id`),
                 KEY `status` (`status`),
                 KEY `pod` (`pod`)
@@ -375,6 +376,22 @@ sub upgrade {
                 'o_item_shipped'
             ) NOT NULL"
         );
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "0.9.8";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        unless ( $self->_column_exists( $task_queue, 'library_id' ) ) {
+            $dbh->do(
+                qq{
+                ALTER TABLE $task_queue
+                ADD COLUMN `library_id` VARCHAR(10) NULL DEFAULT NULL
+                AFTER `run_after`
+                }
+            );
+        }
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
