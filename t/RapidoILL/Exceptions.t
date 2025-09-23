@@ -17,7 +17,8 @@
 
 use Modern::Perl;
 
-use Test::More tests => 2;
+use Test::More tests => 3;
+use Test::NoWarnings;
 use Test::Exception;
 use Try::Tiny qw( catch try );
 
@@ -421,5 +422,3 @@ subtest 'RapidoILL::Exceptions tests' => sub {
         isa_ok($exception, 'RapidoILL::Exception', 'Exception inherits from base RapidoILL::Exception');
     };
 };
-
-done_testing();

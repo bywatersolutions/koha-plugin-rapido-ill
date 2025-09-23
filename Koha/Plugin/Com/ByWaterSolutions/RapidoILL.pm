@@ -235,7 +235,7 @@ sub install {
                 `timestamp`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 `pod`           VARCHAR(10) NOT NULL,
                 `run_after`     TIMESTAMP NULL DEFAULT NULL,
-                `library_id`    VARCHAR(10) NULL DEFAULT NULL,
+                `context`       TEXT DEFAULT NULL,
                 PRIMARY KEY (`id`),
                 KEY `status` (`status`),
                 KEY `pod` (`pod`)
@@ -383,12 +383,12 @@ sub upgrade {
     $new_version = "0.9.8";
     if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
 
-        unless ( $self->_column_exists( $task_queue, 'library_id' ) ) {
+        unless ( $self->_column_exists( $task_queue, 'context' ) ) {
             $dbh->do(
                 qq{
                 ALTER TABLE $task_queue
-                ADD COLUMN `library_id` VARCHAR(10) NULL DEFAULT NULL
-                AFTER `run_after`
+                ADD COLUMN `context` TEXT DEFAULT NULL
+                AFTER `payload`
                 }
             );
         }
@@ -499,10 +499,12 @@ sub after_circ_action {
             {
                 object_type   => 'circulation',
                 object_id     => $checkout->id,
-                action        => 'b_item_renew',
+                action        => 'b_item_renewal',
                 pod           => $pod,
                 illrequest_id => $req->id,
-                payload       => { due_date => $checkout->date_due }
+                payload       => {
+                    due_date => $checkout->date_due,
+                }
             }
         );
 

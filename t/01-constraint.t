@@ -17,15 +17,10 @@
 
 use Modern::Perl;
 
-use Test::More tests => 3;
+use Test::More tests => 4;
+use Test::NoWarnings;
 use Test::Exception;
 
-BEGIN {
-    # Add the plugin lib to @INC
-    unshift @INC, 'Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib';
-}
-
-use RapidoILL::CircAction;
 use RapidoILL::CircActions;
 
 subtest 'CircAction object creation' => sub {

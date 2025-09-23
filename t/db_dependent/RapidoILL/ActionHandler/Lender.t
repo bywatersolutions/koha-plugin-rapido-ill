@@ -17,7 +17,8 @@
 
 use Modern::Perl;
 
-use Test::More tests => 9;
+use Test::More tests => 10;
+use Test::NoWarnings;
 use Test::MockObject;
 use Test::Exception;
 

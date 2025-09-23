@@ -19,9 +19,9 @@
 
 use Modern::Perl;
 
-use Test::More tests => 8;
-use Test::Exception;
+use Test::More tests => 9;
 use Test::NoWarnings;
+use Test::Exception;
 
 use t::lib::TestBuilder;
 use Koha::Database;
@@ -51,7 +51,7 @@ subtest 'Collection instantiation and basic properties' => sub {
 
 subtest 'enqueue() method' => sub {
 
-    plan tests => 8;
+    plan tests => 13;
 
     $schema->storage->txn_begin;
 
@@ -87,6 +87,38 @@ subtest 'enqueue() method' => sub {
 
     is( $task2->status,    'retry', 'Explicit status overrides default' );
     is( $task2->object_id, 456,     'All attributes set correctly' );
+
+    # Test enqueue with payload containing userenv
+    my $payload = {
+        item_barcode => '123456789',
+        patron_id    => 42,
+        notes        => 'Test item shipment',
+        userenv      => {
+            branch => 'CPL',
+            number => 123,
+            id     => 'test_user'
+        }
+    };
+
+    my $task3 = $tasks->enqueue(
+        {
+            object_type => 'ill',
+            object_id   => 789,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod',
+            payload     => $payload
+        }
+    );
+
+    # Test that payload gets JSON-encoded in payload field
+    ok( $task3->payload, 'Task has payload field populated' );
+
+    # Test decoded_payload restores the Perl structure
+    my $decoded = $task3->decoded_payload;
+    is_deeply( $decoded, $payload, 'decoded_payload restores original Perl structure' );
+    is( $decoded->{item_barcode},      '123456789', 'Payload item_barcode preserved' );
+    is( $decoded->{patron_id},         42,          'Payload patron_id preserved' );
+    is( $decoded->{userenv}->{branch}, 'CPL',       'Payload userenv branch preserved' );
 
     $schema->storage->txn_rollback;
 };
@@ -189,7 +221,7 @@ subtest 'filter_by_runnable() method' => sub {
             pod         => 'test-pod',
             status      => 'queued'
 
-            # run_after is NULL (should be runnable)
+                # run_after is NULL (should be runnable)
         }
     );
 
@@ -227,7 +259,7 @@ subtest 'filter_by_runnable() method' => sub {
             pod         => 'test-pod',
             status      => 'success'
 
-            # Even with NULL run_after, not active so not runnable
+                # Even with NULL run_after, not active so not runnable
         }
     );
 
@@ -299,8 +331,7 @@ subtest 'Complex filtering and method chaining' => sub {
 
     # Test complex chaining
     my $specific_tasks =
-        RapidoILL::QueuedTasks->new->search( { pod => 'pod-a' } )
-        ->filter_by_active()
+        RapidoILL::QueuedTasks->new->search( { pod => 'pod-a' } )->filter_by_active()
         ->search( { object_id => { '>' => 2 } } );
 
     is( $specific_tasks->count, 3, 'Complex method chaining works' );
@@ -315,6 +346,49 @@ subtest 'Complex filtering and method chaining' => sub {
 
     my $first_task = $tasks->search( {}, { order_by => 'object_id' } )->next;
     is( $first_task->object_id, 1, 'Standard search and next methods work' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'enqueue() context fallback tests' => sub {
+    plan tests => 4;
+
+    $schema->storage->txn_begin;
+
+    my $queued_tasks = RapidoILL::QueuedTasks->new;
+
+    # Test 1: Explicit context is preserved
+    my $explicit_context = {
+        userenv   => { branch => 'EXPLICIT', number => 999 },
+        interface => 'api'
+    };
+
+    my $task_explicit = $queued_tasks->enqueue(
+        {
+            object_type => 'ill',
+            object_id   => 123,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod',
+            context     => $explicit_context
+        }
+    );
+
+    is_deeply( $task_explicit->decoded_context, $explicit_context, 'Explicit context preserved' );
+
+    # Test 2: Default context is created when none provided
+    my $task_default = $queued_tasks->enqueue(
+        {
+            object_type => 'ill',
+            object_id   => 456,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod'
+        }
+    );
+
+    my $default_context = $task_default->decoded_context;
+    ok( $default_context, 'Default context created' );
+    ok( exists $default_context->{userenv}, 'Default context has userenv' );
+    ok( exists $default_context->{interface}, 'Default context has interface' );
 
     $schema->storage->txn_rollback;
 };

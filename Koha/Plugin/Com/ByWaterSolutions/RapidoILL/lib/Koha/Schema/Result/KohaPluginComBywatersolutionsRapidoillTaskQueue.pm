@@ -96,11 +96,10 @@ __PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_task_queue");
   datetime_undef_if_invalid: 1
   is_nullable: 1
 
-=head2 library_id
+=head2 context
 
-  data_type: 'varchar'
+  data_type: 'text'
   is_nullable: 1
-  size: 10
 
 =cut
 
@@ -164,8 +163,8 @@ __PACKAGE__->add_columns(
     datetime_undef_if_invalid => 1,
     is_nullable => 1,
   },
-  "library_id",
-  { data_type => "varchar", is_nullable => 1, size => 10 },
+  "context",
+  { data_type => "text", is_nullable => 1 },
 );
 
 =head1 PRIMARY KEY
@@ -181,8 +180,8 @@ __PACKAGE__->add_columns(
 __PACKAGE__->set_primary_key("id");
 
 
-# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-09-22 21:02:23
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:OppBstnCY+PWZ8X01TUBBw
+# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-09-23 19:02:25
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:/a8HwLrQNpiEJTONDhBW4g
 
 {
     no warnings 'redefine';

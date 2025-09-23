@@ -2,7 +2,8 @@
 
 use Modern::Perl;
 
-use Test::More tests => 1;
+use Test::More tests => 2;
+use Test::NoWarnings;
 use Test::Exception;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;

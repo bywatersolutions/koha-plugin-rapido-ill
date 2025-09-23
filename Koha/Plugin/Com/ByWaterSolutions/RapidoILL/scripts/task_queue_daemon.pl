@@ -19,8 +19,9 @@ use Modern::Perl;
 
 use Getopt::Long;
 use Pod::Usage;
-use Try::Tiny qw(catch try);
+use Try::Tiny qw(catch try finally);
 
+use C4::Context;
 use Koha::Checkouts;
 use Koha::Database;
 use Koha::Logger;
@@ -184,10 +185,16 @@ Handle the o_item_shipped action.
 sub o_item_shipped {
     my ($params) = @_;
 
-    my $req = $params->{task}->ill_request;
-    my $pod = $params->{plugin}->get_req_pod($req);
+    my $task = $params->{task};
+    my $req  = $task->ill_request;
+    my $pod  = $params->{plugin}->get_req_pod($req);
 
-    $params->{plugin}->get_lender_actions($pod)->item_shipped($req);
+    # Execute with stored userenv from payload
+    $task->execute_with_context(
+        sub {
+            $params->{plugin}->get_lender_actions($pod)->item_shipped($req);
+        }
+    );
 }
 
 =head3 o_cancel_request

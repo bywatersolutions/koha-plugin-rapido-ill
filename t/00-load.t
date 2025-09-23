@@ -17,9 +17,8 @@
 
 use Modern::Perl;
 
-use Test::More;
-
-use Test::More;
+use Test::More tests => 20;
+use Test::NoWarnings;
 use File::Spec;
 use File::Find;
 
@@ -45,6 +44,3 @@ find(
     },
     '.'
 );
-
-done_testing();
-

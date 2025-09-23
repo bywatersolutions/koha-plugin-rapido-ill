@@ -21,6 +21,8 @@ use Modern::Perl;
 no warnings 'redefine';
 
 use JSON qw(encode_json decode_json);
+use Try::Tiny;
+use C4::Context;
 use Koha::ILL::Requests;
 
 use base qw(Koha::Object);
@@ -61,12 +63,37 @@ sub decoded_payload {
     return decode_json( $self->payload );
 }
 
+=head3 decoded_context
+
+    my $context = $task->decoded_context;
+
+Returns the context column as a Perl data structure.
+
+=cut
+
+sub decoded_context {
+    my ($self) = @_;
+
+    my $context = $self->context;
+    return unless defined $context && $context ne '';
+
+    my $decoded_context;
+    try {
+        $decoded_context = decode_json($context);
+    } catch {
+        warn "Failed to decode context JSON: $_";
+        return;
+    };
+
+    return $decoded_context;
+}
+
 =head3 store
 
     $task->store();
 
-Overloaded store method that automatically JSON-encodes the payload attribute
-if it contains a reference (hash, array, etc.) before storing to database.
+Overloaded store method that automatically JSON-encodes the payload and context attributes
+if they contain references (hash, array, etc.) before storing to database.
 
 =cut
 
@@ -76,6 +103,11 @@ sub store {
     # If payload is set and is a reference, JSON-encode it
     if ( defined $self->payload && ref( $self->payload ) ) {
         $self->set( { payload => encode_json( $self->payload ) } );
+    }
+
+    # If context is set and is a reference, JSON-encode it
+    if ( defined $self->context && ref( $self->context ) ) {
+        $self->set( { context => encode_json( $self->context ) } );
     }
 
     return $self->SUPER::store();
@@ -139,9 +171,7 @@ sub retry {
             attempts => $self->attempts + 1,
             (
                 $error
-                ? ( last_error =>
-                      encode_json( ref($error) ? $error : { error => $error } )
-                  )
+                ? ( last_error => encode_json( ref($error) ? $error : { error => $error } ) )
                 : ()
             ),
             run_after => \"DATE_ADD(NOW(), INTERVAL $retry_delay SECOND)"
@@ -165,6 +195,94 @@ sub success {
     $self->set( { status => 'success', } )->store();
 
     return $self;
+}
+
+=head3 execute_with_context
+
+    $task->execute_with_context($code_ref);
+
+Executes the provided code reference with the context stored in the task's context column.
+Restores the original userenv and interface state afterwards.
+
+=cut
+
+sub execute_with_context {
+    my ( $self, $code_ref ) = @_;
+
+    my $stored_context = $self->decoded_context;
+
+    return $code_ref->() unless $stored_context;
+
+    my $original_userenv   = C4::Context->userenv;
+    my $original_interface = C4::Context->interface;
+
+    try {
+        # Set interface if stored
+        if ( $stored_context->{interface} ) {
+            C4::Context->interface( $stored_context->{interface} );
+        }
+
+        # Set userenv from stored data
+        my $stored_userenv = $stored_context->{userenv};
+        if ($stored_userenv) {
+            if ( ref($stored_userenv) eq 'HASH' ) {
+
+                # Handle hash format (from t::lib::Mocks::mock_userenv)
+                C4::Context->set_userenv(
+                    $stored_userenv->{number}        || 0,
+                    $stored_userenv->{id}            || 'rapidoill_daemon',
+                    $stored_userenv->{cardnumber}    || '',
+                    $stored_userenv->{firstname}     || 'RapidoILL',
+                    $stored_userenv->{surname}       || 'Daemon',
+                    $stored_userenv->{branch}        || $stored_userenv->{branchcode} || '',
+                    $stored_userenv->{branchname}    || '',
+                    $stored_userenv->{flags}         || 0,
+                    $stored_userenv->{emailaddress}  || '',
+                    $stored_userenv->{shibboleth}    || '',
+                    $stored_userenv->{desk_id}       || '',
+                    $stored_userenv->{desk_name}     || '',
+                    $stored_userenv->{register_id}   || '',
+                    $stored_userenv->{register_name} || ''
+                );
+            } elsif ( ref($stored_userenv) eq 'ARRAY' ) {
+
+                # Handle array format (from C4::Context->userenv direct storage)
+                C4::Context->set_userenv(@$stored_userenv);
+            }
+        }
+
+        return $code_ref->();
+    } catch {
+        die $_;
+    } finally {
+
+        # Restore original interface
+        if ( defined $original_interface ) {
+            C4::Context->interface($original_interface);
+        }
+
+        # Restore original userenv state
+        if ($original_userenv) {
+            C4::Context->set_userenv(
+                $original_userenv->{number},
+                $original_userenv->{id},
+                $original_userenv->{cardnumber},
+                $original_userenv->{firstname},
+                $original_userenv->{surname},
+                $original_userenv->{branch},
+                $original_userenv->{branchname},
+                $original_userenv->{flags},
+                $original_userenv->{emailaddress},
+                $original_userenv->{shibboleth},
+                $original_userenv->{desk_id},
+                $original_userenv->{desk_name},
+                $original_userenv->{register_id},
+                $original_userenv->{register_name}
+            );
+        } else {
+            C4::Context->unset_userenv();
+        }
+    };
 }
 
 =head2 Internal methods

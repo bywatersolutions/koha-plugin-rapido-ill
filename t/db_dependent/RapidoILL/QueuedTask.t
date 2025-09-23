@@ -19,12 +19,13 @@
 
 use Modern::Perl;
 
-use Test::More tests => 13;
-use Test::Exception;
+use Test::More tests => 15;
 use Test::NoWarnings;
-use JSON qw(decode_json);
+use Test::Exception;
+use JSON qw(decode_json encode_json);
 
 use t::lib::TestBuilder;
+use C4::Context;
 use Koha::Database;
 
 BEGIN {
@@ -97,7 +98,7 @@ subtest 'ill_request() method' => sub {
     $schema->storage->txn_rollback;
 };
 
-subtest 'decoded_payload() method' => sub {
+subtest 'decoded_payload() tests' => sub {
 
     plan tests => 3;
 
@@ -514,6 +515,174 @@ subtest 'Default values and auto-increment' => sub {
     is( $task->status,   'queued', 'Status set correctly' );
     is( $task->attempts, 0,        'Attempts set correctly' );
     ok( $task->timestamp, 'Timestamp automatically set' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'execute_with_context() tests' => sub {
+    plan tests => 6;
+
+    $schema->storage->txn_begin;
+
+    # Create test data
+    my $library = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $patron  = $builder->build_object( { class => 'Koha::Patrons' } );
+
+    # Test 1: No userenv initially
+    is( C4::Context->userenv, undef, 'No userenv set initially' );
+
+    # Test 2: Create task with context
+    my $test_context = {
+        userenv => {
+            branch     => $library->branchcode,
+            branchname => $library->branchname,
+            number     => $patron->borrowernumber,
+            id         => 'test_user'
+        },
+        interface => 'intranet'
+    };
+
+    my $task = RapidoILL::QueuedTask->new(
+        {
+            object_type => 'ill',
+            object_id   => 123,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod',
+            context     => $test_context
+        }
+    )->store;
+
+    # Test 3: Test execute_with_context with userenv restoration
+    my $executed_with_branch;
+    my $result = $task->execute_with_context(
+        sub {
+            $executed_with_branch = C4::Context->userenv->{branch};
+            return 'success';
+        }
+    );
+
+    is( $result,               'success',             'Code executed successfully' );
+    is( $executed_with_branch, $library->branchcode, 'Userenv restored correctly during execution' );
+    is( C4::Context->userenv,  undef,                'Original userenv restored after execution' );
+
+    # Test 4: Test with no context
+    my $task_no_context = RapidoILL::QueuedTask->new(
+        {
+            object_type => 'ill',
+            object_id   => 456,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod'
+        }
+    )->store;
+
+    my $executed_without_context = 0;
+    $task_no_context->execute_with_context(
+        sub {
+            $executed_without_context = 1;
+            return 'no_context_success';
+        }
+    );
+
+    is( $executed_without_context, 1, 'Code executed even without context' );
+
+    # Test 5: Test with mock userenv format (branchcode instead of branch)
+    my $mock_context = {
+        userenv => {
+            branchcode => $library->branchcode,
+            branchname => $library->branchname,
+            number     => $patron->borrowernumber,
+            id         => 'mock_user'
+        },
+        interface => 'api'
+    };
+
+    my $task_mock = RapidoILL::QueuedTask->new(
+        {
+            object_type => 'ill',
+            object_id   => 789,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod',
+            context     => $mock_context
+        }
+    )->store;
+
+    my $executed_with_mock_branch;
+    $task_mock->execute_with_context(
+        sub {
+            $executed_with_mock_branch = C4::Context->userenv->{branch};
+        }
+    );
+
+    is( $executed_with_mock_branch, $library->branchcode, 'Mock userenv format (branchcode) handled correctly' );
+
+    # Cleanup
+    C4::Context->unset_userenv();
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'decoded_context() tests' => sub {
+    plan tests => 4;
+
+    $schema->storage->txn_begin;
+
+    # Test 1: Valid JSON context
+    my $context_data = {
+        userenv   => { branch => 'CPL', number => 123 },
+        interface => 'intranet'
+    };
+
+    my $task = RapidoILL::QueuedTask->new(
+        {
+            object_type => 'ill',
+            object_id   => 123,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod',
+            context     => $context_data
+        }
+    )->store;
+
+    my $decoded = $task->decoded_context;
+    is_deeply( $decoded, $context_data, 'Context decoded correctly' );
+
+    # Test 2: No context
+    my $task_no_context = RapidoILL::QueuedTask->new(
+        {
+            object_type => 'ill',
+            object_id   => 456,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod'
+        }
+    )->store;
+
+    is( $task_no_context->decoded_context, undef, 'Returns undef when no context' );
+
+    # Test 3: Empty context
+    my $task_empty = RapidoILL::QueuedTask->new(
+        {
+            object_type => 'ill',
+            object_id   => 789,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod',
+            context     => ''
+        }
+    )->store;
+
+    is( $task_empty->decoded_context, undef, 'Returns undef for empty context' );
+
+    # Test 4: Context with userenv only
+    my $userenv_only = { userenv => { branch => 'MPL' } };
+    my $task_userenv = RapidoILL::QueuedTask->new(
+        {
+            object_type => 'ill',
+            object_id   => 101,
+            action      => 'o_item_shipped',
+            pod         => 'test-pod',
+            context     => $userenv_only
+        }
+    )->store;
+
+    is_deeply( $task_userenv->decoded_context, $userenv_only, 'Context with userenv only works' );
 
     $schema->storage->txn_rollback;
 };

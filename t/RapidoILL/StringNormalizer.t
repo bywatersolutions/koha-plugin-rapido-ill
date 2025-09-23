@@ -17,7 +17,8 @@
 
 use Modern::Perl;
 
-use Test::More tests => 2;
+use Test::More tests => 3;
+use Test::NoWarnings;
 use Test::Exception;
 
 BEGIN {
@@ -163,5 +164,3 @@ subtest 'StringNormalizer tests' => sub {
         is($remove_then_trim->process('   hello world   '), 'helloworld', 'remove_all_spaces + trim works (order test)');
     };
 };
-
-done_testing();

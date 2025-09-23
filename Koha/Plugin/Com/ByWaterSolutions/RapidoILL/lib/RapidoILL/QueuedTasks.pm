@@ -17,6 +17,7 @@ package RapidoILL::QueuedTasks;
 
 use Modern::Perl;
 
+use C4::Context;
 use RapidoILL::QueuedTask;
 
 use base qw(Koha::Objects);
@@ -77,7 +78,15 @@ Returns the new I<RapidoILL::QueuedTask> object.
 
 sub enqueue {
     my ( $self, $attributes ) = @_;
+
     $attributes->{status} //= 'queued';
+
+    # Use passed context or create default context
+    $attributes->{context} //= {
+        userenv   => C4::Context->userenv,
+        interface => C4::Context->interface,
+    };
+
     return RapidoILL::QueuedTask->new($attributes)->store();
 }
 
