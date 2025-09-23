@@ -71,7 +71,14 @@ while (1) {
     sleep $daemon_sleep;
 }
 
-=head3 run_tasks_batch
+=head1 IMPLEMENTATION
+
+=head2 run_tasks_batch
+
+    run_tasks_batch();
+
+Processes a batch of runnable tasks from the queue. Tasks are ordered by timestamp
+and processed up to the configured batch_size limit.
 
 =cut
 
@@ -99,7 +106,12 @@ sub run_tasks_batch {
     }
 }
 
-=head3 dispacth_task
+=head3 dispatch_task
+
+    dispatch_task( { plugin => $plugin, task => $task } );
+
+Dispatches a task to the appropriate handler based on its action type.
+Handles success/failure states and retry logic with proper logging.
 
 =cut
 
@@ -178,7 +190,8 @@ sub o_final_checkin {
 
     o_item_shipped( { plugin => $plugin, task => $task } );
 
-Handle the o_item_shipped action.
+Handle the o_item_shipped action. Executes within the stored user context
+from the task to maintain proper permissions and environment.
 
 =cut
 
@@ -281,7 +294,7 @@ task_queue_daemon.pl -s 5
  Options:
    -?|--help        brief help message
    -v               Be verbose
-   --sleep N        Polling frecquency
+   --sleep N        Polling frequency
    --batch_size N   Process tasks in batches of N
 
 =head1 OPTIONS
@@ -298,7 +311,7 @@ Be verbose
 
 =item B<--sleep N>
 
-Use I<N> as the database polling frecquency.
+Use I<N> as the database polling frequency.
 
 =item B<--batch_size N>
 
@@ -309,6 +322,12 @@ Process tasks in batches of I<N>.
 =head1 DESCRIPTION
 
 A task queue processor daemon that takes care of notifying Rapido ILL about
-relevant circulation events.
+relevant circulation events. The daemon processes tasks in batches, maintaining
+proper user context and permissions for each operation. Tasks are automatically
+retried on failure with exponential backoff.
+
+=head1 FUNCTIONS
+
+=head2 Task Processing
 
 =cut
