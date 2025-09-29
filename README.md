@@ -140,16 +140,10 @@ tail -f /var/log/koha/<instance>/plack-intranet-error.log | grep -i rapido
 
 ### Logging Configuration
 
-The plugin uses Koha::Logger for logging. Debug logging is controlled entirely through Koha's log4perl configuration.
-
-#### Koha log4perl.conf Configuration
-
-Add the following to your Koha instance's `log4perl.conf` file (usually located at `/etc/koha/sites/<instance>/log4perl.conf`):
+Add the following to your Koha instance's `log4perl.conf` file:
 
 ```perl
-# RapidoILL Plugin Logging - Three Separate Log Files
-
-# 1. General Plugin Logging
+# RapidoILL Plugin Logging
 log4perl.logger.rapidoill = INFO, RAPIDOILL
 log4perl.logger.opac.rapidoill = INFO, RAPIDOILL
 log4perl.logger.intranet.rapidoill = INFO, RAPIDOILL
@@ -168,7 +162,6 @@ log4perl.appender.RAPIDOILL.layout = PatternLayout
 log4perl.appender.RAPIDOILL.layout.ConversionPattern = [%d] [%p] %m %l%n
 log4perl.appender.RAPIDOILL.utf8 = 1
 
-# 2. External API Calls (Koha -> Rapido ILL)
 log4perl.logger.rapidoill_api = DEBUG, RAPIDOILL_API
 log4perl.logger.opac.rapidoill_api = DEBUG, RAPIDOILL_API
 log4perl.logger.intranet.rapidoill_api = DEBUG, RAPIDOILL_API
@@ -187,7 +180,6 @@ log4perl.appender.RAPIDOILL_API.layout = PatternLayout
 log4perl.appender.RAPIDOILL_API.layout.ConversionPattern = [%d] [%p] %m %l%n
 log4perl.appender.RAPIDOILL_API.utf8 = 1
 
-# 3. Task Queue Daemon Logging
 log4perl.logger.rapidoill_daemon = INFO, RAPIDOILL_DAEMON
 log4perl.logger.opac.rapidoill_daemon = INFO, RAPIDOILL_DAEMON
 log4perl.logger.intranet.rapidoill_daemon = INFO, RAPIDOILL_DAEMON
@@ -209,78 +201,11 @@ log4perl.appender.RAPIDOILL_DAEMON.utf8 = 1
 
 Replace `<instance>` with your actual Koha instance name.
 
-**Important**: The configuration includes multiple logger categories for each log type:
-- **Base categories** (`rapidoill`, `rapidoill_api`, `rapidoill_daemon`): For direct Log4perl usage
-- **Interface-prefixed categories** (`opac.rapidoill`, `intranet.rapidoill`, `commandline.rapidoill`, `cron.rapidoill`, etc.): For Koha::Logger usage
+**Supported levels:** `ERROR`, `WARN`, `INFO`, `DEBUG`
 
-Koha::Logger automatically prefixes categories with the current interface (`opac`, `intranet`, `commandline`, or `cron`), so all sets of categories are required for complete coverage across web interfaces, command-line scripts, and scheduled tasks.
+#### Debug Level for API Interactions
 
-**Important:** After modifying `log4perl.conf`, restart your Koha services:
-
-```bash
-# For systemd-based installations
-sudo systemctl restart koha-common
-
-# Or restart specific services
-sudo systemctl restart apache2
-sudo systemctl restart koha-indexer
-```
-
-#### Log Levels
-
-You can adjust the log level as needed for each category:
-
-**General Plugin Logging (`rapidoill`):**
-- Web interface operations, business logic, and general plugin activities
-- `INFO` - General operations (recommended for production)
-- `DEBUG` - Detailed plugin operations
-- `WARN` - Warning messages
-- `ERROR` - Error messages only
-
-**External API Calls (`rapidoill.api`):**
-- HTTP requests/responses between Koha and Rapido ILL servers
-- `DEBUG` - Detailed HTTP request/response logging (recommended for troubleshooting)
-- `INFO` - Brief API operation logs
-- `WARN` - API warnings
-- `ERROR` - API failures only
-
-**Task Queue Daemon (`rapidoill.daemon`):**
-- Background task processing and daemon lifecycle events
-- `INFO` - Task batch processing and completion status (recommended)
-- `DEBUG` - Detailed task processing information
-- `WARN` - Task retry warnings
-- `ERROR` - Task failures and daemon errors
-
-#### Troubleshooting Logging
-
-**No messages appearing in log files?**
-
-1. **Check interface prefixing**: Koha::Logger automatically prefixes categories with the interface name (`opac`, `intranet`, `commandline`, or `cron`). Ensure you have both base and prefixed categories configured for all interfaces.
-
-2. **Verify configuration syntax**: Check that your log4perl.conf has no syntax errors:
-   ```bash
-   perl -c /etc/koha/sites/<instance>/log4perl.conf
-   ```
-
-3. **Test direct logging**: Verify the configuration works with direct Log4perl:
-   ```perl
-   use Log::Log4perl;
-   Log::Log4perl->init('/etc/koha/sites/<instance>/log4perl.conf');
-   my $logger = Log::Log4perl->get_logger('rapidoill');
-   $logger->info('Test message');
-   ```
-
-4. **Check file permissions**: Ensure the Koha user can write to the log files:
-   ```bash
-   sudo chown <koha-user>:<koha-group> /var/log/koha/<instance>/rapidoill*.log
-   sudo chmod 644 /var/log/koha/<instance>/rapidoill*.log
-   ```
-
-5. **Restart services**: After configuration changes, restart Koha services:
-   ```bash
-   sudo systemctl restart apache2
-   sudo koha-plack --restart <instance>
-   ```
+The debug level enables full HTTP request/response logging for external API interactions with Rapido servers.
 
 #### Log File Rotation
 
