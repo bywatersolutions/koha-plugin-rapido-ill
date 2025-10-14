@@ -636,7 +636,7 @@ sub notices_content {
     my ( $self, $params ) = @_;
     my $result = {};
 
-    if ( $params->{letter_code} eq 'HOLD_SLIP' ) {
+    if ( $params->{letter_code} =~ m/^HOLD/ ) {
 
         my $ill_request = $self->get_ill_request_from_attribute(
             {
