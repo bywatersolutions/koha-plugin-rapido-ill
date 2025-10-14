@@ -72,8 +72,16 @@ jobs:
         ktd --name rapidotest --shell --run "
           cd /kohadevbox/plugins/${{ env.GITHUB_REPO }} &&
           export PERL5LIB=\$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. &&
-          prove -v -r -s t/
+          cpanm --notest TAP::Harness::JUnit &&
+          JUNIT_OUTPUT_FILE=junit.xml prove -v -r -s t/ --harness=TAP::Harness::JUnit
         "
+
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: junit.xml
+        check_name: "Test Results (Koha ${{ matrix.koha-version }})"
 
     - name: Show logs on failure
       if: failure()
