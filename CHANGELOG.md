@@ -5,10 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [TBD] - TBD
+## [1.0.0] - 2025-10-14
+
+### Fixed
+- [#110] Enhanced notices_content hook to work with all hold-related notices (not just HOLD_SLIP)
 
 ### Changed
 - [#108] Simplified log4perl.conf documentation section to be copy-paste ready with minimal explanatory text
+- [#110] Modified letter_code matching from exact 'HOLD_SLIP' to pattern matching /^HOLD/ for broader notice support
+- [#111] Added JUnit test results publishing to CI workflow for better test visibility
+
+## [0.9.8] - 2025-09-23
+
+### Fixed
+- [#107] Fixed POD documentation in task_queue_daemon.pl for QA compliance
+
+## [0.9.7] - 2025-09-22
+
+### Added
+- [#107] Added library_id column to task queue for better context tracking
+- [#107] Added context storage and restoration for queued tasks (interface and userenv)
+- [#107] Added execute_with_context method for proper task execution environment
+- [#107] Added comprehensive test coverage for task queue context handling
+
+### Changed
+- [#107] Enhanced task queue daemon to use stored context when executing tasks
+- [#107] Modified enqueue method to capture and store execution context
 
 ## [0.9.6] - 2025-09-10
 
