@@ -42,7 +42,7 @@ Run this after starting a fresh KTD environment.
 =cut
 
 # Command line options
-my $mock_port = 3001;
+my $mock_port = 3000;
 my $help      = 0;
 
 GetOptions(
