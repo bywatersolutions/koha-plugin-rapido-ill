@@ -145,8 +145,9 @@ my $plugin_config = {
             automatic_item_receive    => 0
         },
         lending => {
-            automatic_final_checkin => 0,
-            automatic_item_shipped  => 0
+            automatic_final_checkin      => 0,
+            automatic_item_shipped       => 0,
+            pickup_location_strategy     => 'partners_library'
         },
         debt_blocks_holds        => 1,
         max_debt_blocks_holds    => 100,

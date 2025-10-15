@@ -59,6 +59,7 @@ dev03-na:
   lending:
     automatic_final_checkin: false
     automatic_item_shipped: false
+    pickup_location_strategy: partners_library
   # Patron validation restrictions
   debt_blocks_holds: true
   max_debt_blocks_holds: 100
@@ -68,6 +69,13 @@ dev03-na:
   dev_mode: false
   default_retry_delay: 120
 ```
+
+#### Configuration Options
+
+**pickup_location_strategy** (lending): Determines which library branch to use as the pickup location when creating holds for lending ILL requests. Options:
+- `partners_library` (default): Use the configured `partners_library_id`
+- `homebranch`: Use the item's home branch
+- `holdingbranch`: Use the item's holding branch
 
 ### Task Queue Daemon
 

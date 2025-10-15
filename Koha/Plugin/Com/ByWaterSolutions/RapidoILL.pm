@@ -2077,10 +2077,24 @@ sub create_item_hold {
         my $schema = Koha::Database->new->schema;
         $schema->txn_do(
             sub {
-                my $agency_id  = $action->patronAgencyCode;
-                my $config     = $self->configuration->{ $action->pod };
-                my $library_id = $config->{partners_library_id};
-                my $patron_id  = $self->get_patron_id_from_agency(
+                my $agency_id = $action->patronAgencyCode;
+                my $config    = $self->configuration->{ $action->pod };
+
+                # Determine pickup location based on strategy
+                my $pickup_strategy = $config->{lending}->{pickup_location_strategy} || 'partners_library';
+                my $library_id;
+
+                if ( $pickup_strategy eq 'homebranch' ) {
+                    $library_id = $item->homebranch;
+                } elsif ( $pickup_strategy eq 'holdingbranch' ) {
+                    $library_id = $item->holdingbranch;
+                } else {
+
+                    # Default to partners_library
+                    $library_id = $config->{partners_library_id};
+                }
+
+                my $patron_id = $self->get_patron_id_from_agency(
                     {
                         agency_id => $agency_id,
                         pod       => $action->pod,
