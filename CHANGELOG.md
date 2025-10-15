@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - [#114] Updated bootstrap script mock server port to match server settings (3000)
 - [#113] Fixed QueuedTasks test to account for existing database records, improving test reliability
+- [#112] Removed 'fill' and 'transfer' actions from after_hold_action hook to prevent duplicate o_item_shipped events
 
 ## [1.0.1] - 2025-10-14
 

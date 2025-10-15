@@ -573,11 +573,12 @@ sub after_hold_action {
     my $config = $self->pod_config($pod);
 
     if ( $self->is_lending_req($req) ) {
-        if (   $action eq 'fill'
-            || $action eq 'waiting'
-            || $action eq 'transfer' )
-        {
-
+        if ( $action eq 'waiting' ) {
+            # NOTE: o_item_shipped will trigger a checkout, which will implicitly
+            #       fill the hold. We don't want that action on the hold to trigger a
+            #       duplicated o_item_shipped.
+            #       The 'waiting' case is not picked either, to allow Koha to process
+            #       the transfer in a kosher way.
             if ( $req->status eq 'O_ITEM_REQUESTED' ) {
 
                 $self->get_queued_tasks->enqueue(
