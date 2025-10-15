@@ -57,9 +57,10 @@ Creates a new RapidoILL plugin instance with test configuration.
 sub new {
     my ( $class, $params ) = @_;
 
-    my $library  = $params->{library}  || die "library parameter required";
-    my $category = $params->{category} || die "category parameter required";
-    my $itemtype = $params->{itemtype} || die "itemtype parameter required";
+    my $library         = $params->{library}                  || die "library parameter required";
+    my $category        = $params->{category}                 || die "category parameter required";
+    my $itemtype        = $params->{itemtype}                 || die "itemtype parameter required";
+    my $pickup_strategy = $params->{pickup_location_strategy} || 'partners_library';
 
     # Sample configuration template
     my $sample_config_yaml = <<'EOF';
@@ -72,6 +73,11 @@ test-pod:
   partners_library_id: %s
   partners_category: %s
   default_item_type: %s
+  default_patron_agency: TEST_AGENCY
+  lending:
+    automatic_final_checkin: false
+    automatic_item_shipped: false
+    pickup_location_strategy: %s
   dev_mode: true
 EOF
 
@@ -80,7 +86,8 @@ EOF
         $sample_config_yaml,
         $library->branchcode,
         $category->categorycode,
-        $itemtype->itemtype
+        $itemtype->itemtype,
+        $pickup_strategy
     );
 
     # Create plugin and store configuration
