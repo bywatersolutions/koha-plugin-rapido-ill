@@ -299,6 +299,7 @@ subtest 'Complex filtering and method chaining' => sub {
 
     $schema->storage->txn_begin;
 
+    my $initial_count = RapidoILL::QueuedTasks->search()->count;
     my $tasks = RapidoILL::QueuedTasks->new;
 
     # Create a variety of tasks
@@ -342,7 +343,7 @@ subtest 'Complex filtering and method chaining' => sub {
 
     # Test that we can still use standard Koha::Objects methods
     my $total_count = $tasks->count;
-    is( $total_count, 10, 'Standard count method works' );
+    is( $total_count, $initial_count + 10, 'Standard count method works' );
 
     my $first_task = $tasks->search( {}, { order_by => 'object_id' } )->next;
     is( $first_task->object_id, 1, 'Standard search and next methods work' );
