@@ -1,0 +1,23 @@
+# Codespell ignore file for Rapido ILL plugin
+# Add words that should be ignored by the spell checker
+
+# Technical terms and proper nouns
+Rapido
+ILL
+API
+OAuth
+JSON
+YAML
+KTD
+Koha
+ByWater
+ByWaterSolutions
+BibLibre
+OpenFifth
+Theke
+
+# Common abbreviations
+config
+configs
+plugin
+plugins
