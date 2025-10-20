@@ -1,0 +1,2 @@
+commit_subject_pattern: '^(\[#\d+\] |v?\d+\.\d+\.\d+)'
+commit_subject_error_message: "Commit title must start with '[#XXX] ' or be a version tag (e.g., '1.0.2', 'v1.0.2')"
