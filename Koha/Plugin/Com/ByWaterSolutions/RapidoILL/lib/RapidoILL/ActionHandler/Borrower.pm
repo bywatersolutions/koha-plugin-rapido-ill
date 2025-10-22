@@ -28,6 +28,7 @@ use C4::Biblio qw(DelBiblio);
 use Koha::Biblios;
 use Koha::Checkouts;
 use Koha::Database;
+use Koha::DateUtils qw( dt_from_string );
 use Koha::Items;
 
 use RapidoILL::Exceptions;
@@ -323,6 +324,19 @@ sub owner_renew {
                             $req->id
                         )
                     );
+                }
+            }
+
+            # Set checkout note for renewal acceptance if configured
+            my $config = $self->{plugin}->pod_config( $self->{pod} );
+            if ( $config->{renewal_accepted_note} ) {
+                my $checkout = $self->{plugin}->get_checkout($req);
+                if ($checkout) {
+                    $checkout->set({
+                        notedate => dt_from_string(),
+                        note     => $config->{renewal_accepted_note},
+                        noteseen => 0
+                    })->store();
                 }
             }
         }

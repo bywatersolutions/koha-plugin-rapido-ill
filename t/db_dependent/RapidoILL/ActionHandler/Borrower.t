@@ -39,6 +39,9 @@ my $schema  = Koha::Database->new->schema;
 my $builder = t::lib::TestBuilder->new;
 my $logger  = t::lib::Mocks::Logger->new();
 
+# Default pod in the mocked plugin
+my $pod = 'test-pod';
+
 subtest 'Constructor and basic functionality' => sub {
     plan tests => 3;
 
@@ -391,7 +394,8 @@ subtest 'item_shipped() tests' => sub {
 };
 
 subtest 'owner_renew() tests' => sub {
-    plan tests => 8;
+
+    plan tests => 11;
 
     $schema->storage->txn_begin;
 
@@ -415,7 +419,8 @@ subtest 'owner_renew() tests' => sub {
             value => {
                 borrowernumber => $patron->id,
                 itemnumber     => $item->id,
-                date_due       => '2025-09-07 23:59:59'
+                date_due       => '2025-09-07 23:59:59',
+                note           => undef,
             }
         }
     );
@@ -440,7 +445,7 @@ subtest 'owner_renew() tests' => sub {
             value => {
                 lastCircState => 'OWNER_RENEW',
                 illrequest_id => $ill_request->id,
-                pod           => 'test_pod',
+                pod           => $pod,
                 circId        => 'TEST_CIRC_OWNER_RENEW',
                 borrowerCode  => 'TEST_BORROWER',
                 dueDateTime   => $due_epoch
@@ -448,15 +453,33 @@ subtest 'owner_renew() tests' => sub {
         }
     );
 
-    # Use plugin accessor
-    my $plugin  = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
-    my $handler = $plugin->get_borrower_action_handler('test_pod');
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+    my $plugin = t::lib::Mocks::Rapido->new(
+        {
+            library  => $library,
+            category => $category,
+            itemtype => $itemtype,
+        }
+    );
+
+    my $handler = $plugin->get_borrower_action_handler($pod);
 
     # Test owner_renew with dueDateTime
     lives_ok {
         $handler->owner_renew($circ_action)
     }
     'owner_renew processes successfully with dueDateTime';
+
+    my $config = $plugin->pod_config($pod);
+
+    # Reload checkout object from DB
+    $checkout->discard_changes;
+    is( $checkout->note, $config->{renewal_accepted_note}, 'Checkout note stored on renewal' );
+    isnt( $checkout->notedate, undef, 'Checkout note stored on renewal' );
+    ok( !$checkout->noteseen, 'The note is not marked as seen by default' );
 
     # Verify status and due_date were updated
     $ill_request->discard_changes;
@@ -479,7 +502,7 @@ subtest 'owner_renew() tests' => sub {
             value => {
                 lastCircState => 'OWNER_RENEW',
                 illrequest_id => $ill_request->id,
-                pod           => 'test_pod',
+                pod           => $pod,
                 circId        => 'TEST_CIRC_OWNER_RENEW_2',
                 borrowerCode  => 'TEST_BORROWER',
                 dueDateTime   => undef

@@ -74,6 +74,7 @@ test-pod:
   partners_category: %s
   default_item_type: %s
   default_patron_agency: TEST_AGENCY
+  renewal_accepted_note: Renewal accepted
   renewal_request_note: Renewal requested
   lending:
     automatic_final_checkin: false

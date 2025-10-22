@@ -139,6 +139,7 @@ my $plugin_config = {
         default_notforloan          => '',
         materials_specified         => 1,
         default_materials_specified => 'Additional processing required (ILL)',
+        renewal_accepted_note       => 'Renewal accepted via Rapido ILL',
         renewal_request_note        => 'Renewal requested via Rapido ILL',
         location_to_library         => \%location_to_library,
         borrowing                   => {
