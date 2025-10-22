@@ -51,6 +51,7 @@ dev03-na:
   default_notforloan:
   materials_specified: true
   default_materials_specified: Additional processing required (ILL)
+  renewal_request_note: Renewal requested via Rapido ILL
   location_to_library:
     RES_SHARE: CPL
   borrowing:

@@ -27,6 +27,7 @@ use Test::Exception;
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Rapido;
 
 use Koha::Database;
 use Koha::DateUtils qw( dt_from_string );
@@ -39,6 +40,11 @@ BEGIN {
 
 my $schema  = Koha::Database->new->schema;
 my $builder = t::lib::TestBuilder->new;
+
+# Default pod in the mocked plugin
+my $pod = 'test-pod';
+
+$schema->storage->txn_begin;
 
 subtest 'new() tests' => sub {
 
@@ -539,23 +545,14 @@ subtest 'borrower_cancel() tests' => sub {
 };
 
 subtest 'borrower_renew() tests' => sub {
+
     plan tests => 2;
 
     subtest 'Successful calls' => sub {
-        plan tests => 9;
+
+        plan tests => 12;
 
         $schema->storage->txn_begin;
-
-        my $illrequest = $builder->build_object(
-            {
-                class => 'Koha::ILL::Requests',
-                value => {
-                    backend  => 'RapidoILL',
-                    status   => 'B_ITEM_RECEIVED',
-                    due_date => '2025-09-01 23:59:59'  # Set initial due date
-                }
-            }
-        );
 
         # Mock client to capture the dueDateTime parameter
         my $captured_params;
@@ -574,12 +571,45 @@ subtest 'borrower_renew() tests' => sub {
         $plugin_module->mock( 'get_client',      sub { return $mock_client; } );
         $plugin_module->mock( 'get_req_circ_id', sub { return 'TEST_CIRC_ID'; } );
 
-        my $actions = RapidoILL::Backend::BorrowerActions->new(
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
             {
-                pod    => 'test_pod',
-                plugin => Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new()
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
             }
         );
+
+        my $checkout = $builder->build_object(
+            {
+                class => 'Koha::Checkouts',
+                value => { note => undef }
+            }
+        );
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    backend  => 'RapidoILL',
+                    status   => 'B_ITEM_RECEIVED',
+                    due_date => '2025-09-01 23:59:59'    # Set initial due date
+                }
+            }
+        );
+
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    checkout_id => $checkout->id,
+                }
+            }
+        );
+
+        my $actions = $plugin->get_borrower_actions($pod);
 
         # Test with a due date string
         my $due_date = '2025-09-15';
@@ -587,6 +617,14 @@ subtest 'borrower_renew() tests' => sub {
             $actions->borrower_renew( $illrequest, { due_date => $due_date } );
         }
         'borrower_renew executes without error';
+
+        my $config = $plugin->pod_config($pod);
+
+        # Reload checkout object from DB
+        $checkout->discard_changes;
+        is( $checkout->note, $config->{renewal_request_note}, 'Checkout note stored on renewal' );
+        isnt( $checkout->notedate, undef, 'Checkout note stored on renewal' );
+        ok( !$checkout->noteseen, 'The note is not marked as seen by default' );
 
         # Verify API client method was called
         is( $mock_client->call_pos(1), 'borrower_renew', 'Correct API method called' );
@@ -606,7 +644,7 @@ subtest 'borrower_renew() tests' => sub {
         # Verify prevDueDateTime attribute was stored
         my $prev_due_attr = $illrequest->extended_attributes->search( { type => 'prevDueDateTime' } )->next;
         ok( $prev_due_attr, 'prevDueDateTime attribute was created' );
-        
+
         # Verify prevDueDateTime contains the original due date in epoch format
         my $original_due_epoch = dt_from_string('2025-09-01 23:59:59')->epoch;
         is( $prev_due_attr->value, $original_due_epoch, 'prevDueDateTime contains original due date in epoch format' );
@@ -694,7 +732,7 @@ subtest 'item_received() tests' => sub {
         );
 
         # Mock client to avoid external calls
-        my $mock_client = Test::MockObject->new();
+        my $mock_client  = Test::MockObject->new();
         my @client_calls = ();
         $mock_client->mock(
             'borrower_item_received',
@@ -815,7 +853,7 @@ subtest 'return_uncirculated() tests' => sub {
         );
 
         # Mock client to avoid external calls
-        my $mock_client = Test::MockObject->new();
+        my $mock_client  = Test::MockObject->new();
         my @client_calls = ();
         $mock_client->mock(
             'borrower_return_uncirculated',
@@ -904,3 +942,5 @@ subtest 'return_uncirculated() tests' => sub {
         $schema->storage->txn_rollback;
     };
 };
+
+$schema->storage->txn_rollback;

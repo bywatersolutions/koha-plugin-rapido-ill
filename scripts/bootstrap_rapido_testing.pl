@@ -5,8 +5,8 @@
 
 use Modern::Perl;
 use utf8;
-binmode(STDOUT, ':encoding(UTF-8)');
-binmode(STDERR, ':encoding(UTF-8)');
+binmode( STDOUT, ':encoding(UTF-8)' );
+binmode( STDERR, ':encoding(UTF-8)' );
 use DBI;
 use YAML::XS;
 use JSON;
@@ -72,7 +72,7 @@ eval {
          AND plugin_class != 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL'"
     );
     my $disabled_count = $disable_sth->execute();
-    
+
     # Ensure Rapido ILL plugin is enabled
     my $enable_rapido_sth = $dbh->prepare(
         "INSERT INTO plugin_data (plugin_class, plugin_key, plugin_value) 
@@ -80,10 +80,10 @@ eval {
          ON DUPLICATE KEY UPDATE plugin_value = 1"
     );
     $enable_rapido_sth->execute();
-    
+
     print "   ✓ Disabled $disabled_count other plugins\n";
     print "   ✓ Ensured Rapido ILL plugin is enabled\n";
-    
+
     $dbh->disconnect;
 };
 
@@ -139,15 +139,16 @@ my $plugin_config = {
         default_notforloan          => '',
         materials_specified         => 1,
         default_materials_specified => 'Additional processing required (ILL)',
+        renewal_request_note        => 'Renewal requested via Rapido ILL',
         location_to_library         => \%location_to_library,
         borrowing                   => {
             automatic_item_in_transit => 0,
             automatic_item_receive    => 0
         },
         lending => {
-            automatic_final_checkin      => 0,
-            automatic_item_shipped       => 0,
-            pickup_location_strategy     => 'partners_library'
+            automatic_final_checkin  => 0,
+            automatic_item_shipped   => 0,
+            pickup_location_strategy => 'partners_library'
         },
         debt_blocks_holds        => 1,
         max_debt_blocks_holds    => 100,

@@ -22,7 +22,7 @@ use Modern::Perl;
 use Try::Tiny qw(catch try);
 use Koha::Database;
 use Koha::DateUtils qw( dt_from_string );
-use C4::Biblio qw( DelBiblio );
+use C4::Biblio      qw( DelBiblio );
 
 use RapidoILL::Exceptions;
 
@@ -327,6 +327,21 @@ sub borrower_renew {
 
                 $req->set( { due_date => $due_datetime->datetime() } )->store();
 
+                # Set checkout note for renewal request if configured
+                my $config = $self->{plugin}->configuration->{ $self->{pod} };
+                if ( $config->{renewal_request_note} ) {
+                    my $checkout = $self->{plugin}->get_checkout($req);
+                    if ($checkout) {
+                        $checkout->set(
+                            {
+                                notedate => dt_from_string(),
+                                note     => $config->{renewal_request_note},
+                                noteseen => 0
+                            }
+                        )->store();
+                    }
+                }
+
                 $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
                     {
                         circId      => $circId,
@@ -426,51 +441,56 @@ sub return_uncirculated {
                 my $biblio = Koha::Biblios->find( $req->biblio_id );
 
                 if ($biblio) {
+
                     # Remove hold(s) - should be exactly one hold for the requesting patron
-                    my $holds = $biblio->holds;
+                    my $holds      = $biblio->holds;
                     my $hold_count = 0;
-                    
+
                     while ( my $hold = $holds->next ) {
                         $hold->cancel;
                         $hold_count++;
                     }
-                    
+
                     if ( $hold_count == 0 ) {
-                        $self->{plugin}->logger->warn(
-                            "[return_uncirculated] No holds found for biblio " . $req->biblio_id . 
-                            " (ILL request " . $req->id . ") - hold should have been created during item_shipped"
-                        );
+                        $self->{plugin}->logger->warn( "[return_uncirculated] No holds found for biblio "
+                                . $req->biblio_id
+                                . " (ILL request "
+                                . $req->id
+                                . ") - hold should have been created during item_shipped" );
                     }
 
                     # Remove item(s) - should be exactly one item created during item_shipped
-                    my $items = $biblio->items;
+                    my $items      = $biblio->items;
                     my $item_count = 0;
-                    
+
                     while ( my $item = $items->next ) {
                         $item->safe_delete;
                         $item_count++;
                     }
-                    
+
                     if ( $item_count == 0 ) {
-                        $self->{plugin}->logger->warn(
-                            "[return_uncirculated] No items found for biblio " . $req->biblio_id . 
-                            " (ILL request " . $req->id . ") - item should have been created during item_shipped"
-                        );
+                        $self->{plugin}->logger->warn( "[return_uncirculated] No items found for biblio "
+                                . $req->biblio_id
+                                . " (ILL request "
+                                . $req->id
+                                . ") - item should have been created during item_shipped" );
                     } elsif ( $item_count > 1 ) {
-                        $self->{plugin}->logger->warn(
-                            "[return_uncirculated] Multiple items ($item_count) found for biblio " . $req->biblio_id . 
-                            " (ILL request " . $req->id . ") - expected exactly one item"
-                        );
+                        $self->{plugin}
+                            ->logger->warn( "[return_uncirculated] Multiple items ($item_count) found for biblio "
+                                . $req->biblio_id
+                                . " (ILL request "
+                                . $req->id
+                                . ") - expected exactly one item" );
                     }
 
                     # Delete the biblio record
                     DelBiblio( $req->biblio_id );
                 } else {
-                    $self->{plugin}->logger->warn(
-                        "[return_uncirculated] Biblio " . $req->biblio_id . 
-                        " not found for ILL request " . $req->id . 
-                        " - biblio should have been created during item_shipped"
-                    );
+                    $self->{plugin}->logger->warn( "[return_uncirculated] Biblio "
+                            . $req->biblio_id
+                            . " not found for ILL request "
+                            . $req->id
+                            . " - biblio should have been created during item_shipped" );
                 }
 
                 # Update status
