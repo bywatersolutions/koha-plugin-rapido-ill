@@ -158,6 +158,19 @@ git commit -m "[#XX] Your descriptive commit message"
 
 The repository includes `.perltidyrc` copied from Koha's main repository to ensure consistent formatting standards.
 
+### Quality Assurance Tools
+
+**NEW**: As of [#115], QA tools configuration added for automated code quality checks.
+
+#### Spell Checking
+- `.codespell-ignore` file for managing false positives in spell checking
+- Integrated with Koha's QA toolchain for consistent vocabulary
+
+#### Koha QA Integration  
+- `.kohaqarc` configuration file for Koha QA tools integration
+- Ensures plugin code meets Koha community standards
+- Automated checks for common coding issues and style violations
+
 ## Known Issues and Workarounds
 
 ### ILL Request Status Setting (Bug #40682)
@@ -891,6 +904,17 @@ prove -v t/db_dependent/RapidoILL.t
 
 #### Test Coverage Areas
 
+**Renewal Notes Functionality:**
+- Configurable checkout notes for renewal requests and acceptances
+- Integration with Koha's checkout note system
+- Test coverage in ActionHandler/Borrower.t and Backend/BorrowerActions.t
+- Proper configuration handling and optional behavior
+
+**Pickup Location Strategy:**
+- Lending-side pickup location configuration options
+- Support for partners_library, homebranch, and holdingbranch strategies
+- Unit test coverage for all strategy implementations
+
 **FINAL_CHECKIN Functionality:**
 - borrower_final_checkin method with paper trail (B_ITEM_CHECKED_IN → COMP)
 - lender_final_checkin method behavior
@@ -1089,6 +1113,42 @@ $actions->cancel_request($req, { client_options => $opts });
 - **Always set `dev_mode: true` in test configs** to disable external API calls
 - Configuration is cached - use `{ recreate => 1 }` to force reload
 
+#### Renewal Notes Configuration
+
+**NEW**: As of [#116], configurable checkout notes for renewal workflows.
+
+```yaml
+your_pod_name:
+  # ... existing configuration ...
+  
+  # Optional: Message set as checkout note when renewal is requested
+  renewal_request_note: "ILL renewal has been requested from the lending library"
+  
+  # Optional: Message set as checkout note when renewal is accepted  
+  renewal_accepted_note: "ILL renewal has been approved by the lending library"
+```
+
+**Behavior:**
+- Notes are set using the same mechanism as `opac-issue-note.pl`
+- Includes `notedate`, `note`, and `noteseen` fields
+- Both configuration entries are optional
+- Staff can view and manage notes in checkout details
+
+#### Pickup Location Strategy
+
+**NEW**: As of [#112], lending sites can configure pickup location strategy.
+
+```yaml
+your_pod_name:
+  lending:
+    pickup_location_strategy: partners_library  # or homebranch, holdingbranch
+```
+
+**Options:**
+- `partners_library`: Use the configured partners library (default)
+- `homebranch`: Use the item's home branch
+- `holdingbranch`: Use the item's holding branch
+
 ### Database Models
 - Follow Koha patterns: inherit from `Koha::Object`/`Koha::Objects`
 - Schema classes auto-generated in `Koha/Schema/Result/`
@@ -1144,6 +1204,11 @@ Koha/Plugin/Com/ByWaterSolutions/RapidoILL/
 │   │   └── ...                     # Other business logic
 │   └── Koha/Schema/Result/         # Auto-generated schema classes
 ├── scripts/                        # System service scripts
+│   ├── run_command.pl              # Command-line tool for individual actions
+│   ├── sync_requests.pl            # Sync script for circulation requests
+│   ├── task_queue_daemon.pl        # Task queue processing daemon
+│   ├── config.pl                   # Configuration management script
+│   └── ...                         # Other operational scripts
 └── t/
     ├── 00-load.t                   # Module loading tests (16 modules)
     ├── 01-constraint.t             # CircAction object tests
@@ -1173,6 +1238,30 @@ Koha/Plugin/Com/ByWaterSolutions/RapidoILL/
 ```
 
 ## Operational Setup
+
+### Command-Line Tools
+
+#### run_command.pl Script
+
+**NEW**: As of [#117], a command-line script is available for executing individual Rapido ILL actions.
+
+```bash
+# Execute lending actions
+./run_command.pl --lending --pod dev03-na --request_id 123 --command item_shipped
+
+# Execute borrowing actions  
+./run_command.pl --borrowing --pod dev03-na --request_id 456 --command borrower_cancel
+
+# List available commands
+./run_command.pl --list_commands
+
+# Skip API calls (useful for cleanup)
+./run_command.pl --lending --pod dev03-na --request_id 789 --command final_checkin --skip_api_req
+```
+
+**Available Commands:**
+- **Lending**: `cancel_request`, `final_checkin`, `item_shipped`, `process_renewal_decision`
+- **Borrowing**: `borrower_cancel`, `borrower_renew`, `final_checkin`, `item_in_transit`, `item_received`, `receive_unshipped`, `return_uncirculated`
 
 ### Cron Jobs
 ```bash
