@@ -245,14 +245,14 @@ sub get_print_slip {
         }
 
         my $slip = C4::Letters::GetPreparedLetter(
-            module                 => 'circulation',        # FIXME: should be 'ill' in 20.11+
+            module                 => 'ill',
             letter_code            => $print_slip_id,
             branchcode             => $req->branchcode,
             message_transport_type => 'print',
             lang                   => $req->patron->lang,
             tables                 => {
 
-                # illrequests => $req->illrequest_id, # FIXME: should be used in 20.11+
+                illrequests => $req->illrequest_id, 
                 borrowers => $req->borrowernumber,
                 biblio    => $req->biblio_id,
                 item      => $item_id,
@@ -260,7 +260,6 @@ sub get_print_slip {
             },
             substitute => {
                 illrequestattributes => $illrequestattributes,
-                illrequest           => $req->unblessed,         # FIXME: should be removed in 20.11+
                 ill_bib_title        => $title  ? $title->value  : '',
                 ill_bib_author       => $author ? $author->value : '',
                 ill_full_metadata    => $metastring
