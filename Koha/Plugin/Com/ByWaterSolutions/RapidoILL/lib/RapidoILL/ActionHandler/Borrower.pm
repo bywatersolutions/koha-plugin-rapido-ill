@@ -94,6 +94,7 @@ sub handle_from_action {
     # Statuses that require no action from borrower perspective
     my @no_op_statuses = qw(
         BORROWER_RENEW
+        BORROWING_SITE_CANCEL
         ITEM_IN_TRANSIT
         PATRON_HOLD
     );
