@@ -88,6 +88,7 @@ sub handle_from_action {
         FINAL_CHECKIN
         ITEM_HOLD
         ITEM_SHIPPED
+        OWNING_SITE_CANCEL
         RECALL
     );
 
