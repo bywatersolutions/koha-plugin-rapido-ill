@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- [#122] ActionHandler support for OWNING_SITE_CANCEL action
+- [#122] B_CANCELLED_BY_OWNER status for owner-initiated cancellations
+- [#122] Virtual record cleanup on owner cancellation with error handling
+- [#122] Comprehensive test coverage for owner_cancel functionality
+- [#122] ActionHandler implementation guidelines in DEVELOPMENT.md
+
 ## [1.0.5] - 2025-10-30
 
 ### Added

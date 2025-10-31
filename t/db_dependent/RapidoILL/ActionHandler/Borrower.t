@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 13;
+use Test::More tests => 14;
 use Test::NoWarnings;
 use Test::MockObject;
 use Test::Exception;
@@ -824,4 +824,206 @@ subtest 'recall() tests' => sub {
     );
 
     $schema->storage->txn_rollback;
+};
+
+subtest 'owner_cancel() tests' => sub {
+    plan tests => 3;
+
+    subtest 'basic functionality' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        # Create test data
+        my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $ill_request = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    status         => 'B_ITEM_SHIPPED',
+                }
+            }
+        );
+
+        # Create CircAction for OWNING_SITE_CANCEL
+        my $circ_action = $builder->build_object(
+            {
+                class => 'RapidoILL::CircActions',
+                value => {
+                    illrequest_id => $ill_request->id,
+                    lastCircState => 'OWNING_SITE_CANCEL',
+                    circId        => 'test-cancel-123',
+                }
+            }
+        );
+
+        # Create plugin with mock configuration
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
+
+        my $handler = RapidoILL::ActionHandler::Borrower->new(
+            {
+                plugin => $plugin,
+                pod    => 'test-pod',
+            }
+        );
+
+        # Test the method exists and can be called
+        ok( $handler->can('owner_cancel'), 'owner_cancel method exists' );
+
+        lives_ok {
+            $handler->handle_from_action($circ_action);
+        }
+        'owner_cancel method executes without error';
+
+        # Verify status was updated
+        $ill_request->discard_changes;
+        is( $ill_request->status, 'B_CANCELLED_BY_OWNER', 'ILL request status updated to B_CANCELLED_BY_OWNER' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'with virtual item cleanup' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        # Create test data with virtual item
+        my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+        my $biblio   = $builder->build_object( { class => 'Koha::Biblios' } );
+
+        my $ill_request = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'B_ITEM_SHIPPED',
+                }
+            }
+        );
+
+        # Create CircAction for OWNING_SITE_CANCEL
+        my $circ_action = $builder->build_object(
+            {
+                class => 'RapidoILL::CircActions',
+                value => {
+                    illrequest_id => $ill_request->id,
+                    lastCircState => 'OWNING_SITE_CANCEL',
+                    circId        => 'test-cancel-456',
+                }
+            }
+        );
+
+        # Create plugin with mock configuration
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
+
+        my $handler = RapidoILL::ActionHandler::Borrower->new(
+            {
+                plugin => $plugin,
+                pod    => 'test-pod',
+            }
+        );
+
+        lives_ok {
+            $handler->handle_from_action($circ_action);
+        }
+        'owner_cancel method executes without error with virtual item';
+
+        # Verify status was updated
+        $ill_request->discard_changes;
+        is( $ill_request->status, 'B_CANCELLED_BY_OWNER', 'ILL request status updated to B_CANCELLED_BY_OWNER' );
+
+        # Verify logging includes cancellation info
+        $logger->info_like(
+            qr/Request cancelled by owner for ILL request \d+ \(circId: test-cancel-\d+\) - status set to B_CANCELLED_BY_OWNER/,
+            'Owner cancellation logged correctly'
+        );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'dispatch through handle_from_action' => sub {
+        plan tests => 2;
+
+        $schema->storage->txn_begin;
+
+        # Create test data
+        my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $ill_request = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    status         => 'B_ITEM_SHIPPED',
+                }
+            }
+        );
+
+        # Create CircAction for OWNING_SITE_CANCEL
+        my $circ_action = $builder->build_object(
+            {
+                class => 'RapidoILL::CircActions',
+                value => {
+                    illrequest_id => $ill_request->id,
+                    lastCircState => 'OWNING_SITE_CANCEL',
+                    circId        => 'test-dispatch-789',
+                }
+            }
+        );
+
+        # Create plugin with mock configuration
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
+
+        my $handler = RapidoILL::ActionHandler::Borrower->new(
+            {
+                plugin => $plugin,
+                pod    => 'test-pod',
+            }
+        );
+
+        # Test dispatch mechanism correctly routes to owner_cancel
+        lives_ok {
+            $handler->handle_from_action($circ_action);
+        }
+        'OWNING_SITE_CANCEL action dispatched correctly';
+
+        # Verify the correct status change occurred
+        $ill_request->discard_changes;
+        is( $ill_request->status, 'B_CANCELLED_BY_OWNER', 'Dispatch resulted in correct status change' );
+
+        $schema->storage->txn_rollback;
+    };
 };

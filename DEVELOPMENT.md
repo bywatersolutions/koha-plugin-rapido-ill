@@ -952,6 +952,106 @@ prove -v t/db_dependent/RapidoILL.t
 - UI action template file existence validation
 - Code-template reference consistency checking
 
+### ActionHandler Implementation Patterns
+
+#### Adding New Action Handlers
+
+When implementing handlers for new Rapido circulation states:
+
+1. **Status Graph First**: Always add the target status to `Backend.pm` `status_graph()` method before implementing the handler
+2. **API-Aligned Naming**: Use status names that align with Rapido API action names (e.g., `OWNING_SITE_CANCEL` → `B_CANCELLED_BY_OWNER`)
+3. **Dispatch Mapping**: Add the action to the `$status_to_method` hash in the appropriate ActionHandler class
+4. **Method Implementation**: Follow the established patterns for database transactions, logging, and error handling
+
+#### Example Implementation Pattern
+
+```perl
+# 1. Add to Backend.pm status_graph()
+B_NEW_STATUS => {
+    prev_actions   => [],
+    id             => 'B_NEW_STATUS',
+    name           => 'Description of status',
+    ui_method_name => 'Description of status',
+    method         => q{},
+    next_actions   => ['COMP'],
+    ui_method_icon => q{},
+},
+
+# 2. Add to ActionHandler dispatch table
+my $status_to_method = {
+    'RAPIDO_ACTION_NAME' => \&method_name,
+    # ...
+};
+
+# 3. Implement the method
+sub method_name {
+    my ( $self, $action ) = @_;
+    
+    my $req = $action->ill_request;
+    
+    Koha::Database->new->schema->txn_do(
+        sub {
+            # Update status
+            $req->status('B_NEW_STATUS')->store();
+            
+            # Add attributes for tracking
+            $self->{plugin}->add_or_update_attributes({
+                attributes => { tracking_field => \'NOW()' },
+                request    => $req,
+            });
+            
+            # Cleanup if needed (with error handling)
+            if ( $req->biblio_id ) {
+                try {
+                    $self->{plugin}->cleanup_virtual_record({
+                        biblio_id => $req->biblio_id,
+                        request   => $req,
+                    });
+                } catch {
+                    $self->{plugin}->logger->warn("Cleanup failed: $_");
+                };
+            }
+            
+            # Log the action
+            $self->{plugin}->logger->info(
+                sprintf("Action processed for ILL request %d", $req->id)
+            );
+        }
+    );
+    
+    return;
+}
+```
+
+#### Testing ActionHandler Methods
+
+Follow the established testing patterns:
+
+```perl
+subtest 'method_name() tests' => sub {
+    plan tests => 3;
+    
+    subtest 'basic functionality' => sub {
+        # Test core method behavior
+    };
+    
+    subtest 'with additional scenarios' => sub {
+        # Test edge cases, cleanup, etc.
+    };
+    
+    subtest 'dispatch mechanism' => sub {
+        # Test that action routes correctly through handle_from_action
+    };
+};
+```
+
+**Key Testing Requirements:**
+- Use grouped subtests for method-specific tests
+- Test both direct method calls and dispatch mechanism
+- Verify status changes, attribute updates, and logging
+- Use database transactions for isolation
+- Test error handling and cleanup scenarios
+
 ## Key Architecture Points
 
 ### Method Parameter Patterns

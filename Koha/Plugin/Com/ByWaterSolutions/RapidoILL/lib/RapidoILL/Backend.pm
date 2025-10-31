@@ -284,6 +284,15 @@ sub status_graph {
             next_actions   => ['COMP'],
             ui_method_icon => q{},
         },
+        B_CANCELLED_BY_OWNER => {
+            prev_actions   => [],
+            id             => 'B_CANCELLED_BY_OWNER',
+            name           => 'Item request cancelled by owning library',
+            ui_method_name => 'Item request cancelled by owning library',
+            method         => q{},
+            next_actions   => ['COMP'],
+            ui_method_icon => q{},
+        },
         B_ITEM_CANCELLED_BY_US => {
             prev_actions   => ['B_ITEM_REQUESTED'],
             id             => 'B_ITEM_CANCELLED_BY_US',

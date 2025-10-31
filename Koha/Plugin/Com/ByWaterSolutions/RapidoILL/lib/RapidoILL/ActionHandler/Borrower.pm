@@ -83,12 +83,13 @@ sub handle_from_action {
     my ( $self, $action ) = @_;
 
     my $status_to_method = {
-        'DEFAULT'       => \&default_handler,
-        'FINAL_CHECKIN' => \&final_checkin,
-        'ITEM_RECEIVED' => \&item_received,
-        'ITEM_SHIPPED'  => \&item_shipped,
-        'OWNER_RENEW'   => \&owner_renew,
-        'RECALL'        => \&recall,
+        'DEFAULT'            => \&default_handler,
+        'FINAL_CHECKIN'      => \&final_checkin,
+        'ITEM_RECEIVED'      => \&item_received,
+        'ITEM_SHIPPED'       => \&item_shipped,
+        'OWNER_RENEW'        => \&owner_renew,
+        'OWNING_SITE_CANCEL' => \&owner_cancel,
+        'RECALL'             => \&recall,
     };
 
     # Statuses that require no action from borrower perspective
@@ -333,11 +334,13 @@ sub owner_renew {
             if ( $config->{renewal_accepted_note} ) {
                 my $checkout = $self->{plugin}->get_checkout($req);
                 if ($checkout) {
-                    $checkout->set({
-                        notedate => dt_from_string(),
-                        note     => $config->{renewal_accepted_note},
-                        noteseen => 0
-                    })->store();
+                    $checkout->set(
+                        {
+                            notedate => dt_from_string(),
+                            note     => $config->{renewal_accepted_note},
+                            noteseen => 0
+                        }
+                    )->store();
                 }
             }
         }
@@ -440,6 +443,72 @@ sub recall {
             $self->{plugin}->logger->info(
                 sprintf(
                     "Item recalled for ILL request %d (circId: %s) - status set to B_ITEM_RECALLED",
+                    $req->id,
+                    $action->circId
+                )
+            );
+        }
+    );
+
+    return;
+}
+
+=head3 owner_cancel
+
+    $handler->owner_cancel( $action );
+
+Handle incoming I<OWNING_SITE_CANCEL> action. The owning site has cancelled
+the request. Updates the ILL request status and cleans up any virtual records.
+
+=cut
+
+sub owner_cancel {
+    my ( $self, $action ) = @_;
+
+    my $req = $action->ill_request;
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            # Update the ILL request status to cancelled by owner
+            $req->status('B_CANCELLED_BY_OWNER')->store();
+
+            # Add cancellation attributes for tracking
+            $self->{plugin}->add_or_update_attributes(
+                {
+                    attributes => {
+                        cancelled_by_owner  => \'NOW()',
+                        cancellation_reason => 'OWNING_SITE_CANCEL'
+                    },
+                    request => $req,
+                }
+            );
+
+            # Clean up virtual record if it exists
+            if ( $req->biblio_id ) {
+                try {
+                    $self->{plugin}->cleanup_virtual_record(
+                        {
+                            biblio_id => $req->biblio_id,
+                            request   => $req,
+                        }
+                    );
+                } catch {
+
+                    # Log cleanup failure but don't fail the cancellation
+                    $self->{plugin}->logger->warn(
+                        sprintf(
+                            "Failed to cleanup virtual record for cancelled ILL request %d (biblio_id: %d): %s",
+                            $req->id,
+                            $req->biblio_id,
+                            $_
+                        )
+                    );
+                };
+            }
+
+            $self->{plugin}->logger->info(
+                sprintf(
+                    "Request cancelled by owner for ILL request %d (circId: %s) - status set to B_CANCELLED_BY_OWNER",
                     $req->id,
                     $action->circId
                 )
