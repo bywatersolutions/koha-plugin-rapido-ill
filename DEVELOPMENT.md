@@ -126,6 +126,8 @@ subtest 'a_method() tests' => sub {
    git commit -m "Your commit message"
    ```
 
+**Note**: All modified Perl files (.pm) and test files (.t) must be run through tidy.pl before committing to ensure consistent code formatting across the project.
+
 #### Standard Commit Sequence:
 
 ```bash

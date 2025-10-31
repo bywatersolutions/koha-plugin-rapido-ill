@@ -1,21 +1,19 @@
 #!/usr/bin/perl
 
-# Copyright 2025 ByWater Solutions
+# This file is part of the Rapido ILL plugin
 #
-# This file is part of Koha.
-#
-# Koha is free software; you can redistribute it and/or modify it
+# The Rapido ILL plugin is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
-# Koha is distributed in the hope that it will be useful, but
+# The Rapido ILL plugin is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Koha; if not, see <http://www.gnu.org/licenses>.
+# along with The Rapido ILL plugin; if not, see <https://www.gnu.org/licenses>.
 
 use Modern::Perl;
 
@@ -71,8 +69,7 @@ subtest 'ill_request() method' => sub {
     $schema->storage->txn_begin;
 
     # Create a test ILL request
-    my $ill_request =
-      $builder->build_object( { class => "Koha::ILL::Requests" } );
+    my $ill_request = $builder->build_object( { class => "Koha::ILL::Requests" } );
 
     # Create task linked to ILL request
     my $task = RapidoILL::QueuedTask->new(
@@ -87,8 +84,10 @@ subtest 'ill_request() method' => sub {
 
     my $linked_request = $task->ill_request;
     ok( $linked_request, 'ill_request() returns object' );
-    isa_ok( $linked_request, 'Koha::ILL::Request',
-        'Returned object has correct class' );
+    isa_ok(
+        $linked_request, 'Koha::ILL::Request',
+        'Returned object has correct class'
+    );
     is(
         $linked_request->illrequest_id,
         $ill_request->illrequest_id,
@@ -130,8 +129,10 @@ subtest 'decoded_payload() tests' => sub {
     # Test decoded_payload method
     my $decoded = $task->decoded_payload;
     ok( $decoded, 'decoded_payload() returns data' );
-    is_deeply( $decoded, $test_data,
-        'Decoded payload matches original data structure' );
+    is_deeply(
+        $decoded, $test_data,
+        'Decoded payload matches original data structure'
+    );
     is( ref($decoded), 'HASH', 'Decoded payload is a hash reference' );
 
     $schema->storage->txn_rollback;
@@ -168,8 +169,10 @@ subtest 'store() method with automatic JSON encoding' => sub {
     # Verify payload was JSON-encoded in database
     my $stored_payload1 = $task1->payload;
     ok( !ref($stored_payload1), 'Hash payload stored as string' );
-    is_deeply( decode_json($stored_payload1),
-        $hash_data, 'Stored JSON matches original hash data' );
+    is_deeply(
+        decode_json($stored_payload1),
+        $hash_data, 'Stored JSON matches original hash data'
+    );
 
     # Test 2: Array reference gets JSON-encoded
     my $array_data = [ 'item1', 'item2', { nested => 'array_item' } ];
@@ -188,8 +191,10 @@ subtest 'store() method with automatic JSON encoding' => sub {
 
     my $stored_payload2 = $task2->payload;
     ok( !ref($stored_payload2), 'Array payload stored as string' );
-    is_deeply( decode_json($stored_payload2),
-        $array_data, 'Stored JSON matches original array data' );
+    is_deeply(
+        decode_json($stored_payload2),
+        $array_data, 'Stored JSON matches original array data'
+    );
 
     # Test 3: Already JSON string is left unchanged
     my $json_string = '{"already":"json","number":123}';
@@ -225,8 +230,10 @@ subtest 'store() method with automatic JSON encoding' => sub {
     )->store;
 
     my $stored_payload4 = $task4->payload;
-    is( $stored_payload4, $plain_string,
-        'Plain string payload left unchanged' );
+    is(
+        $stored_payload4, $plain_string,
+        'Plain string payload left unchanged'
+    );
 
     # Test 5: Undefined payload is left unchanged
     my $task5 = RapidoILL::QueuedTask->new(
@@ -238,7 +245,7 @@ subtest 'store() method with automatic JSON encoding' => sub {
             status      => 'queued',
             attempts    => 0
 
-            # No payload set
+                # No payload set
         }
     )->store;
 
@@ -247,8 +254,10 @@ subtest 'store() method with automatic JSON encoding' => sub {
 
     # Test 6: Verify decoded_payload works with auto-encoded data
     my $decoded1 = $task1->decoded_payload;
-    is_deeply( $decoded1, $hash_data,
-        'decoded_payload works with auto-encoded hash' );
+    is_deeply(
+        $decoded1, $hash_data,
+        'decoded_payload works with auto-encoded hash'
+    );
 
     $schema->storage->txn_rollback;
 };
@@ -270,22 +279,30 @@ subtest 'can_retry() method' => sub {
         }
     )->store;
 
-    is( $task->can_retry(), 1, 'Task with 0 attempts can retry (default max)' );
+    is( $task->can_retry(),  1, 'Task with 0 attempts can retry (default max)' );
     is( $task->can_retry(5), 1, 'Task with 0 attempts can retry (custom max)' );
 
     # Update attempts to 5
     $task->set( { attempts => 5 } )->store;
-    is( $task->can_retry(5), 1,
-        'Task with 5 attempts can retry when max is 5' );
-    is( $task->can_retry(4), 0,
-        'Task with 5 attempts cannot retry when max is 4' );
+    is(
+        $task->can_retry(5), 1,
+        'Task with 5 attempts can retry when max is 5'
+    );
+    is(
+        $task->can_retry(4), 0,
+        'Task with 5 attempts cannot retry when max is 4'
+    );
 
     # Update attempts to 11 (exceeds default max of 10)
     $task->set( { attempts => 11 } )->store;
-    is( $task->can_retry(), 0,
-        'Task with 11 attempts cannot retry (default max 10)' );
-    is( $task->can_retry(15),
-        1, 'Task with 11 attempts can retry with higher max' );
+    is(
+        $task->can_retry(), 0,
+        'Task with 11 attempts cannot retry (default max 10)'
+    );
+    is(
+        $task->can_retry(15),
+        1, 'Task with 11 attempts can retry with higher max'
+    );
 
     $schema->storage->txn_rollback;
 };
@@ -307,8 +324,10 @@ subtest 'error() method' => sub {
 
     # Test error without error details
     my $result = $task->error();
-    isa_ok( $result, 'RapidoILL::QueuedTask',
-        'error() returns task object for chaining' );
+    isa_ok(
+        $result, 'RapidoILL::QueuedTask',
+        'error() returns task object for chaining'
+    );
     is( $task->status,     'error', 'Status set to error' );
     is( $task->last_error, undef,   'No error details when none provided' );
 
@@ -320,8 +339,10 @@ subtest 'error() method' => sub {
 
     # Verify JSON encoding
     my $decoded_error = JSON::decode_json( $task->last_error );
-    is( $decoded_error->{message},
-        'Test error', 'Error details correctly JSON encoded' );
+    is(
+        $decoded_error->{message},
+        'Test error', 'Error details correctly JSON encoded'
+    );
 
     $schema->storage->txn_rollback;
 };
@@ -344,8 +365,10 @@ subtest 'retry() method' => sub {
 
     # Test retry with default delay
     my $result = $task->retry();
-    isa_ok( $result, 'RapidoILL::QueuedTask',
-        'retry() returns task object for chaining' );
+    isa_ok(
+        $result, 'RapidoILL::QueuedTask',
+        'retry() returns task object for chaining'
+    );
     is( $task->status,   'retry', 'Status set to retry' );
     is( $task->attempts, 3,       'Attempts incremented' );
     ok( $task->run_after, 'run_after timestamp set' );
@@ -359,8 +382,10 @@ subtest 'retry() method' => sub {
 
     # Verify JSON encoding of error
     my $decoded_error = JSON::decode_json( $task->last_error );
-    is( $decoded_error->{message},
-        'Retry error', 'Retry error details correctly stored' );
+    is(
+        $decoded_error->{message},
+        'Retry error', 'Retry error details correctly stored'
+    );
 
     $schema->storage->txn_rollback;
 };
@@ -382,8 +407,10 @@ subtest 'success() method' => sub {
     )->store;
 
     my $result = $task->success();
-    isa_ok( $result, 'RapidoILL::QueuedTask',
-        'success() returns task object for chaining' );
+    isa_ok(
+        $result, 'RapidoILL::QueuedTask',
+        'success() returns task object for chaining'
+    );
     is( $task->status, 'success', 'Status set to success' );
 
     $schema->storage->txn_rollback;
@@ -401,8 +428,8 @@ subtest 'Database field validation and constraints' => sub {
 
         # Only suppress expected database constraint warnings
         warn $warning
-          unless $warning =~
-/DBD::mysql::st execute failed:|Field .* doesn't have a default value|Data truncated for column/;
+            unless $warning =~
+            /DBD::mysql::st execute failed:|Field .* doesn't have a default value|Data truncated for column/;
     };
 
     # Test required fields
@@ -413,7 +440,7 @@ subtest 'Database field validation and constraints' => sub {
                 action    => 'fill',
                 pod       => 'test-pod'
 
-                # Missing object_type
+                    # Missing object_type
             }
         )->store;
     }
@@ -426,7 +453,7 @@ subtest 'Database field validation and constraints' => sub {
                 object_id   => 123,
                 pod         => 'test-pod'
 
-                # Missing action
+                    # Missing action
             }
         )->store;
     }
@@ -439,7 +466,7 @@ subtest 'Database field validation and constraints' => sub {
                 object_id   => 123,
                 action      => 'fill'
 
-                # Missing pod
+                    # Missing pod
             }
         )->store;
     }
@@ -506,8 +533,8 @@ subtest 'Default values and auto-increment' => sub {
             object_id   => 123,
             action      => 'fill',
             pod         => 'test-pod',
-            status      => 'queued',  # Explicitly set since no database default
-            attempts    => 0          # Explicitly set since no database default
+            status      => 'queued',     # Explicitly set since no database default
+            attempts    => 0             # Explicitly set since no database default
         }
     )->store;
 
@@ -561,7 +588,7 @@ subtest 'execute_with_context() tests' => sub {
         }
     );
 
-    is( $result,               'success',             'Code executed successfully' );
+    is( $result,               'success',            'Code executed successfully' );
     is( $executed_with_branch, $library->branchcode, 'Userenv restored correctly during execution' );
     is( C4::Context->userenv,  undef,                'Original userenv restored after execution' );
 

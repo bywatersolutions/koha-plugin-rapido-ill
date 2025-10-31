@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.6] - 2025-10-30
+## [1.0.7] - 2025-10-31
+
+### Fixed
+- [#123] Fix duplicate key constraint violations in sync_requests.pl
+- [#123] Add is_exact_duplicate() method to prevent database constraint errors
+- [#123] Update sync_circ_requests() to skip exact duplicates before insertion
+
+### Added
+- [#123] Comprehensive tests for duplicate detection and sync behavior
+- [#123] Enhanced documentation for tidy.pl requirement in DEVELOPMENT.md
+
+## [1.0.6] - 2025-10-31
 
 ### Added
 - [#122] ActionHandler support for OWNING_SITE_CANCEL action

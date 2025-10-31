@@ -1,19 +1,19 @@
 #!/usr/bin/perl
 
-# This file is part of Koha.
+# This file is part of the Rapido ILL plugin
 #
-# Koha is free software; you can redistribute it and/or modify it
+# The Rapido ILL plugin is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
-# Koha is distributed in the hope that it will be useful, but
+# The Rapido ILL plugin is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Koha; if not, see <http://www.gnu.org/licenses>.
+# along with The Rapido ILL plugin; if not, see <https://www.gnu.org/licenses>.
 
 use Modern::Perl;
 

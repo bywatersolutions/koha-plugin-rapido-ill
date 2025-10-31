@@ -574,6 +574,7 @@ sub after_hold_action {
 
     if ( $self->is_lending_req($req) ) {
         if ( $action eq 'waiting' ) {
+
             # NOTE: o_item_shipped will trigger a checkout, which will implicitly
             #       fill the hold. We don't want that action on the hold to trigger a
             #       duplicated o_item_shipped.
@@ -1878,7 +1879,14 @@ sub sync_circ_requests {
 
         try {
 
-            if ( $self->is_circ_action_new($action) ) {
+            if ( $self->is_exact_duplicate($action) ) {
+                $results->{skipped}++;
+                push @{ $results->{messages} }, {
+                    type    => 'skipped',
+                    circId  => $data->{circId},
+                    message => "Duplicate ID"
+                };
+            } elsif ( $self->is_circ_action_new($action) ) {
 
                 # deal with creation
                 my $schema = Koha::Database->new->schema;
@@ -2298,6 +2306,30 @@ sub update_ill_request {
     )->handle_from_action($action);
 
     return;
+}
+
+=head3 is_exact_duplicate
+
+    if ( $self->is_exact_duplicate($action) ) { ... }
+
+Method that checks if an action is an exact duplicate based on the unique
+constraint fields (circId, pod, circStatus, lastCircState).
+
+=cut
+
+sub is_exact_duplicate {
+    my ( $self, $action ) = @_;
+
+    my $existing = RapidoILL::CircActions->search(
+        {
+            circId        => $action->circId,
+            pod           => $action->pod,
+            circStatus    => $action->circStatus,
+            lastCircState => $action->lastCircState,
+        }
+    )->next;
+
+    return $existing ? 1 : 0;
 }
 
 =head3 is_circ_action_update
