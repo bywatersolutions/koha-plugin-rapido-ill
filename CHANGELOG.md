@@ -5,7 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.8] - TBD
+## [1.0.9] - 2025-11-04
+
+### Added
+- [#125] Add --circid parameter to get_requests.pl for filtering by specific circulation ID
+
+## [1.0.8] - 2025-11-04
 
 ### Fixed
 - [#124] Fix localBibId parameter sent as integer instead of string to Rapido API

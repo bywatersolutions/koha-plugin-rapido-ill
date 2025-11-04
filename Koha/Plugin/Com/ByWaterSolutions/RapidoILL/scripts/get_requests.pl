@@ -32,6 +32,7 @@ my $end_time;
 my $start_time;
 my $state;
 my $content = 'verbose';
+my $circid;
 my $help;
 
 my $result = GetOptions(
@@ -40,6 +41,7 @@ my $result = GetOptions(
     'start_time=s' => \$start_time,
     'state=s@'     => \$state,
     'content=s'    => \$content,
+    'circid=s'     => \$circid,
     'list_pods'    => \$list_pods,
     'help|h|'      => \$help,
 );
@@ -68,8 +70,9 @@ Valid options are:
                           requests [MANDATORY]
     --start_time <epoch>  Start time range (epoch) [OPTIONAL]
     --end_time <epoch>    End time range (epoch) [OPTIONAL]
-    --state <state>       Filter by 'state'. Multiple occurences allowed [OPTIONAL]
+    --state <state>       Filter by 'state'. Multiple occurrences allowed [OPTIONAL]
     --content <level>     Valid values are 'verbose' and 'concise'
+    --circid <circId>     Filter by specific circulation ID [OPTIONAL]
     --list_pods           Print configured pods and exit.
     --state string        A state you want to filter on
 
@@ -101,15 +104,22 @@ unless ( scalar @{$pods} > 0 ) {
     print STDERR "No usable pods found.\n";
 }
 
-print STDOUT encode_json(
-    $plugin->get_client($pod)->circulation_requests(
-        {
-            ( $start_time ? ( startTime => $start_time ) : ( startTime => "1700000000" ) ),
-            ( $end_time   ? ( endTime   => $end_time )   : ( endTime   => time() ) ),
-            content => $content,
-            state   => $state,
-        }
-    )
+my $requests = $plugin->get_client($pod)->circulation_requests(
+    {
+        ( $start_time ? ( startTime => $start_time ) : ( startTime => "1700000000" ) ),
+        ( $end_time   ? ( endTime   => $end_time )   : ( endTime   => time() ) ),
+        content => $content,
+        state   => $state,
+    }
 );
+
+# Filter by circId if specified
+if ($circid) {
+    if ( $requests && ref($requests) eq 'ARRAY' ) {
+        $requests = [ grep { $_->{circId} && $_->{circId} eq $circid } @{$requests} ];
+    }
+}
+
+print STDOUT encode_json($requests);
 
 1;
