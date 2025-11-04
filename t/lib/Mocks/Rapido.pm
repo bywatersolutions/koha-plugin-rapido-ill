@@ -21,6 +21,8 @@ use Modern::Perl;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
+use constant POD => 'test-pod';
+
 =head1 NAME
 
 t::lib::Mocks::Rapido - Mock RapidoILL plugin for testing

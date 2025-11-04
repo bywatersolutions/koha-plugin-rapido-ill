@@ -63,13 +63,8 @@ subtest 'lender_cancel() tests' => sub {
         # Setup HTTP client mock
         my $client_mock = t::lib::Mocks::Client->new($plugin);
 
-        # Create client
-        my $client = RapidoILL::Client->new(
-            {
-                pod    => 'test-pod',
-                plugin => $plugin
-            }
-        );
+        # Create client using plugin method
+        my $client = $plugin->get_client(t::lib::Mocks::Rapido::POD);
 
         # Test parameters - using integer to make test fail
         my $test_params = {
@@ -113,13 +108,8 @@ subtest 'lender_cancel() tests' => sub {
         # Setup HTTP client mock
         my $client_mock = t::lib::Mocks::Client->new($plugin);
 
-        # Create client
-        my $client = RapidoILL::Client->new(
-            {
-                pod    => 'test-pod',
-                plugin => $plugin
-            }
-        );
+        # Create client using plugin method
+        my $client = $plugin->get_client(t::lib::Mocks::Rapido::POD);
 
         # Test parameters
         my $test_params = {
@@ -158,12 +148,8 @@ subtest 'lender_cancel() tests' => sub {
         );
 
         # Create client
-        my $client = RapidoILL::Client->new(
-            {
-                pod    => 'test-pod',
-                plugin => $plugin
-            }
-        );
+        # Create client using plugin method
+        my $client = $plugin->get_client(t::lib::Mocks::Rapido::POD);
 
         # Test missing circId
         throws_ok {
