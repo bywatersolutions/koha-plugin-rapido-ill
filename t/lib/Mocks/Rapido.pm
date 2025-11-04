@@ -61,6 +61,7 @@ sub new {
     my $category        = $params->{category}                 || die "category parameter required";
     my $itemtype        = $params->{itemtype}                 || die "itemtype parameter required";
     my $pickup_strategy = $params->{pickup_location_strategy} || 'partners_library';
+    my $dev_mode        = $params->{dev_mode} // 1;  # Default to true for testing
 
     # Sample configuration template
     my $sample_config_yaml = <<'EOF';
@@ -80,7 +81,7 @@ test-pod:
     automatic_final_checkin: false
     automatic_item_shipped: false
     pickup_location_strategy: %s
-  dev_mode: true
+  dev_mode: %s
 EOF
 
     # Fill in the template with actual values
@@ -89,7 +90,8 @@ EOF
         $library->branchcode,
         $category->categorycode,
         $itemtype->itemtype,
-        $pickup_strategy
+        $pickup_strategy,
+        $dev_mode ? 'true' : 'false'
     );
 
     # Create plugin and store configuration
