@@ -42,7 +42,7 @@ my $schema  = Koha::Database->new->schema;
 my $builder = t::lib::TestBuilder->new;
 
 # Default pod in the mocked plugin
-my $pod = 'test-pod';
+my $pod = t::lib::Mocks::Rapido::POD;
 
 $schema->storage->txn_begin;
 

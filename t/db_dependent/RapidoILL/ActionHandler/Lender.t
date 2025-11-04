@@ -577,7 +577,7 @@ subtest 'handle_from_action() tests' => sub {
     my $handler = RapidoILL::ActionHandler::Lender->new(
         {
             plugin => $plugin,
-            pod    => 'test-pod',
+            pod    => t::lib::Mocks::Rapido::POD,
         }
     );
 
@@ -636,7 +636,7 @@ subtest 'renewal() tests' => sub {
             request    => $ill_request,
             attributes => {
                 circId => 'TEST_CIRC_001',
-                pod    => 'test-pod',
+                pod    => t::lib::Mocks::Rapido::POD,
             }
         }
     );
@@ -658,7 +658,7 @@ subtest 'renewal() tests' => sub {
     $client_module->mock( 'lender_renew', sub { return 1; } );
 
     # Create handler using plugin method
-    my $handler = $plugin->get_lender_action_handler('test-pod');
+    my $handler = $plugin->get_lender_action_handler(t::lib::Mocks::Rapido::POD);
 
     # Test borrower_renew method
     lives_ok {

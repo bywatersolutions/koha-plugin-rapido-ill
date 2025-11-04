@@ -24,6 +24,7 @@ use Test::MockModule;
 use Test::MockModule;
 
 use t::lib::TestBuilder;
+use t::lib::Mocks::Rapido;
 use t::lib::Mocks;
 
 BEGIN {
@@ -88,7 +89,7 @@ subtest 'sync_circ_requests - default state parameter' => sub {
 
     # Call sync_circ_requests without state parameter
     my $results = $plugin->sync_circ_requests({
-        pod => 'test-pod'
+        pod => t::lib::Mocks::Rapido::POD
     });
 
     # Verify default state was used
@@ -118,7 +119,7 @@ subtest 'sync_circ_requests - custom state parameter' => sub {
     # Call sync_circ_requests with custom state parameter
     my $custom_states = ['ACTIVE', 'COMPLETED'];
     my $results = $plugin->sync_circ_requests({
-        pod   => 'test-pod',
+        pod   => t::lib::Mocks::Rapido::POD,
         state => $custom_states
     });
 
@@ -149,7 +150,7 @@ subtest 'sync_circ_requests - single state parameter' => sub {
     # Call sync_circ_requests with single state
     my $single_state = ['ACTIVE'];
     my $results = $plugin->sync_circ_requests({
-        pod   => 'test-pod',
+        pod   => t::lib::Mocks::Rapido::POD,
         state => $single_state
     });
 
@@ -183,7 +184,7 @@ subtest 'sync_circ_requests - state parameter with other params' => sub {
     my $end_time = 1800000000;
     
     my $results = $plugin->sync_circ_requests({
-        pod       => 'test-pod',
+        pod       => t::lib::Mocks::Rapido::POD,
         state     => $custom_states,
         startTime => $start_time,
         endTime   => $end_time

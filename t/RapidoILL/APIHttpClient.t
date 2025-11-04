@@ -27,6 +27,7 @@ use JSON qw(encode_json decode_json);
 
 use t::lib::Mocks;
 use t::lib::Mocks::Logger;
+use t::lib::Mocks::Rapido;
 
 BEGIN {
     use_ok('RapidoILL::APIHttpClient');
@@ -53,7 +54,7 @@ subtest 'new() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,                            # Skip token refresh in dev mode
             }
         );
@@ -103,7 +104,7 @@ subtest 'Dev mode behavior' => sub {
             client_id     => 'test_client',
             client_secret => 'test_secret',
             plugin        => $plugin,
-            pod           => "test-pod",
+            pod           => t::lib::Mocks::Rapido::POD,
             dev_mode      => 1,
         }
     );
@@ -121,7 +122,7 @@ subtest 'Token management methods' => sub {
             client_id     => 'test_client',
             client_secret => 'test_secret',
             plugin        => $plugin,
-            pod           => "test-pod",
+            pod           => t::lib::Mocks::Rapido::POD,
             dev_mode      => 1,
         }
     );
@@ -168,7 +169,7 @@ subtest 'refresh_token() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 0,                            # Disable dev mode to test token refresh
             }
         );
@@ -235,7 +236,7 @@ subtest 'refresh_token() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 0,
             }
         );
@@ -303,7 +304,7 @@ subtest 'refresh_token() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 0,
             }
         );
@@ -365,7 +366,7 @@ subtest 'get_token() deferred refresh tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 0,
             }
         );
@@ -402,7 +403,7 @@ subtest 'get_token() deferred refresh tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 0,
             }
         );
@@ -452,7 +453,7 @@ subtest 'delete_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
@@ -502,7 +503,7 @@ subtest 'delete_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
@@ -563,7 +564,7 @@ subtest 'delete_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
@@ -635,7 +636,7 @@ subtest 'delete_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,                            # Use dev_mode to avoid refresh_token call
             }
         );
@@ -695,7 +696,7 @@ subtest 'post_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -750,7 +751,7 @@ subtest 'post_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -812,7 +813,7 @@ subtest 'post_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -889,7 +890,7 @@ subtest 'post_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -954,7 +955,7 @@ subtest 'put_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1009,7 +1010,7 @@ subtest 'put_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1071,7 +1072,7 @@ subtest 'put_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1148,7 +1149,7 @@ subtest 'put_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1213,7 +1214,7 @@ subtest 'get_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1264,7 +1265,7 @@ subtest 'get_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1326,7 +1327,7 @@ subtest 'get_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1398,7 +1399,7 @@ subtest 'get_request() tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1449,7 +1450,7 @@ subtest 'Token persistence tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1502,7 +1503,7 @@ subtest 'Token persistence tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
                 dev_mode      => 1,
             }
         );
@@ -1615,7 +1616,7 @@ subtest 'Token persistence tests' => sub {
                 client_id     => 'test_client',
                 client_secret => 'test_secret',
                 plugin        => $plugin,
-                pod           => "test-pod",
+                pod           => t::lib::Mocks::Rapido::POD,
 
                 # No dev_mode - we want real token loading behavior
             }

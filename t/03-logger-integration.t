@@ -23,6 +23,8 @@ use Test::Exception;
 use Test::MockModule;
 use Test::MockObject;
 
+use t::lib::Mocks::Rapido;
+
 BEGIN {
     use_ok('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
 }
@@ -72,7 +74,7 @@ subtest 'APIHttpClient gets plugin reference for logger access' => sub {
         'configuration',
         sub {
             return {
-                'test-pod' => {
+                t::lib::Mocks::Rapido::POD => {
                     client_id      => 'test_client',
                     client_secret  => 'test_secret',
                     base_url       => 'https://test.example.com',
@@ -87,7 +89,7 @@ subtest 'APIHttpClient gets plugin reference for logger access' => sub {
 
     # Test APIHttpClient instantiation with plugin reference
     lives_ok {
-        my $client = $plugin->get_http_client('test-pod');
+        my $client = $plugin->get_http_client(t::lib::Mocks::Rapido::POD);
         isa_ok( $client, 'RapidoILL::APIHttpClient', 'APIHttpClient instance created' );
 
         # Test that APIHttpClient has plugin reference

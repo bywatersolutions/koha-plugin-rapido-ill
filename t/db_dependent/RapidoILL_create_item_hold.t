@@ -57,7 +57,7 @@ $schema->resultset('KohaPluginComBywatersolutionsRapidoillAgencyToPatron')->crea
     {
         patron_id   => $patron->borrowernumber,
         agency_id   => 'TEST_AGENCY',
-        pod         => 'test-pod',
+        pod         => t::lib::Mocks::Rapido::POD,
         description => 'Test agency mapping',
     }
 );
@@ -81,7 +81,7 @@ subtest 'create_item_hold with default pickup_location_strategy (partners_librar
 
     my $action = RapidoILL::CircAction->new(
         {
-            pod                => 'test-pod',
+            pod                => t::lib::Mocks::Rapido::POD,
             itemId             => $item->barcode,
             patronAgencyCode   => 'TEST_AGENCY',
             author             => 'Test Author',
@@ -138,7 +138,7 @@ subtest 'create_item_hold with pickup_location_strategy = homebranch' => sub {
 
     my $action = RapidoILL::CircAction->new(
         {
-            pod                => 'test-pod',
+            pod                => t::lib::Mocks::Rapido::POD,
             itemId             => $item->barcode,
             patronAgencyCode   => 'TEST_AGENCY',
             author             => 'Test Author',
@@ -189,7 +189,7 @@ subtest 'create_item_hold with pickup_location_strategy = holdingbranch' => sub 
 
     my $action = RapidoILL::CircAction->new(
         {
-            pod                => 'test-pod',
+            pod                => t::lib::Mocks::Rapido::POD,
             itemId             => $item->barcode,
             patronAgencyCode   => 'TEST_AGENCY',
             author             => 'Test Author',
@@ -240,7 +240,7 @@ subtest 'create_item_hold with invalid pickup_location_strategy falls back to pa
 
     my $action = RapidoILL::CircAction->new(
         {
-            pod                => 'test-pod',
+            pod                => t::lib::Mocks::Rapido::POD,
             itemId             => $item->barcode,
             patronAgencyCode   => 'TEST_AGENCY',
             author             => 'Test Author',
@@ -286,7 +286,7 @@ subtest 'create_item_hold throws exception for unknown item' => sub {
     );
 
     my $mock_action = Test::MockObject->new();
-    $mock_action->mock( 'pod',    sub { return 'test-pod'; } );
+    $mock_action->mock( 'pod',    sub { return t::lib::Mocks::Rapido::POD; } );
     $mock_action->mock( 'itemId', sub { return 99999; } );
     $mock_action->mock( 'item',   sub { return; } );
 

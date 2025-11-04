@@ -96,7 +96,7 @@ subtest 'sync_circ_requests() duplicate handling' => sub {
     my $existing_action = RapidoILL::CircAction->new(
         {
             circId        => 'TEST002',
-            pod           => 'test-pod',
+            pod           => t::lib::Mocks::Rapido::POD,
             circStatus    => 'CREATED',
             lastCircState => 'PATRON_HOLD',
             lastUpdated   => time(),
@@ -140,7 +140,7 @@ subtest 'sync_circ_requests() duplicate handling' => sub {
     $mock_plugin->mock( 'get_client', sub { return bless {}, 'RapidoILL::Client'; } );
 
     # Sync should skip duplicate
-    my $results = $plugin->sync_circ_requests( { pod => 'test-pod' } );
+    my $results = $plugin->sync_circ_requests( { pod => t::lib::Mocks::Rapido::POD } );
     is( $results->{skipped},                  1,              'Sync skips duplicate' );
     is( $results->{messages}->[0]->{message}, 'Duplicate ID', 'Correct skip message' );
 

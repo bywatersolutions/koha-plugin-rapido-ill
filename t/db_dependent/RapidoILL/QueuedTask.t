@@ -23,6 +23,7 @@ use Test::Exception;
 use JSON qw(decode_json encode_json);
 
 use t::lib::TestBuilder;
+use t::lib::Mocks::Rapido;
 use C4::Context;
 use Koha::Database;
 
@@ -46,7 +47,7 @@ subtest 'Object instantiation and basic properties' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued',
             attempts    => 0
         }
@@ -56,7 +57,7 @@ subtest 'Object instantiation and basic properties' => sub {
     isa_ok( $task, 'RapidoILL::QueuedTask', 'Object has correct class' );
     is( $task->object_type, 'ill',      'Object type set correctly' );
     is( $task->action,      'fill',     'Action set correctly' );
-    is( $task->pod,         'test-pod', 'Pod set correctly' );
+    is( $task->pod,         t::lib::Mocks::Rapido::POD, 'Pod set correctly' );
     is( $task->status,      'queued',   'Status set correctly' );
 
     $schema->storage->txn_rollback;
@@ -78,7 +79,7 @@ subtest 'ill_request() method' => sub {
             object_id     => 123,
             illrequest_id => $ill_request->illrequest_id,
             action        => 'fill',
-            pod           => 'test-pod'
+            pod           => t::lib::Mocks::Rapido::POD
         }
     )->store;
 
@@ -119,7 +120,7 @@ subtest 'decoded_payload() tests' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued',
             attempts    => 0,
             payload     => JSON::encode_json($test_data)
@@ -159,7 +160,7 @@ subtest 'store() method with automatic JSON encoding' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued',
             attempts    => 0,
             payload     => $hash_data
@@ -182,7 +183,7 @@ subtest 'store() method with automatic JSON encoding' => sub {
             object_type => 'ill',
             object_id   => 124,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued',
             attempts    => 0,
             payload     => $array_data
@@ -204,7 +205,7 @@ subtest 'store() method with automatic JSON encoding' => sub {
             object_type => 'ill',
             object_id   => 125,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued',
             attempts    => 0,
             payload     => $json_string
@@ -222,7 +223,7 @@ subtest 'store() method with automatic JSON encoding' => sub {
             object_type => 'ill',
             object_id   => 126,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued',
             attempts    => 0,
             payload     => $plain_string
@@ -241,7 +242,7 @@ subtest 'store() method with automatic JSON encoding' => sub {
             object_type => 'ill',
             object_id   => 127,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued',
             attempts    => 0
 
@@ -274,7 +275,7 @@ subtest 'can_retry() method' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             attempts    => 0
         }
     )->store;
@@ -318,7 +319,7 @@ subtest 'error() method' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'fill',
-            pod         => 'test-pod'
+            pod         => t::lib::Mocks::Rapido::POD
         }
     )->store;
 
@@ -358,7 +359,7 @@ subtest 'retry() method' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             attempts    => 2
         }
     )->store;
@@ -401,7 +402,7 @@ subtest 'success() method' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'retry'
         }
     )->store;
@@ -438,7 +439,7 @@ subtest 'Database field validation and constraints' => sub {
             {
                 object_id => 123,
                 action    => 'fill',
-                pod       => 'test-pod'
+                pod       => t::lib::Mocks::Rapido::POD
 
                     # Missing object_type
             }
@@ -451,7 +452,7 @@ subtest 'Database field validation and constraints' => sub {
             {
                 object_type => 'ill',
                 object_id   => 123,
-                pod         => 'test-pod'
+                pod         => t::lib::Mocks::Rapido::POD
 
                     # Missing action
             }
@@ -479,7 +480,7 @@ subtest 'Database field validation and constraints' => sub {
                 object_type => 'invalid_type',
                 object_id   => 123,
                 action      => 'fill',
-                pod         => 'test-pod'
+                pod         => t::lib::Mocks::Rapido::POD
             }
         )->store;
     }
@@ -491,7 +492,7 @@ subtest 'Database field validation and constraints' => sub {
                 object_type => 'ill',
                 object_id   => 123,
                 action      => 'invalid_action',
-                pod         => 'test-pod'
+                pod         => t::lib::Mocks::Rapido::POD
             }
         )->store;
     }
@@ -503,7 +504,7 @@ subtest 'Database field validation and constraints' => sub {
             object_type => 'circulation',
             object_id   => 123,
             action      => 'b_item_received',
-            pod         => 'test-pod'
+            pod         => t::lib::Mocks::Rapido::POD
         }
     )->store;
     ok( $task1, 'Valid enum values accepted' );
@@ -513,7 +514,7 @@ subtest 'Database field validation and constraints' => sub {
             object_type => 'holds',
             object_id   => 456,
             action      => 'o_item_shipped',
-            pod         => 'test-pod'
+            pod         => t::lib::Mocks::Rapido::POD
         }
     )->store;
     ok( $task2, 'Different valid enum values accepted' );
@@ -532,7 +533,7 @@ subtest 'Default values and auto-increment' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued',     # Explicitly set since no database default
             attempts    => 0             # Explicitly set since no database default
         }
@@ -574,7 +575,7 @@ subtest 'execute_with_context() tests' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'o_item_shipped',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             context     => $test_context
         }
     )->store;
@@ -598,7 +599,7 @@ subtest 'execute_with_context() tests' => sub {
             object_type => 'ill',
             object_id   => 456,
             action      => 'o_item_shipped',
-            pod         => 'test-pod'
+            pod         => t::lib::Mocks::Rapido::POD
         }
     )->store;
 
@@ -628,7 +629,7 @@ subtest 'execute_with_context() tests' => sub {
             object_type => 'ill',
             object_id   => 789,
             action      => 'o_item_shipped',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             context     => $mock_context
         }
     )->store;
@@ -664,7 +665,7 @@ subtest 'decoded_context() tests' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'o_item_shipped',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             context     => $context_data
         }
     )->store;
@@ -678,7 +679,7 @@ subtest 'decoded_context() tests' => sub {
             object_type => 'ill',
             object_id   => 456,
             action      => 'o_item_shipped',
-            pod         => 'test-pod'
+            pod         => t::lib::Mocks::Rapido::POD
         }
     )->store;
 
@@ -690,7 +691,7 @@ subtest 'decoded_context() tests' => sub {
             object_type => 'ill',
             object_id   => 789,
             action      => 'o_item_shipped',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             context     => ''
         }
     )->store;
@@ -704,7 +705,7 @@ subtest 'decoded_context() tests' => sub {
             object_type => 'ill',
             object_id   => 101,
             action      => 'o_item_shipped',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             context     => $userenv_only
         }
     )->store;

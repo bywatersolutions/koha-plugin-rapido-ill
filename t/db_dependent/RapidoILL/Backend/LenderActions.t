@@ -27,6 +27,7 @@ use Test::Exception;
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Rapido;
 use t::lib::Mocks::Logger;
 
 use Koha::Database;
@@ -636,7 +637,7 @@ subtest 'renewal_request() tests' => sub {
     my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
     my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
 
-    my $pod = "test-pod";
+    my $pod = t::lib::Mocks::Rapido::POD;
 
     # Sample configuration for testing
     my $sample_config_yaml = <<'EOF';
@@ -695,7 +696,7 @@ EOF
             request    => $ill_request,
             attributes => {
                 circId      => 'TEST_CIRC_001',
-                pod         => 'test-pod',
+                pod         => t::lib::Mocks::Rapido::POD,
                 itemId      => $item->itemnumber,
                 checkout_id => $checkout->id,
             }
@@ -788,7 +789,7 @@ EOF
         $logger->clear();
 
         lives_ok {
-            $plugin->get_lender_actions('test-pod')->item_recalled(
+            $plugin->get_lender_actions(t::lib::Mocks::Rapido::POD)->item_recalled(
                 $ill_request,
                 {
                     recall_due_date => $recall_due_date,
@@ -836,7 +837,7 @@ EOF
 
         # Test missing recall_due_date parameter
         throws_ok {
-            $plugin->get_lender_actions('test-pod')->item_recalled( $ill_request, {} );
+            $plugin->get_lender_actions(t::lib::Mocks::Rapido::POD)->item_recalled( $ill_request, {} );
         } 'RapidoILL::Exception::MissingParameter', 'Throws exception when recall_due_date is missing';
 
         $schema->storage->txn_rollback;

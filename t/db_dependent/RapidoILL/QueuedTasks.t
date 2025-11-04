@@ -22,6 +22,7 @@ use Test::NoWarnings;
 use Test::Exception;
 
 use t::lib::TestBuilder;
+use t::lib::Mocks::Rapido;
 use Koha::Database;
 
 BEGIN {
@@ -61,7 +62,7 @@ subtest 'enqueue() method' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'fill',
-            pod         => 'test-pod'
+            pod         => t::lib::Mocks::Rapido::POD
         }
     );
 
@@ -78,7 +79,7 @@ subtest 'enqueue() method' => sub {
             object_type => 'circulation',
             object_id   => 456,
             action      => 'checkout',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'retry'
         }
     );
@@ -103,7 +104,7 @@ subtest 'enqueue() method' => sub {
             object_type => 'ill',
             object_id   => 789,
             action      => 'o_item_shipped',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             payload     => $payload
         }
     );
@@ -135,7 +136,7 @@ subtest 'filter_by_active() method' => sub {
             object_type => 'ill',
             object_id   => 1,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued'
         }
     );
@@ -145,7 +146,7 @@ subtest 'filter_by_active() method' => sub {
             object_type => 'ill',
             object_id   => 2,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'retry'
         }
     );
@@ -155,7 +156,7 @@ subtest 'filter_by_active() method' => sub {
             object_type => 'ill',
             object_id   => 3,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'success'
         }
     );
@@ -165,7 +166,7 @@ subtest 'filter_by_active() method' => sub {
             object_type => 'ill',
             object_id   => 4,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'error'
         }
     );
@@ -175,7 +176,7 @@ subtest 'filter_by_active() method' => sub {
             object_type => 'ill',
             object_id   => 5,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'skipped'
         }
     );
@@ -216,7 +217,7 @@ subtest 'filter_by_runnable() method' => sub {
             object_type => 'ill',
             object_id   => 1,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'queued'
 
                 # run_after is NULL (should be runnable)
@@ -228,7 +229,7 @@ subtest 'filter_by_runnable() method' => sub {
             object_type => 'ill',
             object_id   => 2,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'retry'
         }
     );
@@ -241,7 +242,7 @@ subtest 'filter_by_runnable() method' => sub {
             object_type => 'ill',
             object_id   => 3,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'retry'
         }
     );
@@ -254,7 +255,7 @@ subtest 'filter_by_runnable() method' => sub {
             object_type => 'ill',
             object_id   => 4,
             action      => 'fill',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             status      => 'success'
 
                 # Even with NULL run_after, not active so not runnable
@@ -367,7 +368,7 @@ subtest 'enqueue() context fallback tests' => sub {
             object_type => 'ill',
             object_id   => 123,
             action      => 'o_item_shipped',
-            pod         => 'test-pod',
+            pod         => t::lib::Mocks::Rapido::POD,
             context     => $explicit_context
         }
     );
@@ -380,7 +381,7 @@ subtest 'enqueue() context fallback tests' => sub {
             object_type => 'ill',
             object_id   => 456,
             action      => 'o_item_shipped',
-            pod         => 'test-pod'
+            pod         => t::lib::Mocks::Rapido::POD
         }
     );
 

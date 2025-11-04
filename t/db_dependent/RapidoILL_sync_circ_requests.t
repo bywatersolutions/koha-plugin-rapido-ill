@@ -24,6 +24,7 @@ use Test::Exception;
 
 use Koha::Database;
 use t::lib::TestBuilder;
+use t::lib::Mocks::Rapido;
 
 BEGIN {
     use_ok('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
@@ -36,7 +37,7 @@ my $builder = t::lib::TestBuilder->new;
 
 # Mock configuration
 my $mock_config = {
-    'test-pod' => {
+    t::lib::Mocks::Rapido::POD => {
         base_url      => 'https://test.example.com',
         client_id     => 'test_client',
         client_secret => 'test_secret',
@@ -107,7 +108,7 @@ subtest 'sync_circ_requests - return structure validation' => sub {
         }
     );
 
-    my $results = $plugin->sync_circ_requests( { pod => 'test-pod' } );
+    my $results = $plugin->sync_circ_requests( { pod => t::lib::Mocks::Rapido::POD } );
 
     is( ref($results), 'HASH', 'Returns hash reference' );
     ok( exists $results->{processed}, 'Has processed field' );

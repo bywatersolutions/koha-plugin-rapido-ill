@@ -24,6 +24,7 @@ use Test::Warn;
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Rapido;
 
 BEGIN {
     # Add the plugin lib to @INC
@@ -123,7 +124,7 @@ subtest 'configuration() tests' => sub {
 
         # Test pod structure
         ok( exists $config->{'dev03-na'}, 'dev03-na pod exists in configuration' );
-        ok( exists $config->{'test-pod'}, 'test-pod exists in configuration' );
+        ok( exists $config->{t::lib::Mocks::Rapido::POD}, 'test-pod exists in configuration' );
 
         # Test basic configuration values
         is(
@@ -162,29 +163,29 @@ subtest 'configuration() tests' => sub {
 
         # Test defaults are applied to pod without explicit values
         is(
-            $config->{'test-pod'}->{debt_blocks_holds}, 1,
+            $config->{t::lib::Mocks::Rapido::POD}->{debt_blocks_holds}, 1,
             'debt_blocks_holds defaults applied to test-pod'
         );
         is(
-            $config->{'test-pod'}->{max_debt_blocks_holds}, 100,
+            $config->{t::lib::Mocks::Rapido::POD}->{max_debt_blocks_holds}, 100,
             'max_debt_blocks_holds defaults applied to test-pod'
         );
         is(
-            $config->{'test-pod'}->{expiration_blocks_holds}, 1,
+            $config->{t::lib::Mocks::Rapido::POD}->{expiration_blocks_holds}, 1,
             'expiration_blocks_holds defaults applied to test-pod'
         );
         is(
-            $config->{'test-pod'}->{restriction_blocks_holds}, 1,
+            $config->{t::lib::Mocks::Rapido::POD}->{restriction_blocks_holds}, 1,
             'restriction_blocks_holds defaults applied to test-pod'
         );
 
         # Test library_to_location transformation
         ok(
-            exists $config->{'test-pod'}->{location_to_library},
+            exists $config->{t::lib::Mocks::Rapido::POD}->{location_to_library},
             'location_to_library mapping created'
         );
         is(
-            $config->{'test-pod'}->{location_to_library}->{TEST_LOC}, 'TST',
+            $config->{t::lib::Mocks::Rapido::POD}->{location_to_library}->{TEST_LOC}, 'TST',
             'location_to_library mapping correct for TST'
         );
     };
@@ -451,22 +452,22 @@ test-pod:
     subtest 'Client caching' => sub {
         plan tests => 2;
         
-        my $client1 = $plugin->get_http_client('test-pod');
-        my $client2 = $plugin->get_http_client('test-pod');
+        my $client1 = $plugin->get_http_client(t::lib::Mocks::Rapido::POD);
+        my $client2 = $plugin->get_http_client(t::lib::Mocks::Rapido::POD);
         
         is($client1, $client2, 'Same client instance returned for same pod');
-        is($client1->{pod}, 'test-pod', 'Cached client has correct pod');
+        is($client1->{pod}, t::lib::Mocks::Rapido::POD, 'Cached client has correct pod');
     };
     
     subtest 'Different pods get different clients' => sub {
         plan tests => 3;
         
         my $client1 = $plugin->get_http_client('dev03-na');
-        my $client2 = $plugin->get_http_client('test-pod');
+        my $client2 = $plugin->get_http_client(t::lib::Mocks::Rapido::POD);
         
         isnt($client1, $client2, 'Different client instances for different pods');
         is($client1->{pod}, 'dev03-na', 'Client1 has correct pod');
-        is($client2->{pod}, 'test-pod', 'Client2 has correct pod');
+        is($client2->{pod}, t::lib::Mocks::Rapido::POD, 'Client2 has correct pod');
     };
     
     subtest 'Missing pod parameter' => sub {

@@ -22,6 +22,7 @@ use Test::NoWarnings;
 use Test::Exception;
 
 use t::lib::TestBuilder;
+use t::lib::Mocks::Rapido;
 
 use C4::Context;
 use Koha::Database;

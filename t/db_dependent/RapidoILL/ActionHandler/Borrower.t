@@ -40,7 +40,7 @@ my $builder = t::lib::TestBuilder->new;
 my $logger  = t::lib::Mocks::Logger->new();
 
 # Default pod in the mocked plugin
-my $pod = 'test-pod';
+my $pod = t::lib::Mocks::Rapido::POD;
 
 subtest 'Constructor and basic functionality' => sub {
     plan tests => 3;
@@ -671,7 +671,7 @@ subtest 'item_received renewal rejection' => sub {
     my $plugin  = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
     my $handler = RapidoILL::ActionHandler::Borrower->new(
         {
-            pod    => 'test-pod',
+            pod    => t::lib::Mocks::Rapido::POD,
             plugin => $plugin
         }
     );
@@ -803,7 +803,7 @@ subtest 'recall() tests' => sub {
     my $handler = RapidoILL::ActionHandler::Borrower->new(
         {
             plugin => $plugin,
-            pod    => 'test-pod',
+            pod    => t::lib::Mocks::Rapido::POD,
         }
     );
 
@@ -875,7 +875,7 @@ subtest 'owner_cancel() tests' => sub {
         my $handler = RapidoILL::ActionHandler::Borrower->new(
             {
                 plugin => $plugin,
-                pod    => 'test-pod',
+                pod    => t::lib::Mocks::Rapido::POD,
             }
         );
 
@@ -942,7 +942,7 @@ subtest 'owner_cancel() tests' => sub {
         my $handler = RapidoILL::ActionHandler::Borrower->new(
             {
                 plugin => $plugin,
-                pod    => 'test-pod',
+                pod    => t::lib::Mocks::Rapido::POD,
             }
         );
 
@@ -1010,7 +1010,7 @@ subtest 'owner_cancel() tests' => sub {
         my $handler = RapidoILL::ActionHandler::Borrower->new(
             {
                 plugin => $plugin,
-                pod    => 'test-pod',
+                pod    => t::lib::Mocks::Rapido::POD,
             }
         );
 

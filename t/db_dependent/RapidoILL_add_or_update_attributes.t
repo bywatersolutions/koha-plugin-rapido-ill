@@ -23,6 +23,7 @@ use Test::Exception;
 use Test::Warn;
 
 use t::lib::TestBuilder;
+use t::lib::Mocks::Rapido;
 use t::lib::Mocks;
 
 BEGIN {
