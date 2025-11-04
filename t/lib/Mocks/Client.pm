@@ -195,10 +195,11 @@ sub data_type_is {
     } elsif ( ref $value ) {
         $actual_type = ref $value;
     } else {
+
         # Use JSON encoding to detect type - strings get quotes, numbers don't
         require JSON;
-        my $json_encoded = JSON::encode_json([$value]);
-        if ($json_encoded =~ /^\[".*"\]$/) {
+        my $json_encoded = JSON::encode_json( [$value] );
+        if ( $json_encoded =~ /^\[".*"\]$/ ) {
             $actual_type = 'string';
         } else {
             $actual_type = 'integer';

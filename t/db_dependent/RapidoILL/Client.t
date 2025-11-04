@@ -69,7 +69,7 @@ subtest 'lender_cancel() tests' => sub {
         # Test parameters - using integer to make test fail
         my $test_params = {
             circId     => 'TEST_CIRC_123',
-            localBibId => 456,  # Integer instead of string
+            localBibId => 456,               # Integer instead of string
             patronName => 'Test Patron'
         };
 
@@ -81,7 +81,7 @@ subtest 'lender_cancel() tests' => sub {
 
         # Verify API request parameters - expecting string type
         $client_mock->endpoint_is( '/view/broker/circ/TEST_CIRC_123/lendercancel', 'Correct endpoint called' );
-        $client_mock->data_type_is('localBibId', 'string', 'localBibId sent as string not integer');
+        $client_mock->data_type_is( 'localBibId', 'string', 'localBibId sent as string not integer' );
         $client_mock->context_is( 'lender_cancel', 'Correct context set' );
 
         $schema->storage->txn_rollback;

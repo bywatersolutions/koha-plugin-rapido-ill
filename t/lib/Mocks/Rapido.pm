@@ -63,7 +63,7 @@ sub new {
     my $category        = $params->{category}                 || die "category parameter required";
     my $itemtype        = $params->{itemtype}                 || die "itemtype parameter required";
     my $pickup_strategy = $params->{pickup_location_strategy} || 'partners_library';
-    my $dev_mode        = $params->{dev_mode} // 1;  # Default to true for testing
+    my $dev_mode        = $params->{dev_mode} // 1;    # Default to true for testing
 
     # Sample configuration template
     my $sample_config_yaml = <<'EOF';

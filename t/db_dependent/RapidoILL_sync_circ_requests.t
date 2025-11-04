@@ -35,33 +35,16 @@ $schema->storage->txn_begin;
 
 my $builder = t::lib::TestBuilder->new;
 
-# Mock configuration
-my $mock_config = {
-    t::lib::Mocks::Rapido::POD => {
-        base_url      => 'https://test.example.com',
-        client_id     => 'test_client',
-        client_secret => 'test_secret',
-        server_code   => '12345',
-        dev_mode      => 1,
-    }
-};
+# Create plugin instance with proper mocking
+my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
 
-# Create plugin instance
-my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
-
-# Mock the plugin methods
-my $plugin_mock = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-$plugin_mock->mock( 'configuration', sub { return $mock_config; } );
-$plugin_mock->mock(
-    'logger',
-    sub {
-        return bless {
-            info  => sub { },
-            warn  => sub { },
-            error => sub { },
-            debug => sub { },
-            },
-            'MockLogger';
+my $plugin = t::lib::Mocks::Rapido->new(
+    {
+        library  => $library,
+        category => $category,
+        itemtype => $itemtype
     }
 );
 
@@ -88,6 +71,7 @@ subtest 'sync_circ_requests - return structure validation' => sub {
 
     # Mock the entire sync_circ_requests method to test return structure
     # This bypasses the API call complexity and focuses on testing the return format
+    my $plugin_mock = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
     $plugin_mock->mock(
         'sync_circ_requests',
         sub {

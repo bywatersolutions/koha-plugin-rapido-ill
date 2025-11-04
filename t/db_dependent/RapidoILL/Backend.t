@@ -27,6 +27,7 @@ use Test::Exception;
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Rapido;
 
 use Koha::Database;
 
@@ -73,7 +74,17 @@ subtest 'item_shipped() tests' => sub {
         );
 
         # Add required attributes
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
         $plugin->add_or_update_attributes(
             {
                 request    => $illrequest,
@@ -87,20 +98,20 @@ subtest 'item_shipped() tests' => sub {
 
         # Mock LenderActions to track delegation
         my $lender_actions_called = 0;
-        my $mock_lender_actions = Test::MockObject->new();
+        my $mock_lender_actions   = Test::MockObject->new();
         $mock_lender_actions->mock(
             'item_shipped',
             sub {
                 my ( $self, $request, $params ) = @_;
                 $lender_actions_called = 1;
-                return $self;  # Return self for chaining
+                return $self;    # Return self for chaining
             }
         );
 
         # Mock plugin to return our mock LenderActions
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_lender_actions', sub { return $mock_lender_actions; } );
-        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+        $plugin_module->mock( 'get_req_pod',        sub { return 'test_pod'; } );
 
         # Create Backend instance
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
@@ -116,7 +127,7 @@ subtest 'item_shipped() tests' => sub {
         is( $lender_actions_called, 1, 'LenderActions->item_shipped was called' );
 
         # Verify return structure matches expected Backend format
-        is( ref($result), 'HASH', 'Returns hash structure' );
+        is( ref($result),      'HASH',         'Returns hash structure' );
         is( $result->{method}, 'item_shipped', 'Returns correct method name' );
 
         $schema->storage->txn_rollback;
@@ -152,10 +163,20 @@ subtest 'item_shipped() tests' => sub {
         );
 
         # Mock plugin
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_lender_actions', sub { return $mock_lender_actions; } );
-        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+        $plugin_module->mock( 'get_req_pod',        sub { return 'test_pod'; } );
 
         # Create Backend instance
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
@@ -199,7 +220,17 @@ subtest 'item_checkin() tests' => sub {
         );
 
         # Add required attributes
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
         $plugin->add_or_update_attributes(
             {
                 request    => $illrequest,
@@ -212,20 +243,20 @@ subtest 'item_checkin() tests' => sub {
 
         # Mock LenderActions to track delegation
         my $lender_actions_called = 0;
-        my $mock_lender_actions = Test::MockObject->new();
+        my $mock_lender_actions   = Test::MockObject->new();
         $mock_lender_actions->mock(
             'final_checkin',
             sub {
                 my ( $self, $request, $params ) = @_;
                 $lender_actions_called = 1;
-                return $self;  # Return self for chaining
+                return $self;    # Return self for chaining
             }
         );
 
         # Mock plugin to return our mock LenderActions
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_lender_actions', sub { return $mock_lender_actions; } );
-        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+        $plugin_module->mock( 'get_req_pod',        sub { return 'test_pod'; } );
 
         # Create Backend instance
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
@@ -241,7 +272,7 @@ subtest 'item_checkin() tests' => sub {
         is( $lender_actions_called, 1, 'LenderActions->final_checkin was called' );
 
         # Verify return structure matches expected Backend format
-        is( ref($result), 'HASH', 'Returns hash structure' );
+        is( ref($result),      'HASH',         'Returns hash structure' );
         is( $result->{method}, 'item_checkin', 'Returns correct method name' );
 
         $schema->storage->txn_rollback;
@@ -277,10 +308,20 @@ subtest 'item_checkin() tests' => sub {
         );
 
         # Mock plugin
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_lender_actions', sub { return $mock_lender_actions; } );
-        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+        $plugin_module->mock( 'get_req_pod',        sub { return 'test_pod'; } );
 
         # Create Backend instance
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
@@ -323,7 +364,17 @@ subtest 'item_received() delegation tests' => sub {
         );
 
         # Add required attributes
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
         $plugin->add_or_update_attributes(
             {
                 request    => $illrequest,
@@ -336,20 +387,20 @@ subtest 'item_received() delegation tests' => sub {
 
         # Mock BorrowerActions to track delegation
         my $borrower_actions_called = 0;
-        my $mock_borrower_actions = Test::MockObject->new();
+        my $mock_borrower_actions   = Test::MockObject->new();
         $mock_borrower_actions->mock(
             'item_received',
             sub {
                 my ( $self, $request, $params ) = @_;
                 $borrower_actions_called = 1;
-                return $self;  # Return self for chaining
+                return $self;    # Return self for chaining
             }
         );
 
         # Mock plugin to return our mock BorrowerActions
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
-        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+        $plugin_module->mock( 'get_req_pod',          sub { return 'test_pod'; } );
 
         # Create Backend instance
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
@@ -365,7 +416,7 @@ subtest 'item_received() delegation tests' => sub {
         is( $borrower_actions_called, 1, 'BorrowerActions->item_received was called' );
 
         # Verify return structure matches expected Backend format
-        is( ref($result), 'HASH', 'Returns hash structure' );
+        is( ref($result),      'HASH',          'Returns hash structure' );
         is( $result->{method}, 'item_received', 'Returns correct method name' );
 
         $schema->storage->txn_rollback;
@@ -401,10 +452,20 @@ subtest 'item_received() delegation tests' => sub {
         );
 
         # Mock plugin
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
-        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+        $plugin_module->mock( 'get_req_pod',          sub { return 'test_pod'; } );
 
         # Create Backend instance
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
@@ -447,7 +508,17 @@ subtest 'return_uncirculated() delegation tests' => sub {
         );
 
         # Add required attributes
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
         $plugin->add_or_update_attributes(
             {
                 request    => $illrequest,
@@ -460,20 +531,20 @@ subtest 'return_uncirculated() delegation tests' => sub {
 
         # Mock BorrowerActions to track delegation
         my $borrower_actions_called = 0;
-        my $mock_borrower_actions = Test::MockObject->new();
+        my $mock_borrower_actions   = Test::MockObject->new();
         $mock_borrower_actions->mock(
             'return_uncirculated',
             sub {
                 my ( $self, $request, $params ) = @_;
                 $borrower_actions_called = 1;
-                return $self;  # Return self for chaining
+                return $self;    # Return self for chaining
             }
         );
 
         # Mock plugin to return our mock BorrowerActions
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
-        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+        $plugin_module->mock( 'get_req_pod',          sub { return 'test_pod'; } );
 
         # Create Backend instance
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
@@ -489,7 +560,7 @@ subtest 'return_uncirculated() delegation tests' => sub {
         is( $borrower_actions_called, 1, 'BorrowerActions->return_uncirculated was called' );
 
         # Verify return structure matches expected Backend format
-        is( ref($result), 'HASH', 'Returns hash structure' );
+        is( ref($result),      'HASH',                'Returns hash structure' );
         is( $result->{method}, 'return_uncirculated', 'Returns correct method name' );
 
         $schema->storage->txn_rollback;
@@ -525,10 +596,20 @@ subtest 'return_uncirculated() delegation tests' => sub {
         );
 
         # Mock plugin
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
-        $plugin_module->mock( 'get_req_pod', sub { return 'test_pod'; } );
+        $plugin_module->mock( 'get_req_pod',          sub { return 'test_pod'; } );
 
         # Create Backend instance
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
