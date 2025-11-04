@@ -126,7 +126,7 @@ sub lender_cancel {
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/lendercancel',
                 data     => {
-                    localBibId => $params->{localBibId},
+                    localBibId => '' . $params->{localBibId},
                     patronName => $params->{patronName},
                     reason     => '',
                 },
