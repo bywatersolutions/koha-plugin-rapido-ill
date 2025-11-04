@@ -1811,7 +1811,8 @@ sub sync_agencies {
             pod       => $pod,
           [ startTime => $startTime,
             endTime   => $endTime,
-            state     => $state_array, ]
+            state     => $state_array,
+            circId    => $circId, ]
         }
     );
 
@@ -1869,6 +1870,11 @@ sub sync_circ_requests {
             state     => $state,
         }
     );
+
+    # Filter by circId if specified
+    if ( $params->{circId} ) {
+        $reqs = [ grep { $_->{circId} && $_->{circId} eq $params->{circId} } @{$reqs} ];
+    }
 
     $results->{processed} = scalar @{$reqs};
 

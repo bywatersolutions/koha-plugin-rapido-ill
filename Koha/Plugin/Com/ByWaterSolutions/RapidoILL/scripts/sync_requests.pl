@@ -38,6 +38,7 @@ my $list_pods;
 my $help;
 my $verbose;
 my $quiet;
+my $circid;
 
 my $result = GetOptions(
     'pod=s'        => \$pod,
@@ -47,6 +48,7 @@ my $result = GetOptions(
     'list_pods'    => \$list_pods,
     'verbose|v'    => \$verbose,
     'quiet|q'      => \$quiet,
+    'circid=s'     => \$circid,
     'help|h'       => \$help,
 );
 
@@ -70,6 +72,7 @@ Valid options are:
     --end_time <epoch>    End time range (epoch) [OPTIONAL]
     --state <state>       Circulation states to sync (can be repeated) [OPTIONAL]
                           Default: ACTIVE COMPLETED CANCELED CREATED
+    --circid <circId>     Sync only the specified circulation ID [OPTIONAL]
     --list_pods           Print configured pods and exit.
     --verbose|-v          Show detailed processing messages
     --quiet|-q            Suppress all output except errors
@@ -134,6 +137,7 @@ foreach my $pod_code ( @{$pods} ) {
                 ( $start_time ? ( startTime => $start_time ) : () ),
                 ( $end_time   ? ( endTime   => $end_time )   : () ),
                 ( $state      ? ( state     => $state )      : () ),
+                ( $circid     ? ( circId    => $circid )     : () ),
             }
         );
 
