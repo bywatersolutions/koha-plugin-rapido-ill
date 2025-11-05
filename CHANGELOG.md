@@ -5,21 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.10] - 2025-11-04
-
-### Added
-- [#125] Add --circid parameter to sync_requests.pl for syncing specific circulation ID
-
-## [1.0.11] - TBD
+## [1.0.11] - 2025-11-05
 
 ### Fixed
 - [#126] Fix error handling in get_requests.pl to show detailed HTTP error information
 - [#126] Update valid circulation states documentation (ACTIVE, COMPLETED, INACTIVE, CREATED, CANCELED)
 
+### Added
+- [#126] Add --lastcircstate parameter to get_requests.pl for filtering by last circulation state
+
 ## [1.0.10] - 2025-11-04
 
 ### Added
 - [#125] Add --circid parameter to get_requests.pl for filtering by specific circulation ID
+- [#125] Add --circid parameter to sync_requests.pl for syncing specific circulation ID
 
 ## [1.0.8] - 2025-11-04
 

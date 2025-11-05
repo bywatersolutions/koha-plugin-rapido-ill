@@ -34,17 +34,19 @@ my $start_time;
 my $state;
 my $content = 'verbose';
 my $circid;
+my $lastcircstate;
 my $help;
 
 my $result = GetOptions(
-    'pod=s'        => \$pod,
-    'end_time=s'   => \$end_time,
-    'start_time=s' => \$start_time,
-    'state=s@'     => \$state,
-    'content=s'    => \$content,
-    'circid=s'     => \$circid,
-    'list_pods'    => \$list_pods,
-    'help|h|'      => \$help,
+    'pod=s'           => \$pod,
+    'end_time=s'      => \$end_time,
+    'start_time=s'    => \$start_time,
+    'state=s@'        => \$state,
+    'content=s'       => \$content,
+    'circid=s'        => \$circid,
+    'lastcircstate=s' => \$lastcircstate,
+    'list_pods'       => \$list_pods,
+    'help|h|'         => \$help,
 );
 
 unless ($result) {
@@ -75,6 +77,7 @@ Valid options are:
                           Valid states: ACTIVE, COMPLETED, INACTIVE, CREATED, CANCELED
     --content <level>     Valid values are 'verbose' and 'concise'
     --circid <circId>     Filter by specific circulation ID [OPTIONAL]
+    --lastcircstate <state> Filter by last circulation state [OPTIONAL]
     --list_pods           Print configured pods and exit.
     --state string        A state you want to filter on
 
@@ -137,6 +140,13 @@ try {
 if ($circid) {
     if ( $requests && ref($requests) eq 'ARRAY' ) {
         $requests = [ grep { $_->{circId} && $_->{circId} eq $circid } @{$requests} ];
+    }
+}
+
+# Filter by lastCircState if specified
+if ($lastcircstate) {
+    if ( $requests && ref($requests) eq 'ARRAY' ) {
+        $requests = [ grep { $_->{lastCircState} && $_->{lastCircState} eq $lastcircstate } @{$requests} ];
     }
 }
 
