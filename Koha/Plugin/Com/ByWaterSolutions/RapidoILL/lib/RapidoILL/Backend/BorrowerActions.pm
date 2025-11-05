@@ -145,8 +145,10 @@ sub borrower_receive_unshipped {
                 # Create the MARC record and item
                 my $item = $self->{plugin}->add_virtual_record_and_item(
                     {
-                        request    => $request,
-                        attributes => $attributes,
+                        req         => $request,
+                        config      => $config,
+                        call_number => $attributes->{callNumber},
+                        barcode     => $attributes->{barcode},
                     }
                 );
 
