@@ -1,7 +1,7 @@
 #!/bin/bash
 # Helper script for testing the mock API
 
-API_URL="http://localhost:3001"
+API_URL="http://localhost:3000"
 
 echo "=== Testing Mock Rapido API ==="
 echo ""

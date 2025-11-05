@@ -71,6 +71,7 @@ Valid options are:
     --start_time <epoch>  Start time range (epoch). [OPTIONAL]
     --end_time <epoch>    End time range (epoch) [OPTIONAL]
     --state <state>       Circulation states to sync (can be repeated) [OPTIONAL]
+                          Valid states: ACTIVE, COMPLETED, INACTIVE, CREATED, CANCELED
                           Default: ACTIVE COMPLETED CANCELED CREATED
     --circid <circId>     Sync only the specified circulation ID [OPTIONAL]
     --list_pods           Print configured pods and exit.

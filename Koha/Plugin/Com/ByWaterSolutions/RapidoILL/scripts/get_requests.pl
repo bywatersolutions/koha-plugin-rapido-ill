@@ -19,6 +19,7 @@ use Modern::Perl;
 
 use Getopt::Long;
 use JSON qw(encode_json);
+use Try::Tiny;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
@@ -71,6 +72,7 @@ Valid options are:
     --start_time <epoch>  Start time range (epoch) [OPTIONAL]
     --end_time <epoch>    End time range (epoch) [OPTIONAL]
     --state <state>       Filter by 'state'. Multiple occurrences allowed [OPTIONAL]
+                          Valid states: ACTIVE, COMPLETED, INACTIVE, CREATED, CANCELED
     --content <level>     Valid values are 'verbose' and 'concise'
     --circid <circId>     Filter by specific circulation ID [OPTIONAL]
     --list_pods           Print configured pods and exit.
@@ -104,14 +106,32 @@ unless ( scalar @{$pods} > 0 ) {
     print STDERR "No usable pods found.\n";
 }
 
-my $requests = $plugin->get_client($pod)->circulation_requests(
-    {
-        ( $start_time ? ( startTime => $start_time ) : ( startTime => "1700000000" ) ),
-        ( $end_time   ? ( endTime   => $end_time )   : ( endTime   => time() ) ),
-        content => $content,
-        state   => $state,
+my $requests;
+try {
+    $requests = $plugin->get_client($pod)->circulation_requests(
+        {
+            ( $start_time ? ( startTime => $start_time ) : ( startTime => "1700000000" ) ),
+            ( $end_time   ? ( endTime   => $end_time )   : ( endTime   => time() ) ),
+            content => $content,
+            state   => $state,
+        }
+    );
+} catch {
+    my $error = $_;
+    print STDERR "Error retrieving circulation requests: $error\n";
+
+    # If it's a RequestFailed exception, show more details
+    if ( ref($error) eq 'RapidoILL::Exception::RequestFailed' ) {
+        my $response = $error->response;
+        print STDERR "HTTP Status: " . $response->code . " " . $response->message . "\n";
+        print STDERR "Response Body: "
+            . ( $response->decoded_content || $response->content || 'No response body' ) . "\n";
+        print STDERR "Method: " . $error->method . "\n";
+        print STDERR "Request URL: " . ( $response->request ? $response->request->uri : 'Unknown' ) . "\n";
     }
-);
+
+    exit 1;
+};
 
 # Filter by circId if specified
 if ($circid) {

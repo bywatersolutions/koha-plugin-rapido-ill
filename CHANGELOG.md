@@ -10,7 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - [#125] Add --circid parameter to sync_requests.pl for syncing specific circulation ID
 
-## [1.0.9] - 2025-11-04
+## [1.0.11] - TBD
+
+### Fixed
+- [#126] Fix error handling in get_requests.pl to show detailed HTTP error information
+- [#126] Update valid circulation states documentation (ACTIVE, COMPLETED, INACTIVE, CREATED, CANCELED)
+
+## [1.0.10] - 2025-11-04
 
 ### Added
 - [#125] Add --circid parameter to get_requests.pl for filtering by specific circulation ID
