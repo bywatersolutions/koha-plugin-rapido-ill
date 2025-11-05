@@ -15,6 +15,23 @@ Comprehensive development documentation for the Rapido ILL plugin, including set
 $self->{scope} = "innreach_tp";  # Required by Rapido API
 ```
 
+### Changelog Management
+
+**CRITICAL**: Always check for existing git tags before adding changelog entries to avoid targeting already-released versions.
+
+```bash
+# Check existing releases before adding changelog entries
+git tag --sort=-version:refname | head -10
+
+# If the target version already has a tag, use the next patch version
+# Example: If v1.0.11 exists, target 1.0.12 for new entries
+```
+
+**Workflow**:
+1. Check `git tag` to see what versions are already released
+2. Target the next unreleased version for new changelog entries
+3. If unsure about version targeting, ask before proceeding
+
 ## Code Quality Standards
 
 ### Testing Standards

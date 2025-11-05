@@ -35,6 +35,7 @@ my $state;
 my $content = 'verbose';
 my $circid;
 my $lastcircstate;
+my $only_statuses;
 my $help;
 
 my $result = GetOptions(
@@ -45,6 +46,7 @@ my $result = GetOptions(
     'content=s'       => \$content,
     'circid=s'        => \$circid,
     'lastcircstate=s' => \$lastcircstate,
+    'only-statuses'   => \$only_statuses,
     'list_pods'       => \$list_pods,
     'help|h|'         => \$help,
 );
@@ -78,6 +80,7 @@ Valid options are:
     --content <level>     Valid values are 'verbose' and 'concise'
     --circid <circId>     Filter by specific circulation ID [OPTIONAL]
     --lastcircstate <state> Filter by last circulation state [OPTIONAL]
+    --only-statuses       Show status counts only (circStatus and lastCircState) [OPTIONAL]
     --list_pods           Print configured pods and exit.
     --state string        A state you want to filter on
 
@@ -135,6 +138,26 @@ try {
 
     exit 1;
 };
+
+# Show status counts if requested
+if ($only_statuses) {
+    my %circ_status_counts;
+    my %last_circ_state_counts;
+
+    foreach my $request ( @{$requests} ) {
+        $circ_status_counts{ $request->{circStatus} }++        if $request->{circStatus};
+        $last_circ_state_counts{ $request->{lastCircState} }++ if $request->{lastCircState};
+    }
+
+    my $status_summary = {
+        circStatus    => \%circ_status_counts,
+        lastCircState => \%last_circ_state_counts,
+        total         => scalar @{$requests}
+    };
+
+    print STDOUT encode_json($status_summary);
+    exit 0;
+}
 
 # Filter by circId if specified
 if ($circid) {
