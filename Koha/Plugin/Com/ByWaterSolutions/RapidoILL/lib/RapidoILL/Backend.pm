@@ -631,7 +631,7 @@ sub receive_unshipped {
                 {
                     circId     => $self->{plugin}->get_req_circ_id($request),
                     attributes => {
-                        callnumber => $params->{other}->{item_callnumber},
+                        callNumber => $params->{other}->{item_callnumber},
                         barcode    => $params->{other}->{item_barcode}
                     },
                     barcode => $params->{other}->{item_barcode}
@@ -971,7 +971,7 @@ sub _get_core_fields {
 
 =head1 AUTHORS
 
-Tomás Cohen Arazi <tomascohen@theke.io>
+Tomas Cohen Arazi <tomascohen@theke.io>
 
 =cut
 

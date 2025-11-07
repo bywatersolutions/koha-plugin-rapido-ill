@@ -113,6 +113,9 @@ sub borrower_receive_unshipped {
     my $barcode    = $params->{barcode};
     my $options    = $params->{client_options} // {};
 
+    RapidoILL::Exception->throw("[borrower_actions][borrower_receive_unshipped] No barcode in request")
+        unless $barcode;
+
     return try {
         Koha::Database->new->schema->txn_do(
             sub {
@@ -132,9 +135,9 @@ sub borrower_receive_unshipped {
                         if ( !$existing_item ) {
                             $barcode = $tmp_barcode;
                             $done    = 1;
+                        } else {
+                            $i++;
                         }
-
-                        $i++;
                     }
 
                     $attributes->{barcode_collision} = 1;
@@ -148,7 +151,31 @@ sub borrower_receive_unshipped {
                         req         => $request,
                         config      => $config,
                         call_number => $attributes->{callNumber},
-                        barcode     => $attributes->{barcode},
+                        barcode     => $barcode,
+                    }
+                );
+
+                # Place a hold on the item
+                my $hold_id = $self->{plugin}->add_hold(
+                    {
+                        biblio_id  => $item->biblionumber,
+                        item_id    => $item->id,
+                        library_id => $request->branchcode,
+                        patron_id  => $request->borrowernumber,
+                        notes      => exists $config->{default_hold_note}
+                        ? $config->{default_hold_note}
+                        : 'Placed by ILL',
+                    }
+                );
+
+                # We need to store the hold_id
+                $attributes->{hold_id} = $hold_id;
+
+                # Update attributes
+                $self->{plugin}->add_or_update_attributes(
+                    {
+                        attributes => $attributes,
+                        request    => $request,
                     }
                 );
 
