@@ -66,102 +66,153 @@ subtest 'new() tests' => sub {
 
 subtest 'borrower_receive_unshipped() tests' => sub {
 
-    plan tests => 2;
+    plan tests => 3;
 
-    subtest 'Successful calls' => sub {
-        plan tests => 7;
+    subtest 'Successful calls with hold and attribute creation' => sub {
+        plan tests => 8;
 
         $schema->storage->txn_begin;
 
-        # Setup test data
-        my $patron     = $builder->build_object( { class => 'Koha::Patrons' } );
-        my $biblio     = $builder->build_object( { class => 'Koha::Biblios' } );
+        # Test data constants
+        my $test_barcode    = 'TEST_BARCODE_001';
+        my $test_callnumber = 'TEST 123.45 ABC';
+        my $test_circ_id    = 'test_circ_456';
+
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
+            }
+        );
+
+        my $patron = $builder->build_object(
+            {
+                class => 'Koha::Patrons',
+                value => { branchcode => $library->branchcode }
+            }
+        );
+
         my $illrequest = $builder->build_object(
             {
                 class => 'Koha::ILL::Requests',
                 value => {
                     borrowernumber => $patron->borrowernumber,
-                    biblio_id      => $biblio->biblionumber,
-                    status         => 'NEW',
+                    branchcode     => $library->branchcode,
+                    backend        => 'RapidoILL',
+                    status         => 'B_ITEM_REQUESTED',
                 }
             }
         );
 
-        # Setup real plugin with method mocking for external dependencies
-        my $plugin      = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
-        my $mock_client = Test::MockObject->new();
-
-        # Track API client method calls
-        my @client_calls = ();
-        $mock_client->mock(
-            'borrower_receive_unshipped',
-            sub {
-                my ( $self, $data, $options ) = @_;
-                push @client_calls, {
-                    method  => 'borrower_receive_unshipped',
-                    data    => $data,
-                    options => $options
-                };
-                return;
-            }
-        );
-
-        # Mock plugin methods that need external dependencies
-        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
-        $plugin_module->mock(
-            'add_virtual_record_and_item',
-            sub {
-                return $builder->build_object(
-                    {
-                        class => 'Koha::Items',
-                        value => { biblionumber => $biblio->biblionumber }
-                    }
-                );
-            }
-        );
-
-        my $actions = RapidoILL::Backend::BorrowerActions->new(
-            {
-                pod    => 'test_pod',
-                plugin => $plugin,
-            }
-        );
-
-        my $attributes = {
-            title   => 'Test Book',
-            author  => 'Test Author',
-            barcode => 'TEST_BARCODE_456'
-        };
-
-        my $client_options = { timeout => 30, retry => 3, notify_rapido => 1 };
+        my $actions = $plugin->get_borrower_actions($pod);
 
         my $result;
         lives_ok {
             $result = $actions->borrower_receive_unshipped(
                 $illrequest,
                 {
-                    circId         => 'test_circ_456',
-                    attributes     => $attributes,
-                    barcode        => 'TEST_BARCODE',
-                    client_options => $client_options,
+                    circId     => $test_circ_id,
+                    attributes => { callNumber => $test_callnumber },
+                    barcode    => $test_barcode,
                 }
             );
         }
         'borrower_receive_unshipped executes without error';
 
-        # Verify API client method was called correctly
-        is( scalar @client_calls,       1,                            'API client method called once' );
-        is( $client_calls[0]->{method}, 'borrower_receive_unshipped', 'Correct API method called' );
-
-        # Verify client_options were passed through
-        my $call_options = $client_calls[0]->{options};
-        is_deeply( $call_options->{timeout}, 30, 'client_options timeout passed through' );
-        is_deeply( $call_options->{retry},   3,  'client_options retry passed through' );
-
+        # Verify status and biblio
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_RECEIVED', 'Sets correct status' );
-        is( $result,             $actions,          'Returns self for method chaining' );
+        ok( $illrequest->biblio_id, 'Biblio ID is set' );
+
+        # Verify hold was created
+        my $holds = Koha::Holds->search( { borrowernumber => $patron->borrowernumber } );
+        is( $holds->count, 1, 'Hold was created for patron' );
+
+        my $hold = $holds->next;
+        is( $hold->biblionumber, $illrequest->biblio_id, 'Hold is for correct biblio' );
+
+        # Verify attributes were stored including hold_id
+        my $attributes   = $illrequest->extended_attributes;
+        my $hold_id_attr = $attributes->search( { type => 'hold_id' } )->next;
+        ok( $hold_id_attr, 'hold_id attribute was stored' );
+        is( $hold_id_attr->value, $hold->id, 'hold_id attribute has correct value' );
+
+        is( $result, $actions, 'Returns self for method chaining' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Barcode collision handling' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        # Test data constants
+        my $collision_barcode = 'COLLISION_BARCODE';
+        my $test_callnumber   = 'TEST 456.78 DEF';
+        my $test_circ_id      = 'test_circ_collision';
+
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        # Create existing item with collision barcode
+        my $existing_item = $builder->build_sample_item( { barcode => $collision_barcode } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
+            }
+        );
+
+        my $patron = $builder->build_object(
+            {
+                class => 'Koha::Patrons',
+                value => { branchcode => $library->branchcode }
+            }
+        );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    backend        => 'RapidoILL',
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+
+        my $actions = $plugin->get_borrower_actions($pod);
+
+        lives_ok {
+            $actions->borrower_receive_unshipped(
+                $illrequest,
+                {
+                    circId     => $test_circ_id,
+                    attributes => { callNumber => $test_callnumber },
+                    barcode    => $collision_barcode,
+                }
+            );
+        }
+        'borrower_receive_unshipped handles barcode collision';
+
+        # Verify new item was created with modified barcode
+        $illrequest->discard_changes();
+        my $new_item = Koha::Items->find( { biblionumber => $illrequest->biblio_id } );
+        like( $new_item->barcode, qr/\Q$collision_barcode\E-\d+/, 'New item has modified barcode to avoid collision' );
+
+        # Verify barcode_collision attribute was set
+        my $collision_attr = $illrequest->extended_attributes->search( { type => 'barcode_collision' } )->next;
+        ok( $collision_attr, 'barcode_collision attribute was set' );
 
         $schema->storage->txn_rollback;
     };
@@ -171,53 +222,48 @@ subtest 'borrower_receive_unshipped() tests' => sub {
 
         $schema->storage->txn_begin;
 
-        my $patron     = $builder->build_object( { class => 'Koha::Patrons' } );
+        # Test data constants
+        my $test_callnumber = 'TEST 789.01 GHI';
+        my $test_circ_id    = 'test_circ_error';
+
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
+            }
+        );
+
         my $illrequest = $builder->build_object(
             {
                 class => 'Koha::ILL::Requests',
                 value => {
-                    borrowernumber => $patron->borrowernumber,
-                    status         => 'NEW',
+                    backend => 'RapidoILL',
+                    status  => 'B_ITEM_REQUESTED',
                 }
             }
         );
 
-        # Test API failure with real plugin
-        my $plugin      = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
-        my $mock_client = Test::MockObject->new();
-
-        # Mock plugin methods to simulate failure
-        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
-        $plugin_module->mock(
-            'add_virtual_record_and_item',
-            sub {
-                die "Virtual record creation failed";
-            }
-        );
-
-        my $actions = RapidoILL::Backend::BorrowerActions->new(
-            {
-                pod    => 'test_pod',
-                plugin => $plugin,
-            }
-        );
+        my $actions = $plugin->get_borrower_actions($pod);
 
         throws_ok {
             $actions->borrower_receive_unshipped(
                 $illrequest,
                 {
-                    circId     => 'test_circ_456',
-                    attributes => { title => 'Test' },
-                    barcode    => 'TEST_BARCODE'
+                    circId     => $test_circ_id,
+                    attributes => { callNumber => $test_callnumber },
+                    barcode    => undef,
                 }
             );
         }
-        qr/Virtual record creation failed/, 'Throws exception on virtual record creation failure';
+        qr/No barcode in request/, 'Throws exception on missing barcode';
 
-        # Verify transaction rollback
         $illrequest->discard_changes();
-        is( $illrequest->status, 'NEW', 'Status unchanged after transaction rollback' );
+        is( $illrequest->status, 'B_ITEM_REQUESTED', 'Status unchanged after error' );
 
         $schema->storage->txn_rollback;
     };
