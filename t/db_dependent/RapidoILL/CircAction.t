@@ -13,11 +13,13 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with The Rapido ILL plugin; if not, see <http://www.gnu.org/licenses>.
+# along with The Rapido ILL plugin; if not, see <https://www.gnu.org/licenses>.
 
 use Modern::Perl;
-use Test::More tests => 2;
+
+use Test::More tests => 3;
 use Test::Exception;
+use Test::NoWarnings;
 
 use Koha::Database;
 use t::lib::TestBuilder;
