@@ -22,7 +22,9 @@ use Test::Exception;
 use Test::NoWarnings;
 
 use Koha::Database;
+
 use t::lib::TestBuilder;
+use t::lib::Mocks::Rapido;
 
 use RapidoILL::CircActions;
 
