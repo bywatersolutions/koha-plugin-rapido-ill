@@ -5,13 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.15] - TBD
+## [1.0.15] - 2025-11-14
 
 ### Fixed
 - [#130] Fix CircAction item() method to correctly interpret itemId as itemnumber instead of barcode
 
 ### Changed
 - [#129] Update all license texts to reference "The Rapido ILL plugin" instead of generic "program" language
+
+### Added
+- [#130] Add tests for RapidoILL::CircAction item() method to verify correct item retrieval by itemnumber
 
 ## [1.0.14] - 2025-11-07
 
