@@ -82,7 +82,7 @@ subtest 'create_item_hold with default pickup_location_strategy (partners_librar
     my $action = RapidoILL::CircAction->new(
         {
             pod                => t::lib::Mocks::Rapido::POD,
-            itemId             => $item->barcode,
+            itemId             => $item->id,
             patronAgencyCode   => 'TEST_AGENCY',
             author             => 'Test Author',
             title              => 'Test Title',
@@ -139,7 +139,7 @@ subtest 'create_item_hold with pickup_location_strategy = homebranch' => sub {
     my $action = RapidoILL::CircAction->new(
         {
             pod                => t::lib::Mocks::Rapido::POD,
-            itemId             => $item->barcode,
+            itemId             => $item->id,
             patronAgencyCode   => 'TEST_AGENCY',
             author             => 'Test Author',
             title              => 'Test Title',
@@ -190,7 +190,7 @@ subtest 'create_item_hold with pickup_location_strategy = holdingbranch' => sub 
     my $action = RapidoILL::CircAction->new(
         {
             pod                => t::lib::Mocks::Rapido::POD,
-            itemId             => $item->barcode,
+            itemId             => $item->id,
             patronAgencyCode   => 'TEST_AGENCY',
             author             => 'Test Author',
             title              => 'Test Title',
@@ -241,7 +241,7 @@ subtest 'create_item_hold with invalid pickup_location_strategy falls back to pa
     my $action = RapidoILL::CircAction->new(
         {
             pod                => t::lib::Mocks::Rapido::POD,
-            itemId             => $item->barcode,
+            itemId             => $item->id,
             patronAgencyCode   => 'TEST_AGENCY',
             author             => 'Test Author',
             title              => 'Test Title',
