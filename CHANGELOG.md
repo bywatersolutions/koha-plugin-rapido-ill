@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [TBD] - TBD
+## [1.0.15] - TBD
+
+### Fixed
+- [#130] Fix CircAction item() method to correctly interpret itemId as itemnumber instead of barcode
 
 ### Changed
 - [#129] Update all license texts to reference "The Rapido ILL plugin" instead of generic "program" language
