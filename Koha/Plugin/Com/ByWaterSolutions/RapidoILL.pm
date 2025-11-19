@@ -233,7 +233,7 @@ sub install {
                 `action`        ENUM('checkin','checkout','fill','cancel','b_item_in_transit','b_item_received','b_item_renewal','o_cancel_request','o_final_checkin','o_item_shipped') NOT NULL,
                 `status`        ENUM('queued','retry','success','error','skipped') NOT NULL DEFAULT 'queued',
                 `attempts`      INT(11) NOT NULL DEFAULT 0,
-                `last_error`    VARCHAR(191) DEFAULT NULL,
+                `last_error`    TEXT DEFAULT NULL,
                 `timestamp`     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 `pod`           VARCHAR(10) NOT NULL,
                 `run_after`     TIMESTAMP NULL DEFAULT NULL,
@@ -394,6 +394,20 @@ sub upgrade {
                 }
             );
         }
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "1.0.18";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        # Change last_error column from VARCHAR(191) to TEXT to avoid truncation
+        $dbh->do(
+            qq{
+            ALTER TABLE $task_queue
+            MODIFY COLUMN `last_error` TEXT DEFAULT NULL
+            }
+        );
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }

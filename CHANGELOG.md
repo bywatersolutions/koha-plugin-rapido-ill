@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - [#132] Fix LenderActions item_shipped() to use itemId as itemnumber instead of barcode, matching CircAction behavior
 - [#132] Add error handling for missing items in item_shipped()
+- [#133] Change task_queue.last_error column from VARCHAR(191) to TEXT to prevent error message truncation
 
 ## [1.0.17] 2025-11-19
 
