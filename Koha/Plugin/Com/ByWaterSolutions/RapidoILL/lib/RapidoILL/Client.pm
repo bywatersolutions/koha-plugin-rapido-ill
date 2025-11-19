@@ -91,7 +91,6 @@ sub locals {
 
         RapidoILL::Exception::RequestFailed->throw(
             method         => 'locals',
-            response       => $response,
             status_code    => $response->code,
             status_message => $response->message,
             response_body  => $response->decoded_content || 'No response body'
@@ -138,7 +137,6 @@ sub lender_cancel {
 
         RapidoILL::Exception::RequestFailed->throw(
             method         => 'lender_cancel',
-            response       => $response,
             status_code    => $response->code,
             status_message => $response->message,
             response_body  => $response->decoded_content || 'No response body'
@@ -198,8 +196,12 @@ sub lender_visiting_patron_checkout {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'lender_visiting_patron_checkout', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'lender_visiting_patron_checkout',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
@@ -231,8 +233,12 @@ sub lender_checkin {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'lender_checkin', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'lender_checkin',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
@@ -279,8 +285,12 @@ sub lender_renew {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'lender_renew', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'lender_renew',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
@@ -320,7 +330,6 @@ sub lender_shipped {
 
         RapidoILL::Exception::RequestFailed->throw(
             method         => 'lender_shipped',
-            response       => $response,
             status_code    => $response->code,
             status_message => $response->message,
             response_body  => $response->decoded_content
@@ -358,8 +367,12 @@ sub lender_recall {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'lender_recall', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'lender_recall',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
@@ -393,8 +406,12 @@ sub borrower_item_received {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_received', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'borrower_item_received',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
@@ -426,8 +443,12 @@ sub borrower_receive_unshipped {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_receive_unshipped', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'borrower_item_receive_unshipped',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
@@ -461,7 +482,6 @@ sub borrower_cancel {
 
         RapidoILL::Exception::RequestFailed->throw(
             method         => 'borrower_cancel',
-            response       => $response,
             status_code    => $response->code,
             status_message => $response->message,
             response_body  => $response->decoded_content || 'No response body'
@@ -512,8 +532,12 @@ sub borrower_renew {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'borrower_renew', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'borrower_renew',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
@@ -545,8 +569,12 @@ sub borrower_item_returned {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'borrower_item_returned', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'borrower_item_returned',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
@@ -575,8 +603,12 @@ sub borrower_return_uncirculated {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'borrower_return_uncirculated', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'borrower_return_uncirculated',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
@@ -624,8 +656,12 @@ sub circulation_requests {
             }
         );
 
-        RapidoILL::Exception::RequestFailed->throw( method => 'circulation_requests', response => $response )
-            unless $response->is_success;
+        RapidoILL::Exception::RequestFailed->throw(
+            method         => 'circulation_requests',
+            status_code    => $response->code,
+            status_message => $response->message,
+            response_body  => $response->decoded_content || 'No response body'
+        ) unless $response->is_success;
 
         return decode_json( $response->decoded_content );
     }
