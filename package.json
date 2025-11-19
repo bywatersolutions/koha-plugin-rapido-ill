@@ -3,7 +3,7 @@
     "version": "1.0.16",
     "description": "Rapido ILL connector plugin for Koha",
     "devDependencies": {
-        "gulp": "^4.0.2",
+        "gulp": "^5.0.1",
         "gulp-cli": "^3.0.0"
     },
     "scripts": {
