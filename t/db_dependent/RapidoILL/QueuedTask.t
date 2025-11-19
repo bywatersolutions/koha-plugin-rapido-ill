@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 15;
+use Test::More tests => 16;
 use Test::NoWarnings;
 use Test::Exception;
 use JSON qw(decode_json encode_json);
@@ -413,6 +413,37 @@ subtest 'success() method' => sub {
         'success() returns task object for chaining'
     );
     is( $task->status, 'success', 'Status set to success' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'reset() method' => sub {
+
+    plan tests => 5;
+
+    $schema->storage->txn_begin;
+
+    my $task = RapidoILL::QueuedTask->new(
+        {
+            object_type => 'ill',
+            object_id   => 123,
+            action      => 'fill',
+            pod         => t::lib::Mocks::Rapido::POD,
+            status      => 'error',
+            attempts    => 3,
+            last_error  => '{"error":"Test error"}',
+        }
+    )->store;
+
+    my $result = $task->reset();
+    isa_ok(
+        $result, 'RapidoILL::QueuedTask',
+        'reset() returns task object for chaining'
+    );
+    is( $task->status,     'queued', 'Status reset to queued' );
+    is( $task->attempts,   0,        'Attempts reset to 0' );
+    is( $task->last_error, undef,    'last_error cleared' );
+    is( $task->run_after,  undef,    'run_after cleared' );
 
     $schema->storage->txn_rollback;
 };

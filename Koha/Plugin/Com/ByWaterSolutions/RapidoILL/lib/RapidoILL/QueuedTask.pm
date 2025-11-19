@@ -199,6 +199,29 @@ sub success {
     return $self;
 }
 
+=head3 reset
+
+    $task->reset();
+
+Resets the task to queued status, clearing attempts and errors.
+
+=cut
+
+sub reset {
+    my ($self) = @_;
+
+    $self->set(
+        {
+            status     => 'queued',
+            attempts   => 0,
+            last_error => undef,
+            run_after  => undef,
+        }
+    )->store();
+
+    return $self;
+}
+
 =head3 execute_with_context
 
     $task->execute_with_context($code_ref);
