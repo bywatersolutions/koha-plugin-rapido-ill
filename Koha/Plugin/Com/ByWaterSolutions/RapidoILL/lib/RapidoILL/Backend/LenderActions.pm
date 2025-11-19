@@ -194,7 +194,11 @@ sub item_shipped {
                 my $attrs  = $req->extended_attributes;
                 my $itemId = $attrs->find( { type => 'itemId' } )->value;
 
-                my $item     = Koha::Items->find( { barcode => $itemId } );
+                my $item = Koha::Items->find($itemId);
+
+                RapidoILL::Exception->throw("Item with itemnumber '$itemId' not found")
+                    unless $item;
+
                 my $patron   = Koha::Patrons->find( $req->borrowernumber );
                 my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
 

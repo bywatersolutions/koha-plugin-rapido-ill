@@ -385,7 +385,7 @@ subtest 'item_shipped() tests' => sub {
                 request    => $illrequest,
                 attributes => {
                     circId => 'test_circ_123',
-                    itemId => $item->barcode,
+                    itemId => $item->id,
                 }
             }
         );
@@ -468,7 +468,7 @@ subtest 'item_shipped() tests' => sub {
                 request    => $illrequest,
                 attributes => {
                     circId => 'test_circ_123',
-                    itemId => $item->barcode,    # Use the real item barcode
+                    itemId => $item->id,
                 }
             }
         );
