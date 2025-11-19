@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This file is part of the Rapido ILL plugin
 #
@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with The Rapido ILL plugin; if not, see <http://www.gnu.org/licenses>.
+# along with The Rapido ILL plugin; if not, see <https://www.gnu.org/licenses>.
 
 use Modern::Perl;
 
@@ -29,12 +29,13 @@ find(
         wanted   => sub {
             my $m = $_;
             return unless $m =~ s/[.]pm$//;
-            
+
             # Handle Koha namespace modules
             if ( $m =~ s{^.*/Koha/}{Koha/} ) {
                 $m =~ s{/}{::}g;
                 use_ok($m) || BAIL_OUT("***** PROBLEMS LOADING FILE '$m'");
             }
+
             # Handle t::lib namespace modules (test utilities)
             elsif ( $m =~ s{^.*/t/lib/}{t::lib::} ) {
                 $m =~ s{/}{::}g;

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Copyright 2025 ByWater Solutions
 #
@@ -205,7 +205,8 @@ subtest 'cancel_request() tests' => sub {
             {
                 request    => $illrequest,
                 attributes => {
-                    circId  => 'test_circ_123',
+                    circId => 'test_circ_123',
+
                     # patronName missing intentionally
                 }
             }
@@ -213,10 +214,10 @@ subtest 'cancel_request() tests' => sub {
 
         # Mock client to avoid external calls
         my $mock_client = Test::MockObject->new();
-        $mock_client->mock('lender_cancel', sub { return; });
-        
+        $mock_client->mock( 'lender_cancel', sub { return; } );
+
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock('get_client', sub { return $mock_client; });
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
 
         # DESIRED BEHAVIOR: Should succeed with warning instead of throwing exception
         my $result;
@@ -260,6 +261,7 @@ subtest 'cancel_request() tests' => sub {
                 attributes => {
                     circId     => 'test_circ_123',
                     patronName => 'Test Patron',
+
                     # hold_id missing intentionally
                 }
             }
@@ -267,10 +269,10 @@ subtest 'cancel_request() tests' => sub {
 
         # Mock client to avoid external calls
         my $mock_client = Test::MockObject->new();
-        $mock_client->mock('lender_cancel', sub { return; });
-        
+        $mock_client->mock( 'lender_cancel', sub { return; } );
+
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock('get_client', sub { return $mock_client; });
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
 
         # DESIRED BEHAVIOR: Should succeed with warning instead of throwing exception
         my $result;
@@ -796,7 +798,8 @@ EOF
                     client_options  => { skip_api_request => 1 }
                 }
             );
-        } 'item_recalled executes without error';
+        }
+        'item_recalled executes without error';
 
         # Verify status change
         $ill_request->discard_changes;
@@ -838,7 +841,8 @@ EOF
         # Test missing recall_due_date parameter
         throws_ok {
             $plugin->get_lender_actions(t::lib::Mocks::Rapido::POD)->item_recalled( $ill_request, {} );
-        } 'RapidoILL::Exception::MissingParameter', 'Throws exception when recall_due_date is missing';
+        }
+        'RapidoILL::Exception::MissingParameter', 'Throws exception when recall_due_date is missing';
 
         $schema->storage->txn_rollback;
     };

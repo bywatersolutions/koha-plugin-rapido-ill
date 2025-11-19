@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This file is part of the Rapido ILL plugin
 #
@@ -25,43 +25,43 @@ use RapidoILL::CircActions;
 
 subtest 'CircAction object creation' => sub {
     plan tests => 3;
-    
+
     my $test_data = {
-        circId => 'TEST_CIRC_' . time() . '_' . $$,
-        pod => 'test_pod',
-        circStatus => 'ACTIVE',
+        circId        => 'TEST_CIRC_' . time() . '_' . $$,
+        pod           => 'test_pod',
+        circStatus    => 'ACTIVE',
         lastCircState => 'REQUESTED',
-        lastUpdated => time(),
-        borrowerCode => 'TEST_BORROWER',
-        lenderCode => 'TEST_LENDER',
-        itemId => 'TEST_ITEM_123',
-        patronId => 'TEST_PATRON_456',
-        dateCreated => time(),
-        callNumber => 'TEST_CALL_123',
+        lastUpdated   => time(),
+        borrowerCode  => 'TEST_BORROWER',
+        lenderCode    => 'TEST_LENDER',
+        itemId        => 'TEST_ITEM_123',
+        patronId      => 'TEST_PATRON_456',
+        dateCreated   => time(),
+        callNumber    => 'TEST_CALL_123',
     };
-    
+
     my $action = RapidoILL::CircAction->new($test_data);
-    ok($action, 'Created new CircAction object');
-    is($action->circId, $test_data->{circId}, 'CircId matches test data');
-    is($action->pod, $test_data->{pod}, 'Pod matches test data');
+    ok( $action, 'Created new CircAction object' );
+    is( $action->circId, $test_data->{circId}, 'CircId matches test data' );
+    is( $action->pod,    $test_data->{pod},    'Pod matches test data' );
 };
 
 subtest 'CircActions collection' => sub {
     plan tests => 2;
-    
+
     my $actions = RapidoILL::CircActions->new;
-    ok($actions, 'Created CircActions collection');
-    isa_ok($actions, 'RapidoILL::CircActions', 'Collection has correct type');
+    ok( $actions, 'Created CircActions collection' );
+    isa_ok( $actions, 'RapidoILL::CircActions', 'Collection has correct type' );
 };
 
 subtest 'Constraint logic validation' => sub {
     plan tests => 4;
-    
+
     # Test the constraint fields that should be unique together
-    my $constraint_fields = ['circId', 'pod', 'circStatus', 'lastCircState'];
-    
-    is(scalar @$constraint_fields, 4, 'Constraint has 4 fields');
-    is($constraint_fields->[0], 'circId', 'First constraint field is circId');
-    is($constraint_fields->[1], 'pod', 'Second constraint field is pod');
-    is($constraint_fields->[2], 'circStatus', 'Third constraint field is circStatus');
+    my $constraint_fields = [ 'circId', 'pod', 'circStatus', 'lastCircState' ];
+
+    is( scalar @$constraint_fields, 4,            'Constraint has 4 fields' );
+    is( $constraint_fields->[0],    'circId',     'First constraint field is circId' );
+    is( $constraint_fields->[1],    'pod',        'Second constraint field is pod' );
+    is( $constraint_fields->[2],    'circStatus', 'Third constraint field is circStatus' );
 };

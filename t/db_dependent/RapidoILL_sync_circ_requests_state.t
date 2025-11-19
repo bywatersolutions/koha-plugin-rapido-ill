@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This file is part of the Rapido ILL plugin
 #
@@ -80,27 +80,28 @@ subtest 'sync_circ_requests - default state parameter' => sub {
     # Mock the RapidoILL::Client module
     my $client_module = Test::MockModule->new('RapidoILL::Client');
     my $captured_params;
-    
-    $client_module->mock('circulation_requests', sub {
-        my ($self, $params) = @_;
-        $captured_params = $params;
-        return []; # Return empty array for testing
-    });
+
+    $client_module->mock(
+        'circulation_requests',
+        sub {
+            my ( $self, $params ) = @_;
+            $captured_params = $params;
+            return [];    # Return empty array for testing
+        }
+    );
 
     # Call sync_circ_requests without state parameter
-    my $results = $plugin->sync_circ_requests({
-        pod => t::lib::Mocks::Rapido::POD
-    });
+    my $results = $plugin->sync_circ_requests( { pod => t::lib::Mocks::Rapido::POD } );
 
     # Verify default state was used
     is_deeply(
         $captured_params->{state},
-        ['ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED'],
+        [ 'ACTIVE', 'COMPLETED', 'CANCELED', 'CREATED' ],
         'Default state parameter used when not specified'
     );
 
     # Verify results structure
-    is(ref($results), 'HASH', 'Returns hash reference');
+    is( ref($results), 'HASH', 'Returns hash reference' );
 };
 
 subtest 'sync_circ_requests - custom state parameter' => sub {
@@ -109,19 +110,24 @@ subtest 'sync_circ_requests - custom state parameter' => sub {
     # Mock the RapidoILL::Client module
     my $client_module = Test::MockModule->new('RapidoILL::Client');
     my $captured_params;
-    
-    $client_module->mock('circulation_requests', sub {
-        my ($self, $params) = @_;
-        $captured_params = $params;
-        return []; # Return empty array for testing
-    });
+
+    $client_module->mock(
+        'circulation_requests',
+        sub {
+            my ( $self, $params ) = @_;
+            $captured_params = $params;
+            return [];    # Return empty array for testing
+        }
+    );
 
     # Call sync_circ_requests with custom state parameter
-    my $custom_states = ['ACTIVE', 'COMPLETED'];
-    my $results = $plugin->sync_circ_requests({
-        pod   => t::lib::Mocks::Rapido::POD,
-        state => $custom_states
-    });
+    my $custom_states = [ 'ACTIVE', 'COMPLETED' ];
+    my $results       = $plugin->sync_circ_requests(
+        {
+            pod   => t::lib::Mocks::Rapido::POD,
+            state => $custom_states
+        }
+    );
 
     # Verify custom state was used
     is_deeply(
@@ -131,7 +137,7 @@ subtest 'sync_circ_requests - custom state parameter' => sub {
     );
 
     # Verify results structure
-    is(ref($results), 'HASH', 'Returns hash reference');
+    is( ref($results), 'HASH', 'Returns hash reference' );
 };
 
 subtest 'sync_circ_requests - single state parameter' => sub {
@@ -140,19 +146,24 @@ subtest 'sync_circ_requests - single state parameter' => sub {
     # Mock the RapidoILL::Client module
     my $client_module = Test::MockModule->new('RapidoILL::Client');
     my $captured_params;
-    
-    $client_module->mock('circulation_requests', sub {
-        my ($self, $params) = @_;
-        $captured_params = $params;
-        return []; # Return empty array for testing
-    });
+
+    $client_module->mock(
+        'circulation_requests',
+        sub {
+            my ( $self, $params ) = @_;
+            $captured_params = $params;
+            return [];    # Return empty array for testing
+        }
+    );
 
     # Call sync_circ_requests with single state
     my $single_state = ['ACTIVE'];
-    my $results = $plugin->sync_circ_requests({
-        pod   => t::lib::Mocks::Rapido::POD,
-        state => $single_state
-    });
+    my $results      = $plugin->sync_circ_requests(
+        {
+            pod   => t::lib::Mocks::Rapido::POD,
+            state => $single_state
+        }
+    );
 
     # Verify single state was used
     is_deeply(
@@ -162,7 +173,7 @@ subtest 'sync_circ_requests - single state parameter' => sub {
     );
 
     # Verify results structure
-    is(ref($results), 'HASH', 'Returns hash reference');
+    is( ref($results), 'HASH', 'Returns hash reference' );
 };
 
 subtest 'sync_circ_requests - state parameter with other params' => sub {
@@ -171,30 +182,35 @@ subtest 'sync_circ_requests - state parameter with other params' => sub {
     # Mock the RapidoILL::Client module
     my $client_module = Test::MockModule->new('RapidoILL::Client');
     my $captured_params;
-    
-    $client_module->mock('circulation_requests', sub {
-        my ($self, $params) = @_;
-        $captured_params = $params;
-        return []; # Return empty array for testing
-    });
+
+    $client_module->mock(
+        'circulation_requests',
+        sub {
+            my ( $self, $params ) = @_;
+            $captured_params = $params;
+            return [];    # Return empty array for testing
+        }
+    );
 
     # Call sync_circ_requests with all parameters
-    my $custom_states = ['COMPLETED', 'CANCELED'];
-    my $start_time = 1700000000;
-    my $end_time = 1800000000;
-    
-    my $results = $plugin->sync_circ_requests({
-        pod       => t::lib::Mocks::Rapido::POD,
-        state     => $custom_states,
-        startTime => $start_time,
-        endTime   => $end_time
-    });
+    my $custom_states = [ 'COMPLETED', 'CANCELED' ];
+    my $start_time    = 1700000000;
+    my $end_time      = 1800000000;
+
+    my $results = $plugin->sync_circ_requests(
+        {
+            pod       => t::lib::Mocks::Rapido::POD,
+            state     => $custom_states,
+            startTime => $start_time,
+            endTime   => $end_time
+        }
+    );
 
     # Verify all parameters were passed correctly
-    is_deeply($captured_params->{state}, $custom_states, 'Custom state parameter passed');
-    is($captured_params->{startTime}, $start_time, 'Start time parameter passed');
-    is($captured_params->{endTime}, $end_time, 'End time parameter passed');
-    is($captured_params->{content}, 'verbose', 'Content parameter set to verbose');
+    is_deeply( $captured_params->{state}, $custom_states, 'Custom state parameter passed' );
+    is( $captured_params->{startTime}, $start_time, 'Start time parameter passed' );
+    is( $captured_params->{endTime},   $end_time,   'End time parameter passed' );
+    is( $captured_params->{content},   'verbose',   'Content parameter set to verbose' );
 };
 
 $schema->storage->txn_rollback;

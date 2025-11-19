@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -11,7 +11,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 # This program comes with ABSOLUTELY NO WARRANTY;
 
@@ -165,16 +165,16 @@ Options:
 Examples:
     # Dump configuration to console
     config.pl --dump
-    
+
     # Dump configuration to file
     config.pl --dump --file config.yaml
-    
+
     # Load configuration from file
     config.pl --load --file config.yaml
-    
+
     # Load configuration from STDIN
     cat config.yaml | config.pl --load
-    
+
     # Force load configuration despite validation errors
     config.pl --load --file config.yaml --force
 

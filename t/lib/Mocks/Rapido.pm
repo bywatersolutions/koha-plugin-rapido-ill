@@ -15,7 +15,7 @@ package t::lib::Mocks::Rapido;
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with The Rapido ILL plugin; if not, see <http://www.gnu.org/licenses>.
+# along with The Rapido ILL plugin; if not, see <https://www.gnu.org/licenses>.
 
 use Modern::Perl;
 
@@ -30,7 +30,7 @@ t::lib::Mocks::Rapido - Mock RapidoILL plugin for testing
 =head1 SYNOPSIS
 
     use t::lib::Mocks::Rapido;
-    
+
     my $plugin = t::lib::Mocks::Rapido->new({
         library  => $library,
         category => $category,
@@ -48,7 +48,7 @@ test configuration, following Koha's t::lib::Mocks pattern.
 
     my $plugin = t::lib::Mocks::Rapido->new({
         library  => $library,   # Koha::Library object
-        category => $category,  # Koha::Patron::Category object  
+        category => $category,  # Koha::Patron::Category object
         itemtype => $itemtype   # Koha::ItemType object
     });
 

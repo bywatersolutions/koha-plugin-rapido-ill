@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This file is part of the Rapido ILL plugin
 #
@@ -55,10 +55,10 @@ subtest 'Object instantiation and basic properties' => sub {
 
     ok( $task, 'Task created successfully' );
     isa_ok( $task, 'RapidoILL::QueuedTask', 'Object has correct class' );
-    is( $task->object_type, 'ill',      'Object type set correctly' );
-    is( $task->action,      'fill',     'Action set correctly' );
+    is( $task->object_type, 'ill',                      'Object type set correctly' );
+    is( $task->action,      'fill',                     'Action set correctly' );
     is( $task->pod,         t::lib::Mocks::Rapido::POD, 'Pod set correctly' );
-    is( $task->status,      'queued',   'Status set correctly' );
+    is( $task->status,      'queued',                   'Status set correctly' );
 
     $schema->storage->txn_rollback;
 };
@@ -534,8 +534,8 @@ subtest 'Default values and auto-increment' => sub {
             object_id   => 123,
             action      => 'fill',
             pod         => t::lib::Mocks::Rapido::POD,
-            status      => 'queued',     # Explicitly set since no database default
-            attempts    => 0             # Explicitly set since no database default
+            status      => 'queued',                     # Explicitly set since no database default
+            attempts    => 0                             # Explicitly set since no database default
         }
     )->store;
 

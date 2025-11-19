@@ -254,7 +254,7 @@ sub get_print_slip {
             lang                   => $req->patron->lang,
             tables                 => {
 
-                illrequests => $req->illrequest_id, 
+                illrequests => $req->illrequest_id,
                 borrowers => $req->borrowernumber,
                 biblio    => $req->biblio_id,
                 item      => $item_id,

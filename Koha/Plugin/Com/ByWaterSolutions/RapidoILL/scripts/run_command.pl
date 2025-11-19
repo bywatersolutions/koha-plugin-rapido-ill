@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Copyright 2025 ByWater Solutions
 #
@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with The Rapido ILL plugin; if not, see <http://www.gnu.org/licenses>.
+# along with The Rapido ILL plugin; if not, see <https://www.gnu.org/licenses>.
 
 use Modern::Perl;
 
@@ -87,8 +87,9 @@ if ( $lending && $borrowing ) {
     exit 1;
 }
 
-my @valid_lending   = qw(cancel_request final_checkin item_shipped process_renewal_decision);
-my @valid_borrowing = qw(borrower_cancel borrower_renew final_checkin item_in_transit item_received receive_unshipped return_uncirculated);
+my @valid_lending = qw(cancel_request final_checkin item_shipped process_renewal_decision);
+my @valid_borrowing =
+    qw(borrower_cancel borrower_renew final_checkin item_in_transit item_received receive_unshipped return_uncirculated);
 
 if ($list_commands) {
     if ($lending) {
@@ -166,7 +167,8 @@ unless ($req) {
 }
 
 try {
-    my $client_options = { skip_api_request => $skip_api_req } if $skip_api_req;
+    my $client_options;
+    $client_options = { skip_api_request => $skip_api_req } if $skip_api_req;
     $actions->$command( $req, { client_options => $client_options } );
     say "Command '$command' executed successfully for request $request_id";
 } catch {

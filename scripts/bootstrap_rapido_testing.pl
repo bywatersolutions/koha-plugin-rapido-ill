@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Bootstrap Script for Rapido ILL Plugin Testing
 # Sets up everything needed to test the Rapido plugin with mock API

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This file is part of the Rapido ILL plugin
 #
@@ -75,9 +75,9 @@ subtest 'APIHttpClient gets plugin reference for logger access' => sub {
         sub {
             return {
                 t::lib::Mocks::Rapido::POD => {
-                    client_id      => 'test_client',
-                    client_secret  => 'test_secret',
-                    base_url       => 'https://test.example.com',
+                    client_id     => 'test_client',
+                    client_secret => 'test_secret',
+                    base_url      => 'https://test.example.com',
                 }
             };
         }

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This file is part of the Rapido ILL plugin
 #
@@ -27,19 +27,19 @@ BEGIN {
 
 subtest 'Plugin metadata and methods' => sub {
     plan tests => 8;
-    
+
     # Test plugin metadata
     my $plugin_class = 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL';
-    
+
     # Core plugin methods
-    can_ok($plugin_class, 'new');
-    can_ok($plugin_class, 'install');
-    can_ok($plugin_class, 'upgrade');
-    
+    can_ok( $plugin_class, 'new' );
+    can_ok( $plugin_class, 'install' );
+    can_ok( $plugin_class, 'upgrade' );
+
     # Plugin-specific methods
-    can_ok($plugin_class, 'get_queued_tasks');
-    can_ok($plugin_class, 'get_client');
-    can_ok($plugin_class, 'get_borrower_actions');
-    can_ok($plugin_class, 'get_lender_actions');
-    can_ok($plugin_class, 'get_normalizer');
+    can_ok( $plugin_class, 'get_queued_tasks' );
+    can_ok( $plugin_class, 'get_client' );
+    can_ok( $plugin_class, 'get_borrower_actions' );
+    can_ok( $plugin_class, 'get_lender_actions' );
+    can_ok( $plugin_class, 'get_normalizer' );
 };
