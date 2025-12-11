@@ -65,7 +65,7 @@ jobs:
       run: |
         cd ../koha-testing-docker
         export KTD_HOME=$(pwd)
-        ktd --name rapidotest --wait-ready 120
+        ktd --name rapidotest --wait-ready 180
 
     - name: Install plugins in KTD
       run: |
