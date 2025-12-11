@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - [#136] Add pod validation logic to sync_requests.pl to ensure only configured pods are processed
+- [#137] Make `b_item_renewal` follow the current pattern of retrieving the pod from the ILL request instead of the task
 
 ## [1.0.20] 2025-11-19
 

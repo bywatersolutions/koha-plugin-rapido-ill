@@ -272,13 +272,13 @@ Handle the b_item_renewal action.
 sub b_item_renewal {
     my ($params) = @_;
 
-    my $task   = $params->{task};
-    my $plugin = $params->{plugin};
+    my $req = $params->{task}->ill_request;
+    my $pod = $params->{plugin}->get_req_pod($req);
 
-    my $payload = $task->decoded_payload();
+    my $payload = $params->{task}->decoded_payload();
 
-    $plugin->get_borrower_actions( $task->pod )->borrower_renew(
-        $task->ill_request,
+    $plugin->get_borrower_actions($pod)->borrower_renew(
+        $req,
         { due_date => $payload->{due_date} }
     );
 }
