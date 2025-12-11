@@ -792,9 +792,10 @@ subtest 'item_received() tests' => sub {
             }
         );
 
-        # Mock plugin get_client method
+        # Mock plugin get_client and validate_pod methods
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         my $result;
         lives_ok {
@@ -847,9 +848,10 @@ subtest 'item_received() tests' => sub {
         my $mock_client = Test::MockObject->new();
         $mock_client->mock( 'borrower_item_received', sub { die "API Error"; } );
 
-        # Mock plugin get_client method
+        # Mock plugin get_client and validate_pod methods
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         throws_ok {
             $plugin->get_borrower_actions('test_pod')->item_received($illrequest);
@@ -913,9 +915,10 @@ subtest 'return_uncirculated() tests' => sub {
             }
         );
 
-        # Mock plugin get_client method
+        # Mock plugin get_client and validate_pod methods
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         my $result;
         lives_ok {
@@ -972,9 +975,10 @@ subtest 'return_uncirculated() tests' => sub {
         my $mock_client = Test::MockObject->new();
         $mock_client->mock( 'borrower_return_uncirculated', sub { die "API Error"; } );
 
-        # Mock plugin get_client method
+        # Mock plugin get_client and validate_pod methods
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         throws_ok {
             $plugin->get_borrower_actions('test_pod')->return_uncirculated($illrequest);

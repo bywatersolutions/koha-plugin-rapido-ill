@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 8;
+use Test::More tests => 9;
 use Test::NoWarnings;
 use Test::Exception;
 use Test::Warn;
@@ -487,9 +487,123 @@ test-pod:
         throws_ok {
             $plugin->get_http_client('nonexistent-pod');
         }
-        'RapidoILL::Exception::MissingParameter', 'Dies for nonexistent pod configuration';
+        'RapidoILL::Exception::InvalidPod', 'Dies for nonexistent pod configuration';
 
-        is( $@->param, 'base_url', 'Exception indicates missing base_url from undefined configuration' );
+        is( $@->pod, 'nonexistent-pod', 'Exception indicates invalid pod' );
+    };
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'validate_pod() tests' => sub {
+    plan tests => 5;
+
+    $schema->storage->txn_begin;
+
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+    my $plugin = t::lib::Mocks::Rapido->new(
+        {
+            library  => $library,
+            category => $category,
+            itemtype => $itemtype,
+        }
+    );
+
+    # Add additional pods for testing missing configuration scenarios
+    my $test_config = $plugin->retrieve_data('configuration');
+    $test_config .= <<'EOF';
+incomplete-pod:
+  client_id: test_client
+  client_secret: test_secret
+  server_code: 67890
+missing-client-id:
+  base_url: https://test.example.com
+  client_secret: test_secret
+  server_code: 67890
+EOF
+
+    $plugin->store_data( { configuration => $test_config } );
+
+    subtest 'Valid pod passes validation' => sub {
+        plan tests => 1;
+
+        lives_ok {
+            $plugin->validate_pod( t::lib::Mocks::Rapido::POD );
+        }
+        'Valid pod with all required configuration passes validation';
+    };
+
+    subtest 'Missing pod parameter throws exception' => sub {
+        plan tests => 2;
+
+        throws_ok {
+            $plugin->validate_pod();
+        }
+        'RapidoILL::Exception::MissingParameter', 'Throws MissingParameter when pod is undef';
+
+        is( $@->param, 'pod', 'Exception indicates missing pod parameter' );
+    };
+
+    subtest 'Empty pod parameter throws exception' => sub {
+        plan tests => 2;
+
+        throws_ok {
+            $plugin->validate_pod('');
+        }
+        'RapidoILL::Exception::MissingParameter', 'Throws MissingParameter when pod is empty string';
+
+        is( $@->param, 'pod', 'Exception indicates missing pod parameter' );
+    };
+
+    subtest 'Nonexistent pod throws InvalidPod exception' => sub {
+        plan tests => 2;
+
+        throws_ok {
+            $plugin->validate_pod('nonexistent-pod');
+        }
+        'RapidoILL::Exception::InvalidPod', 'Throws InvalidPod when pod does not exist in configuration';
+
+        is( $@->pod, 'nonexistent-pod', 'Exception includes the invalid pod name' );
+    };
+
+    subtest 'Pod missing required configuration keys throws exception' => sub {
+        plan tests => 6;
+
+        # Missing base_url
+        throws_ok {
+            $plugin->validate_pod('incomplete-pod');
+        }
+        'RapidoILL::Exception::MissingConfigEntry', 'Throws MissingConfigEntry when base_url is missing';
+
+        like(
+            $@->entry,
+            qr/pod 'incomplete-pod' is missing required configuration: base_url/,
+            'Exception message indicates missing base_url'
+        );
+
+        # Missing client_id
+        throws_ok {
+            $plugin->validate_pod('missing-client-id');
+        }
+        'RapidoILL::Exception::MissingConfigEntry', 'Throws MissingConfigEntry when client_id is missing';
+
+        like(
+            $@->entry,
+            qr/pod 'missing-client-id' is missing required configuration: client_id/,
+            'Exception message indicates missing client_id'
+        );
+
+        # Test that the method returns 1 for valid pods
+        my $result;
+        lives_ok {
+            $result = $plugin->validate_pod( t::lib::Mocks::Rapido::POD );
+        }
+        'Valid pod does not throw exception';
+
+        is( $result, 1, 'validate_pod returns 1 for valid pods' );
     };
 
     $schema->storage->txn_rollback;

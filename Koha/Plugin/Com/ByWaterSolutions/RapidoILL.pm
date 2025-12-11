@@ -494,7 +494,32 @@ sub after_circ_action {
     return
         if $req->borrowernumber != $checkout->borrowernumber;
 
-    my $pod    = $self->get_req_pod($req);
+    my $pod = $self->get_req_pod($req);
+
+    # Validate pod before proceeding - prevents tasks with invalid pods from being created
+    unless ( defined $pod && $pod ne '' ) {
+        $self->logger->error(
+            sprintf(
+                "[after_circ_action] ILL request %s has no pod attribute - skipping circulation action %s",
+                $req->id, $action
+            )
+        );
+        return;
+    }
+
+    # Validate pod exists in configuration
+    try {
+        $self->validate_pod($pod);
+    } catch {
+        $self->logger->error(
+            sprintf(
+                "[after_circ_action] Invalid pod '%s' for ILL request %s - skipping circulation action %s: %s",
+                $pod, $req->id, $action, $_
+            )
+        );
+        return;
+    };
+
     my $config = $self->pod_config($pod);
 
     if ( $action eq 'checkout' ) {
@@ -1195,6 +1220,39 @@ sub pods {
     return \@pods;
 }
 
+=head3 validate_pod
+
+    $plugin->validate_pod($pod);
+
+Validates that the specified pod exists in the plugin configuration.
+Throws RapidoILL::Exception::InvalidPod if the pod is invalid.
+
+=cut
+
+sub validate_pod {
+    my ( $self, $pod ) = @_;
+
+    RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
+        unless defined $pod && $pod ne '';
+
+    my $config = $self->configuration->{$pod};
+
+    RapidoILL::Exception::InvalidPod->throw( pod => $pod )
+        unless defined $config && ref($config) eq 'HASH';
+
+    # Validate required configuration keys for API operations
+    my @required_keys = qw(base_url client_id client_secret);
+    foreach my $key (@required_keys) {
+        unless ( defined $config->{$key} && $config->{$key} ne '' ) {
+            RapidoILL::Exception::MissingConfigEntry->throw(
+                entry => "pod '$pod' is missing required configuration: $key"
+            );
+        }
+    }
+
+    return 1;
+}
+
 =head3 pod_config
 
     my $config = $plugin->pod_config($pod);
@@ -1296,6 +1354,9 @@ sub get_http_client {
     RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
         unless $pod;
 
+    # Validate pod exists in configuration with required keys
+    $self->validate_pod($pod);
+
     require RapidoILL::APIHttpClient;
 
     my $configuration = $self->configuration->{$pod};
@@ -1342,6 +1403,9 @@ sub get_client {
     RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
         unless $pod;
 
+    # Validate pod exists in configuration with required keys
+    $self->validate_pod($pod);
+
     require RapidoILL::Client;
 
     my $configuration = $self->configuration->{$pod};
@@ -1372,6 +1436,9 @@ sub get_borrower_actions {
     RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
         unless $pod;
 
+    # Validate pod exists in configuration
+    $self->validate_pod($pod);
+
     require RapidoILL::Backend::BorrowerActions;
 
     unless ( $self->{borrower_actions}->{$pod} ) {
@@ -1399,6 +1466,9 @@ sub get_lender_actions {
 
     RapidoILL::Exception::MissingParameter->throw( param => 'pod' )
         unless $pod;
+
+    # Validate pod exists in configuration
+    $self->validate_pod($pod);
 
     require RapidoILL::Backend::LenderActions;
 

@@ -26,7 +26,7 @@ BEGIN {
 }
 
 subtest 'Plugin metadata and methods' => sub {
-    plan tests => 8;
+    plan tests => 9;
 
     # Test plugin metadata
     my $plugin_class = 'Koha::Plugin::Com::ByWaterSolutions::RapidoILL';
@@ -42,4 +42,5 @@ subtest 'Plugin metadata and methods' => sub {
     can_ok( $plugin_class, 'get_borrower_actions' );
     can_ok( $plugin_class, 'get_lender_actions' );
     can_ok( $plugin_class, 'get_normalizer' );
+    can_ok( $plugin_class, 'validate_pod' );
 };

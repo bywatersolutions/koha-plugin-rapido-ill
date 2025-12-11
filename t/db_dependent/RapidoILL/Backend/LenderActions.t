@@ -218,6 +218,7 @@ subtest 'cancel_request() tests' => sub {
 
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         # DESIRED BEHAVIOR: Should succeed with warning instead of throwing exception
         my $result;
@@ -273,6 +274,7 @@ subtest 'cancel_request() tests' => sub {
 
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         # DESIRED BEHAVIOR: Should succeed with warning instead of throwing exception
         my $result;
