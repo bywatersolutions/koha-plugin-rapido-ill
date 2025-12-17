@@ -67,6 +67,8 @@ dev03-na:
   max_debt_blocks_holds: 100
   expiration_blocks_holds: true
   restriction_blocks_holds: true
+  due_date_buffer_days: 7
+  renewal_buffer_days: 7
   # Development mode
   dev_mode: false
   default_retry_delay: 120
@@ -78,6 +80,8 @@ dev03-na:
 - `partners_library` (default): Use the configured `partners_library_id`
 - `homebranch`: Use the item's home branch
 - `holdingbranch`: Use the item's holding branch
+- `due_date_buffer_days`: Number of days Rapido added to the actual due date. To be subtracted from the due date when processing circulation updates.
+- `renewal_buffer_days`: Number of days Rapido added to the actual due date. To be subtracted from the due date when processing circulation updates.
 
 ### Task Queue Daemon
 

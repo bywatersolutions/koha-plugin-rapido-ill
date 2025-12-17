@@ -200,6 +200,8 @@ sub configuration {
             $configuration->{$pod}->{max_debt_blocks_holds}    //= 100;
             $configuration->{$pod}->{expiration_blocks_holds}  //= 1;
             $configuration->{$pod}->{restriction_blocks_holds} //= 1;
+            $configuration->{$pod}->{due_date_buffer_days}     //= 7;
+            $configuration->{$pod}->{renewal_buffer_days}      //= 7;
         }
 
         $self->{_configuration} = $configuration;
@@ -1245,8 +1247,7 @@ sub validate_pod {
     foreach my $key (@required_keys) {
         unless ( defined $config->{$key} && $config->{$key} ne '' ) {
             RapidoILL::Exception::MissingConfigEntry->throw(
-                entry => "pod '$pod' is missing required configuration: $key"
-            );
+                entry => "pod '$pod' is missing required configuration: $key" );
         }
     }
 
