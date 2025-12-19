@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] 2025-12-19
+
+### Added
+- [#140] Buffer day functionality for due dates - adds configurable buffer days that are subtracted from Rapido due dates to create earlier local due dates, ensuring patrons return items with time to spare before the actual Rapido deadline
+- [#140] New plugin methods: `process_due_date_with_buffer()` and `add_buffer_to_due_date()` for handling buffer day calculations
+- [#140] Buffer day integration in item shipping and renewal workflows - stores original Rapido due date in `dueDateWithBuffer` attribute while using buffered date locally
+- [#140] Configuration options: `due_date_buffer_days` and `renewal_buffer_days` for fine-grained control of buffer periods
+
 ## [1.0.22] 2025-12-11
 
 ### Added

@@ -371,10 +371,19 @@ sub borrower_renew {
                     }
                 }
 
+                # Add buffer days to the due date when sending to Rapido
+                my $due_datetime_with_buffer = $self->{plugin}->add_buffer_to_due_date(
+                    {
+                        due_date    => $due_datetime,
+                        pod         => $self->{pod},
+                        buffer_type => 'renewal'
+                    }
+                );
+
                 $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
                     {
                         circId      => $circId,
-                        dueDateTime => $due_datetime
+                        dueDateTime => $due_datetime_with_buffer
                     },
                     $options
                 );

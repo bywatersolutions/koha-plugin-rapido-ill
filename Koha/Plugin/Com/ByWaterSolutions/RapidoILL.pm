@@ -2792,4 +2792,68 @@ sub epoch_to_end_of_day {
     return $dt;
 }
 
+=head3 process_due_date_with_buffer
+
+    my ( $actual_due_date, $original_due_date ) = $plugin->process_due_date_with_buffer(
+        {
+            epoch       => $epoch,
+            pod         => $pod,
+            buffer_type => 'due_date',    # or 'renewal'
+        }
+    );
+
+Processes a due date epoch from Rapido by subtracting the configured buffer days.
+Returns both the actual due date (with buffer subtracted) and the original due date.
+
+=cut
+
+sub process_due_date_with_buffer {
+    my ( $self, $params ) = @_;
+
+    $self->validate_params( { required => [qw(epoch pod buffer_type)], params => $params } );
+
+    my $epoch       = $params->{epoch};
+    my $pod         = $params->{pod};
+    my $buffer_type = $params->{buffer_type};
+
+    my $config      = $self->configuration->{$pod};
+    my $buffer_key  = $buffer_type eq 'renewal' ? 'renewal_buffer_days' : 'due_date_buffer_days';
+    my $buffer_days = $config->{$buffer_key} // 7;
+
+    my $original_due_date = DateTime->from_epoch( epoch => $epoch );
+    my $actual_due_date   = $original_due_date->clone->subtract( days => $buffer_days );
+
+    return ( $actual_due_date, $original_due_date );
+}
+
+=head3 add_buffer_to_due_date
+
+    my $due_date_with_buffer = $plugin->add_buffer_to_due_date(
+        {
+            due_date    => $due_date,
+            pod         => $pod,
+            buffer_type => 'renewal',    # or 'due_date'
+        }
+    );
+
+Adds the configured buffer days to a due date before sending to Rapido.
+
+=cut
+
+sub add_buffer_to_due_date {
+    my ( $self, $params ) = @_;
+
+    $self->validate_params( { required => [qw(due_date pod buffer_type)], params => $params } );
+
+    my $due_date    = $params->{due_date};
+    my $pod         = $params->{pod};
+    my $buffer_type = $params->{buffer_type};
+
+    my $config      = $self->configuration->{$pod};
+    my $buffer_key  = $buffer_type eq 'renewal' ? 'renewal_buffer_days' : 'due_date_buffer_days';
+    my $buffer_days = $config->{$buffer_key} // 7;
+
+    return $due_date->clone->add( days => $buffer_days );
+}
+
 1;

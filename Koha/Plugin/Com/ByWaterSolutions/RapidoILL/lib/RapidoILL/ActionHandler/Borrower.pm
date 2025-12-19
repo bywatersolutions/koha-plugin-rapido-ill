@@ -256,19 +256,31 @@ sub item_shipped {
             # We need to store the hold_id
             $attributes->{hold_id} = $hold_id;
 
-            # Update attributes
+            my $due_date;
+
+            # Set due_date from dueDateTime epoch if available
+            if ( $action->dueDateTime ) {
+                my ( $actual_due_date, $original_due_date ) = $self->{plugin}->process_due_date_with_buffer(
+                    {
+                        epoch       => $action->dueDateTime,
+                        pod         => $action->pod,
+                        buffer_type => 'due_date'
+                    }
+                );
+
+                # Store the original due date (with buffer) as an attribute
+                $attributes->{dueDateWithBuffer} = $original_due_date->datetime();
+
+                $due_date = $actual_due_date;
+            }
+
+            # Update attributes (including DateDueWithBuffer if set)
             $self->{plugin}->add_or_update_attributes(
                 {
                     attributes => $attributes,
                     request    => $req,
                 }
             );
-
-            my $due_date;
-
-            # Set due_date from dueDateTime epoch if available
-            $due_date = DateTime->from_epoch( epoch => $action->dueDateTime )
-                if $action->dueDateTime;
 
             $req->set(
                 {
@@ -304,8 +316,25 @@ sub owner_renew {
             my $due_date;
 
             # Set due_date from dueDateTime epoch if available
-            $due_date = DateTime->from_epoch( epoch => $action->dueDateTime )
-                if $action->dueDateTime;
+            if ( $action->dueDateTime ) {
+                my ( $actual_due_date, $original_due_date ) = $self->{plugin}->process_due_date_with_buffer(
+                    {
+                        epoch       => $action->dueDateTime,
+                        pod         => $action->pod,
+                        buffer_type => 'renewal'
+                    }
+                );
+
+                # Store the original due date (with buffer) as an attribute
+                $self->{plugin}->add_or_update_attributes(
+                    {
+                        attributes => { dueDateWithBuffer => $original_due_date->datetime() },
+                        request    => $req,
+                    }
+                );
+
+                $due_date = $actual_due_date;
+            }
 
             $req->set(
                 {

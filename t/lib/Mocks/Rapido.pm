@@ -79,6 +79,8 @@ test-pod:
   default_patron_agency: TEST_AGENCY
   renewal_accepted_note: Renewal accepted
   renewal_request_note: Renewal requested
+  due_date_buffer_days: 7
+  renewal_buffer_days: 7
   lending:
     automatic_final_checkin: false
     automatic_item_shipped: false

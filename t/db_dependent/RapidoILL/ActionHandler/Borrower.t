@@ -20,6 +20,7 @@ use Modern::Perl;
 use Test::More tests => 14;
 use Test::NoWarnings;
 use Test::MockObject;
+use Test::MockModule;
 use Test::Exception;
 
 use t::lib::TestBuilder;
@@ -264,9 +265,11 @@ subtest 'item_shipped() tests' => sub {
         }
     );
 
-    # Mock plugin with required methods
-    my $mock_plugin = Test::MockObject->new();
-    $mock_plugin->mock(
+    # Mock the plugin module methods before instantiation
+    my $rapido_mock = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+    my $captured_attributes;
+
+    $rapido_mock->mock(
         'add_virtual_record_and_item',
         sub {
             my ( $self, $params ) = @_;
@@ -278,12 +281,22 @@ subtest 'item_shipped() tests' => sub {
             return $mock_item;
         }
     );
-    $mock_plugin->mock( 'add_hold',                 sub { return 789; } );    # Return hold_id
-    $mock_plugin->mock( 'add_or_update_attributes', sub { return; } );
-    $mock_plugin->mock(
-        'configuration',
+    $rapido_mock->mock( 'add_hold', sub { return 789; } );
+    $rapido_mock->mock(
+        'add_or_update_attributes',
         sub {
-            return { 'test_pod' => { default_hold_note => 'Test hold' } };
+            my ( $self, $request, $attributes ) = @_;
+            $captured_attributes = $attributes;
+            return;
+        }
+    );
+
+    # Now instantiate the plugin with the mocked methods
+    my $mock_plugin = t::lib::Mocks::Rapido->new(
+        {
+            library  => $library,
+            category => $builder->build_object( { class => 'Koha::Patron::Categories' } ),
+            itemtype => $builder->build_object( { class => 'Koha::ItemTypes' } )
         }
     );
 
@@ -328,9 +341,12 @@ subtest 'item_shipped() tests' => sub {
     is( $ill_request->status,    'B_ITEM_SHIPPED', 'ILL request status updated correctly' );
     is( $ill_request->biblio_id, 123,              'Biblio ID was set correctly' );
 
-    # Verify due_date was set from dueDateTime epoch
+    # Verify due_date was set from dueDateTime epoch (with buffer days subtracted)
     ok( $ill_request->due_date, 'due_date was set from dueDateTime' );
-    like( $ill_request->due_date, qr/2025-01-01/, 'due_date contains expected date from epoch' );
+    like(
+        $ill_request->due_date, qr/2024-12-25/,
+        'due_date contains expected date from epoch (7 days before 2025-01-01)'
+    );
 
     # Test without dueDateTime (should not set due_date)
     my $ill_request2 = $builder->build_object(
@@ -370,7 +386,7 @@ subtest 'item_shipped() tests' => sub {
     is( $ill_request2->due_date, $initial_due_date, 'due_date unchanged when dueDateTime is undefined' );
 
     # Test barcode collision handling
-    $mock_plugin->mock(
+    $rapido_mock->mock(
         'add_virtual_record_and_item',
         sub {
             # Simulate barcode collision by throwing an error first time
@@ -486,14 +502,21 @@ subtest 'owner_renew() tests' => sub {
     is( $ill_request->status, 'B_ITEM_RENEWAL_ACCEPTED', 'Status updated to B_ITEM_RENEWAL_ACCEPTED' );
     ok( $ill_request->due_date, 'due_date was set from dueDateTime' );
 
-    # Verify the due_date contains the expected date (format may vary)
-    my $expected_date =
-        DateTime->from_epoch( epoch => $due_epoch )->ymd . ' ' . DateTime->from_epoch( epoch => $due_epoch )->hms;
-    like( $ill_request->due_date, qr/\Q$expected_date\E/, 'due_date contains expected date from epoch' );
+    # Verify the due_date contains the expected date (7 days earlier due to buffer)
+    my $expected_date_with_buffer = DateTime->from_epoch( epoch => $due_epoch );
+    my $expected_date             = $expected_date_with_buffer->clone->subtract( days => 7 );
+    my $expected_date_str         = $expected_date->ymd . ' ' . $expected_date->hms;
+    like(
+        $ill_request->due_date, qr/\Q$expected_date_str\E/,
+        'due_date contains expected date from epoch (with buffer subtracted)'
+    );
 
-    # [#61] Verify checkout due date was also updated
+    # [#61] Verify checkout due date was also updated (with buffer subtracted)
     $checkout->discard_changes;
-    like( $checkout->date_due, qr/\Q$expected_date\E/, 'checkout due_date updated to match renewal date' );
+    like(
+        $checkout->date_due, qr/\Q$expected_date_str\E/,
+        'checkout due_date updated to match renewal date (with buffer subtracted)'
+    );
 
     # Test owner_renew without dueDateTime
     my $circ_action2 = $builder->build_object(

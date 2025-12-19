@@ -80,8 +80,8 @@ dev03-na:
 - `partners_library` (default): Use the configured `partners_library_id`
 - `homebranch`: Use the item's home branch
 - `holdingbranch`: Use the item's holding branch
-- `due_date_buffer_days`: Number of days Rapido added to the actual due date. To be subtracted from the due date when processing circulation updates.
-- `renewal_buffer_days`: Number of days Rapido added to the actual due date. To be subtracted from the due date when processing circulation updates.
+- `due_date_buffer_days`: Number of buffer days Rapido adds to due dates for initial loans. When processing ITEM_SHIPPED actions, this number of days is subtracted from the received due date to get the actual due date stored in Koha. The original due date (with buffer) is stored in the `dueDateWithBuffer` attribute. Default: 7 days.
+- `renewal_buffer_days`: Number of buffer days Rapido adds to due dates for renewals. When processing OWNER_RENEW actions, this number of days is subtracted from the received due date. When sending renewal requests to Rapido, this number of days is added to the requested due date. Default: 7 days.
 
 ### Task Queue Daemon
 
