@@ -571,7 +571,7 @@ sub after_circ_action {
                     illrequest_id => $req->id,
                 }
             ) if $config->{lending}->{automatic_final_checkin};
-        } elsif ( any { $req->status eq $_ } qw{B_ITEM_RECEIVED B_ITEM_RECALLED} ) {
+        } elsif ( any { $req->status eq $_ } qw{B_ITEM_RECEIVED B_ITEM_RECALLED B_ITEM_RENEWAL_ACCEPTED} ) {
             $self->get_queued_tasks->enqueue(
                 {
                     object_type   => 'ill',
