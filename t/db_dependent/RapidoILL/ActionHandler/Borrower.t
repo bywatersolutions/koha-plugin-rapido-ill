@@ -918,7 +918,7 @@ subtest 'owner_cancel() tests' => sub {
     };
 
     subtest 'with virtual item cleanup' => sub {
-        plan tests => 3;
+        plan tests => 4;
 
         $schema->storage->txn_begin;
 
@@ -979,6 +979,10 @@ subtest 'owner_cancel() tests' => sub {
         is( $ill_request->status, 'B_CANCELLED_BY_OWNER', 'ILL request status updated to B_CANCELLED_BY_OWNER' );
 
         # Verify logging includes cancellation info
+        $logger->info_like(
+            qr/\[owner_cancel\] Deleted biblio \d+/,
+            'Biblio deletion logged'
+        );
         $logger->info_like(
             qr/Request cancelled by owner for ILL request \d+ \(circId: test-cancel-\d+\) - status set to B_CANCELLED_BY_OWNER/,
             'Owner cancellation logged correctly'
