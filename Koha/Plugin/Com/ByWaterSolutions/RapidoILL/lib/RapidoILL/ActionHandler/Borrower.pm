@@ -25,8 +25,6 @@ use JSON            qw( decode_json );
 use List::MoreUtils qw( any );
 use Try::Tiny       qw(catch try);
 
-use C4::Biblio qw(DelBiblio);
-
 use Koha::Biblios;
 use Koha::Checkouts;
 use Koha::Database;
@@ -516,25 +514,34 @@ sub owner_cancel {
 
             # Clean up virtual record if it exists
             if ( $req->biblio_id ) {
-                try {
-                    $self->{plugin}->cleanup_virtual_record(
+                my $biblio = Koha::Biblios->find( $req->biblio_id );
+                
+                if ($biblio) {
+                    my $error = $self->{plugin}->delete_virtual_biblio(
                         {
-                            biblio_id => $req->biblio_id,
-                            request   => $req,
+                            biblio  => $biblio,
+                            context => 'owner_cancel'
                         }
                     );
-                } catch {
 
-                    # Log cleanup failure but don't fail the cancellation
+                    if ($error) {
+                        $self->{plugin}->logger->warn(
+                            "[owner_cancel] Failed to delete biblio "
+                                . $req->biblio_id
+                                . " for ILL request "
+                                . $req->id
+                                . ": $error"
+                        );
+                    }
+                } else {
                     $self->{plugin}->logger->warn(
-                        sprintf(
-                            "Failed to cleanup virtual record for cancelled ILL request %d (biblio_id: %d): %s",
-                            $req->id,
-                            $req->biblio_id,
-                            $_
-                        )
+                        "[owner_cancel] Biblio "
+                            . $req->biblio_id
+                            . " not found for ILL request "
+                            . $req->id
+                            . " - biblio should have been created during item_shipped"
                     );
-                };
+                }
             }
 
             $self->{plugin}->logger->info(
