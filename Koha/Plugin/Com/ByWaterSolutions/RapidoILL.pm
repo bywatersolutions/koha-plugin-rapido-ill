@@ -492,11 +492,37 @@ sub after_circ_action {
     return
         unless $req;
 
+    my $pod = $self->get_req_pod($req);
+    my $config = $self->pod_config($pod);
+
+    # Debug logging if enabled
+    if ( $config->{debug_after_circ_action} ) {
+        $self->logger->debug(
+            sprintf(
+                "[after_circ_action][%s] BEGIN action='%s', checkout_id='%s'",
+                $checkout->id, $action, $checkout->id
+            )
+        );
+        $self->logger->debug(
+            sprintf(
+                "[after_circ_action][%s] REQ FOUND illrequest_id='%s'",
+                $checkout->id, $req->id
+            )
+        );
+    }
+
     # skip if checkout for another patron.
     return
         if $req->borrowernumber != $checkout->borrowernumber;
 
-    my $pod = $self->get_req_pod($req);
+    if ( $config->{debug_after_circ_action} ) {
+        $self->logger->debug(
+            sprintf(
+                "[after_circ_action][%s] BORROWERNUMBER MATCHES borrowernumber='%s'",
+                $checkout->id, $req->borrowernumber
+            )
+        );
+    }
 
     # Validate pod before proceeding - prevents tasks with invalid pods from being created
     unless ( defined $pod && $pod ne '' ) {
@@ -509,6 +535,15 @@ sub after_circ_action {
         return;
     }
 
+    if ( $config->{debug_after_circ_action} ) {
+        $self->logger->debug(
+            sprintf(
+                "[after_circ_action][%s] POD FOUND pod='%s'",
+                $checkout->id, $pod
+            )
+        );
+    }
+
     # Validate pod exists in configuration
     try {
         $self->validate_pod($pod);
@@ -519,15 +554,44 @@ sub after_circ_action {
                 $pod, $req->id, $action, $_
             )
         );
+        if ( $config->{debug_after_circ_action} ) {
+            $self->logger->debug(
+                sprintf(
+                    "[after_circ_action][%s] INVALID POD '%s'",
+                    $checkout->id, $_
+                )
+            );
+        }
         return;
     };
 
-    my $config = $self->pod_config($pod);
+    if ( $config->{debug_after_circ_action} ) {
+        $self->logger->debug(
+            sprintf(
+                "[after_circ_action][%s] POD VALID pod='%s'",
+                $checkout->id, $pod
+            )
+        );
+        $self->logger->debug(
+            sprintf(
+                "[after_circ_action][%s] AFTER CHECKS",
+                $checkout->id
+            )
+        );
+    }
 
     if ( $action eq 'checkout' ) {
 
         # FIXME: Should be handled through CirculateILL
         if ( any { $req->status eq $_ } qw{B_ITEM_RECEIVED} ) {
+            if ( $config->{debug_after_circ_action} ) {
+                $self->logger->debug(
+                    sprintf(
+                        "[after_circ_action][%s] ACTION checkout: updating checkout_id attribute",
+                        $checkout->id
+                    )
+                );
+            }
             $self->add_or_update_attributes(
                 {
                     request    => $req,
@@ -536,6 +600,15 @@ sub after_circ_action {
             );
         }
     } elsif ( $action eq 'renewal' ) {
+
+        if ( $config->{debug_after_circ_action} ) {
+            $self->logger->debug(
+                sprintf(
+                    "[after_circ_action][%s] ACTION renewal: enqueuing b_item_renewal task",
+                    $checkout->id
+                )
+            );
+        }
 
         # Notify renewal
         $self->get_queued_tasks->enqueue(
@@ -562,6 +635,14 @@ sub after_circ_action {
             O_ITEM_RECEIVED_DESTINATION)
             )
         {
+            if ( $config->{debug_after_circ_action} ) {
+                $self->logger->debug(
+                    sprintf(
+                        "[after_circ_action][%s] ACTION checkin: status=%s, automatic_final_checkin=%s",
+                        $checkout->id, $req->status, $config->{lending}->{automatic_final_checkin} ? 'enabled' : 'disabled'
+                    )
+                );
+            }
             $self->get_queued_tasks->enqueue(
                 {
                     object_type   => 'ill',
@@ -572,6 +653,14 @@ sub after_circ_action {
                 }
             ) if $config->{lending}->{automatic_final_checkin};
         } elsif ( any { $req->status eq $_ } qw{B_ITEM_RECEIVED B_ITEM_RECALLED B_ITEM_RENEWAL_ACCEPTED} ) {
+            if ( $config->{debug_after_circ_action} ) {
+                $self->logger->debug(
+                    sprintf(
+                        "[after_circ_action][%s] ACTION checkin: status=%s, automatic_item_in_transit=%s",
+                        $checkout->id, $req->status, $config->{borrowing}->{automatic_item_in_transit} ? 'enabled' : 'disabled'
+                    )
+                );
+            }
             $self->get_queued_tasks->enqueue(
                 {
                     object_type   => 'ill',

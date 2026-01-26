@@ -69,6 +69,8 @@ dev03-na:
   restriction_blocks_holds: true
   due_date_buffer_days: 7
   renewal_buffer_days: 7
+  # Debug options
+  debug_after_circ_action: false
   # Development mode
   dev_mode: false
   default_retry_delay: 120
@@ -80,8 +82,12 @@ dev03-na:
 - `partners_library` (default): Use the configured `partners_library_id`
 - `homebranch`: Use the item's home branch
 - `holdingbranch`: Use the item's holding branch
-- `due_date_buffer_days`: Number of buffer days Rapido adds to due dates for initial loans. When processing ITEM_SHIPPED actions, this number of days is subtracted from the received due date to get the actual due date stored in Koha. The original due date (with buffer) is stored in the `dueDateWithBuffer` attribute. Default: 7 days.
-- `renewal_buffer_days`: Number of buffer days Rapido adds to due dates for renewals. When processing OWNER_RENEW actions, this number of days is subtracted from the received due date. When sending renewal requests to Rapido, this number of days is added to the requested due date. Default: 7 days.
+
+**due_date_buffer_days**: Number of buffer days Rapido adds to due dates for initial loans. When processing ITEM_SHIPPED actions, this number of days is subtracted from the received due date to get the actual due date stored in Koha. The original due date (with buffer) is stored in the `dueDateWithBuffer` attribute. Default: 7 days.
+
+**renewal_buffer_days**: Number of buffer days Rapido adds to due dates for renewals. When processing OWNER_RENEW actions, this number of days is subtracted from the received due date. When sending renewal requests to Rapido, this number of days is added to the requested due date. Default: 7 days.
+
+**debug_after_circ_action**: Enable detailed debug logging for the `after_circ_action` hook, including action types, request lookups, status checks, and task enqueueing. Useful for troubleshooting circulation-triggered ILL workflows. Default: false.
 
 ### Task Queue Daemon
 

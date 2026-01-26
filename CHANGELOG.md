@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - [#141] Add `delete_virtual_biblio()` wrapper method for safe deletion of virtual biblio records, items, and holds created for ILL requests
+- [#142] Add configurable debug logging to `after_circ_action` hook via `debug_after_circ_action` pod configuration option
 
 ### Fixed
 - [#141] Fix `owner_cancel` in ActionHandler/Borrower to use `delete_virtual_biblio()` instead of non-existent `cleanup_virtual_record()`
