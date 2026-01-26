@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#141] Fix `owner_cancel` in ActionHandler/Borrower to use `delete_virtual_biblio()` instead of non-existent `cleanup_virtual_record()`
 - [#141] Update `item_in_transit` in BorrowerActions to use `delete_virtual_biblio()` wrapper with proper error handling
 - [#141] Update `return_uncirculated` in BorrowerActions to use `delete_virtual_biblio()` wrapper, eliminating manual item and hold deletion code
+- [#143] Increase CI KTD startup timeout from 180 to 240 seconds to prevent random timeout failures
 
 ## [1.1.0] 2025-12-19
 
