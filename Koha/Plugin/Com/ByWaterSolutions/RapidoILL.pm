@@ -30,7 +30,7 @@ use Try::Tiny;
 use YAML::XS;
 
 use C4::Context;
-use C4::Biblio      qw(AddBiblio);
+use C4::Biblio      qw(AddBiblio DelBiblio);
 use C4::Circulation qw(AddIssue AddReturn);
 use C4::Reserves    qw(AddReserve CanItemBeReserved);
 
@@ -923,6 +923,78 @@ sub add_virtual_record_and_item {
     );
 
     return $item;
+}
+
+=head3 delete_virtual_biblio
+
+    my $error = $plugin->delete_virtual_biblio(
+        {
+            biblio  => $biblio,
+            context => 'return_uncirculated'    # optional, for logging
+        }
+    );
+
+Deletes a virtual biblio record and its items created for ILL requests.
+
+Parameters (hashref):
+- biblio: Koha::Biblio object (required)
+- context: String describing calling context for logging (optional)
+
+Returns undef on success or an error string on failure.
+
+This wrapper handles:
+- Deletion of all attached items with skip_record_index
+- Cancellation of all holds (via DelBiblio)
+- Deletion of the biblio record
+- Parameter validation via validate_params
+- Exception handling
+- Context-aware logging
+
+=cut
+
+sub delete_virtual_biblio {
+    my ( $self, $params ) = @_;
+
+    $self->validate_params(
+        {
+            required => ['biblio'],
+            params   => $params,
+        }
+    );
+
+    my $biblio  = $params->{biblio};
+    my $context = $params->{context} || 'delete_virtual_biblio';
+    my $biblionumber = $biblio->id;
+    my $error;
+
+    try {
+        # Delete all items first
+        my $items      = $biblio->items;
+        my $item_count = 0;
+
+        while ( my $item = $items->next ) {
+            $item->safe_delete( { skip_record_index => 1 } );
+            $item_count++;
+        }
+
+        if ( $item_count > 0 ) {
+            $self->logger->debug("[$context] Deleted $item_count item(s) for biblio $biblionumber");
+        }
+
+        # Delete the biblio record
+        $error = C4::Biblio::DelBiblio($biblionumber);
+
+        if ($error) {
+            $self->logger->error("[$context] Failed to delete biblio $biblionumber: $error");
+        } else {
+            $self->logger->info("[$context] Deleted biblio $biblionumber");
+        }
+    } catch {
+        $error = "Exception deleting biblio $biblionumber: $_";
+        $self->logger->error("[$context] $error");
+    };
+
+    return $error;
 }
 
 =head3 generate_patron_for_agency

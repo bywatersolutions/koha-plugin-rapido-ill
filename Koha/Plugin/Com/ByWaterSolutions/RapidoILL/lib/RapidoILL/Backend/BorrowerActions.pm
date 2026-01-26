@@ -22,7 +22,6 @@ use Modern::Perl;
 use Try::Tiny qw(catch try);
 use Koha::Database;
 use Koha::DateUtils qw( dt_from_string );
-use C4::Biblio      qw( DelBiblio );
 
 use RapidoILL::Exceptions;
 
@@ -480,49 +479,21 @@ sub return_uncirculated {
 
                 if ($biblio) {
 
-                    # Remove hold(s) - should be exactly one hold for the requesting patron
-                    my $holds      = $biblio->holds;
-                    my $hold_count = 0;
+                    # Delete the biblio record, its items, and holds
+                    my $error = $self->{plugin}->delete_virtual_biblio(
+                        {
+                            biblio  => $biblio,
+                            context => 'return_uncirculated'
+                        }
+                    );
 
-                    while ( my $hold = $holds->next ) {
-                        $hold->cancel;
-                        $hold_count++;
-                    }
-
-                    if ( $hold_count == 0 ) {
-                        $self->{plugin}->logger->warn( "[return_uncirculated] No holds found for biblio "
+                    if ($error) {
+                        $self->{plugin}->logger->error( "[return_uncirculated] Failed to delete biblio "
                                 . $req->biblio_id
-                                . " (ILL request "
+                                . " for ILL request "
                                 . $req->id
-                                . ") - hold should have been created during item_shipped" );
+                                . ": $error" );
                     }
-
-                    # Remove item(s) - should be exactly one item created during item_shipped
-                    my $items      = $biblio->items;
-                    my $item_count = 0;
-
-                    while ( my $item = $items->next ) {
-                        $item->safe_delete;
-                        $item_count++;
-                    }
-
-                    if ( $item_count == 0 ) {
-                        $self->{plugin}->logger->warn( "[return_uncirculated] No items found for biblio "
-                                . $req->biblio_id
-                                . " (ILL request "
-                                . $req->id
-                                . ") - item should have been created during item_shipped" );
-                    } elsif ( $item_count > 1 ) {
-                        $self->{plugin}
-                            ->logger->warn( "[return_uncirculated] Multiple items ($item_count) found for biblio "
-                                . $req->biblio_id
-                                . " (ILL request "
-                                . $req->id
-                                . ") - expected exactly one item" );
-                    }
-
-                    # Delete the biblio record
-                    DelBiblio( $req->biblio_id );
                 } else {
                     $self->{plugin}->logger->warn( "[return_uncirculated] Biblio "
                             . $req->biblio_id

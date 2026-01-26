@@ -770,8 +770,8 @@ export KTD_HOME=/path/to/koha-testing-docker
 export PLUGINS_DIR=/path/to/plugins/parent/dir
 export SYNC_REPO=/path/to/kohaclone
 
-# Launch KTD with plugins
-ktd --name rapido --plugins up -d
+# Launch KTD with single plugin (recommended to avoid plugin interference)
+ktd --name rapido --single-plugin $PLUGINS_DIR/rapido-ill up -d
 ktd --name rapido --wait-ready 120
 
 # Install plugin
@@ -898,7 +898,16 @@ The plugin includes comprehensive test coverage across multiple areas:
 
 #### Running Tests
 
+**Note**: Use `--single-plugin` to avoid interference from other plugins during testing.
+
 ```bash
+# Launch KTD with single plugin
+ktd --name rapido --single-plugin $PLUGINS_DIR/rapido-ill up -d
+ktd --name rapido --wait-ready 120
+
+# Install plugin
+ktd --name rapido --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
+
 # Get into KTD shell
 ktd --name rapido --shell
 
