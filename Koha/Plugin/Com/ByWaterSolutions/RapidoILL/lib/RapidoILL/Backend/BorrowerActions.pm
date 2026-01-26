@@ -242,15 +242,32 @@ sub item_in_transit {
 
                 my $biblio = Koha::Biblios->find( $req->biblio_id );
 
-                if ($biblio) {    # is the biblio still on the database
-                                  # Remove the virtual items. there should only be one
-                    my $items = $biblio->items;
-                    while ( my $item = $items->next ) {
-                        $item->delete;
-                    }
+                if ($biblio) {
+                    # Delete the biblio record, its items, and holds
+                    my $error = $self->{plugin}->delete_virtual_biblio(
+                        {
+                            biblio  => $biblio,
+                            context => 'item_in_transit'
+                        }
+                    );
 
-                    # Remove the virtual biblio
-                    $biblio->delete;
+                    if ($error) {
+                        $self->{plugin}->logger->error(
+                            "[item_in_transit] Failed to delete biblio "
+                                . $req->biblio_id
+                                . " for ILL request "
+                                . $req->id
+                                . ": $error"
+                        );
+                    }
+                } else {
+                    $self->{plugin}->logger->warn(
+                        "[item_in_transit] Biblio "
+                            . $req->biblio_id
+                            . " not found for ILL request "
+                            . $req->id
+                            . " - biblio should have been created during item_shipped"
+                    );
                 }
 
                 $req->status('B_ITEM_IN_TRANSIT')->store;
