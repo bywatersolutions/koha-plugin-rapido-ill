@@ -313,6 +313,7 @@ subtest 'item_shipped() tests' => sub {
     $mock_action->set_always( 'ill_request', $ill_request );
     $mock_action->set_always( 'pod',         'test_pod' );
     $mock_action->set_always( 'callNumber',  'TEST CALL NUMBER' );
+    $mock_action->set_always( 'centralItemType', 200 );
 
     # Set all the required action attributes
     my @action_attributes = qw(
@@ -371,6 +372,7 @@ subtest 'item_shipped() tests' => sub {
     $mock_action2->set_always( 'pod',         'test_pod' );
     $mock_action2->set_always( 'callNumber',  'TEST CALL NUMBER 2' );
     $mock_action2->set_always( 'dueDateTime', undef );                  # No due date
+    $mock_action2->set_always( 'centralItemType', 200 );
 
     foreach my $attr (@action_attributes) {
         $mock_action2->set_always( $attr, "test_$attr" );

@@ -177,6 +177,7 @@ sub item_shipped {
         author             => $action->author,
         borrowerCode       => $action->borrowerCode,
         callNumber         => $action->callNumber,
+        centralItemType    => $action->centralItemType,
         circ_action_id     => $action->circ_action_id,
         circId             => $action->circId,
         circStatus         => $action->circStatus,
@@ -228,6 +229,15 @@ sub item_shipped {
 
             my $config = $self->{plugin}->configuration->{ $action->pod };
 
+            # Resolve item type from centralItemType if present
+            my $item_type = $self->{plugin}->get_item_type_from_central(
+                {
+                    central_item_type => $action->centralItemType,
+                    pod               => $action->pod,
+                    fallback          => $config->{default_item_type} // 'ILL',
+                }
+            );
+
             # Create the MARC record and item
             my $item = $self->{plugin}->add_virtual_record_and_item(
                 {
@@ -235,6 +245,7 @@ sub item_shipped {
                     config      => $config,
                     call_number => $attributes->{callNumber},
                     barcode     => $barcode,
+                    item_type   => $item_type,
                 }
             );
 
@@ -515,7 +526,7 @@ sub owner_cancel {
             # Clean up virtual record if it exists
             if ( $req->biblio_id ) {
                 my $biblio = Koha::Biblios->find( $req->biblio_id );
-                
+
                 if ($biblio) {
                     my $error = $self->{plugin}->delete_virtual_biblio(
                         {
@@ -525,22 +536,18 @@ sub owner_cancel {
                     );
 
                     if ($error) {
-                        $self->{plugin}->logger->warn(
-                            "[owner_cancel] Failed to delete biblio "
+                        $self->{plugin}->logger->warn( "[owner_cancel] Failed to delete biblio "
                                 . $req->biblio_id
                                 . " for ILL request "
                                 . $req->id
-                                . ": $error"
-                        );
+                                . ": $error" );
                     }
                 } else {
-                    $self->{plugin}->logger->warn(
-                        "[owner_cancel] Biblio "
+                    $self->{plugin}->logger->warn( "[owner_cancel] Biblio "
                             . $req->biblio_id
                             . " not found for ILL request "
                             . $req->id
-                            . " - biblio should have been created during item_shipped"
-                    );
+                            . " - biblio should have been created during item_shipped" );
                 }
             }
 

@@ -81,6 +81,9 @@ test-pod:
   renewal_request_note: Renewal requested
   due_date_buffer_days: 7
   renewal_buffer_days: 7
+  central_item_type_mapping:
+    200: BOOK
+    500: DVD
   lending:
     automatic_final_checkin: false
     automatic_item_shipped: false

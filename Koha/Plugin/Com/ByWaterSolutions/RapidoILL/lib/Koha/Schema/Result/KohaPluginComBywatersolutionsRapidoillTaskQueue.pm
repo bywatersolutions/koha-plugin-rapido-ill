@@ -73,9 +73,8 @@ __PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_task_queue");
 
 =head2 last_error
 
-  data_type: 'varchar'
+  data_type: 'text'
   is_nullable: 1
-  size: 191
 
 =head2 timestamp
 
@@ -147,7 +146,7 @@ __PACKAGE__->add_columns(
   "attempts",
   { data_type => "integer", default_value => 0, is_nullable => 0 },
   "last_error",
-  { data_type => "varchar", is_nullable => 1, size => 191 },
+  { data_type => "text", is_nullable => 1 },
   "timestamp",
   {
     data_type => "timestamp",
@@ -180,8 +179,8 @@ __PACKAGE__->add_columns(
 __PACKAGE__->set_primary_key("id");
 
 
-# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-09-23 19:02:25
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:/a8HwLrQNpiEJTONDhBW4g
+# Created by DBIx::Class::Schema::Loader v0.07053 @ 2026-02-02 18:46:25
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:Ed/Fv1ygqJHQiUQtOskYrQ
 
 {
     no warnings 'redefine';

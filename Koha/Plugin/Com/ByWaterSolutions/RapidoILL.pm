@@ -70,7 +70,7 @@ BEGIN {
     Koha::Database->schema( { new => 1 } );
 }
 
-our $VERSION = "1.2.0";
+our $VERSION = "1.3.0";
 
 our $metadata = {
     name            => 'RapidoILL',
@@ -279,6 +279,7 @@ sub install {
                 `author`               LONGTEXT DEFAULT NULL,
                 `borrowerCode`         VARCHAR(191) NOT NULL,
                 `callNumber`           VARCHAR(191) NOT NULL,
+                `centralItemType`      INT NULL DEFAULT NULL,
                 `circId`               VARCHAR(191) NOT NULL,
                 `circStatus`           VARCHAR(191) NULL DEFAULT NULL,
                 `itemAgencyCode`       VARCHAR(191) NULL DEFAULT NULL,
@@ -414,6 +415,21 @@ sub upgrade {
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
 
+    $new_version = "1.3.0";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        # Add centralItemType column for item type mapping
+        unless ( $self->_column_exists( $circ_actions, 'centralItemType' ) ) {
+            $dbh->do(
+                "ALTER TABLE $circ_actions
+                ADD COLUMN `centralItemType` INT NULL DEFAULT NULL
+                AFTER `callNumber`"
+            );
+        }
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
     return 1;
 }
 
@@ -492,7 +508,7 @@ sub after_circ_action {
     return
         unless $req;
 
-    my $pod = $self->get_req_pod($req);
+    my $pod    = $self->get_req_pod($req);
     my $config = $self->pod_config($pod);
 
     # Debug logging if enabled
@@ -639,7 +655,8 @@ sub after_circ_action {
                 $self->logger->debug(
                     sprintf(
                         "[after_circ_action][%s] ACTION checkin: status=%s, automatic_final_checkin=%s",
-                        $checkout->id, $req->status, $config->{lending}->{automatic_final_checkin} ? 'enabled' : 'disabled'
+                        $checkout->id, $req->status,
+                        $config->{lending}->{automatic_final_checkin} ? 'enabled' : 'disabled'
                     )
                 );
             }
@@ -657,7 +674,8 @@ sub after_circ_action {
                 $self->logger->debug(
                     sprintf(
                         "[after_circ_action][%s] ACTION checkin: status=%s, automatic_item_in_transit=%s",
-                        $checkout->id, $req->status, $config->{borrowing}->{automatic_item_in_transit} ? 'enabled' : 'disabled'
+                        $checkout->id, $req->status,
+                        $config->{borrowing}->{automatic_item_in_transit} ? 'enabled' : 'disabled'
                     )
                 );
             }
@@ -914,6 +932,36 @@ Plugin hook for running nightly tasks
 
 =head2 Business methods
 
+=head3 get_item_type_from_central
+
+    my $item_type = $plugin->get_item_type_from_central(
+        {
+            central_item_type => 200,
+            pod               => 'pod_name',
+            fallback          => 'ILL',
+        }
+    );
+
+Resolves a centralItemType integer to a Koha item type using the configured mapping.
+Returns the mapped item type if found, otherwise returns the fallback.
+
+=cut
+
+sub get_item_type_from_central {
+    my ( $self, $args ) = @_;
+
+    my $central_item_type = $args->{central_item_type};
+    my $pod               = $args->{pod};
+    my $fallback          = $args->{fallback};
+
+    return $fallback unless defined $central_item_type;
+
+    my $config  = $self->configuration->{$pod};
+    my $mapping = $config->{central_item_type_mapping} // {};
+
+    return $mapping->{$central_item_type} // $fallback;
+}
+
 =head3 add_virtual_record_and_item
 
     my $item = add_virtual_record_and_item(
@@ -945,7 +993,7 @@ sub add_virtual_record_and_item {
     my $location       = $config->{default_location};
     my $notforloan     = $config->{default_notforloan} // -1;
     my $checkin_note   = $config->{default_checkin_note} || 'Additional processing required (ILL)';
-    my $item_type      = $config->{default_item_type} // 'ILL';
+    my $item_type      = $args->{item_type} // $config->{default_item_type} // 'ILL';
 
     my $materials;
 
@@ -1051,8 +1099,8 @@ sub delete_virtual_biblio {
         }
     );
 
-    my $biblio  = $params->{biblio};
-    my $context = $params->{context} || 'delete_virtual_biblio';
+    my $biblio       = $params->{biblio};
+    my $context      = $params->{context} || 'delete_virtual_biblio';
     my $biblionumber = $biblio->id;
     my $error;
 

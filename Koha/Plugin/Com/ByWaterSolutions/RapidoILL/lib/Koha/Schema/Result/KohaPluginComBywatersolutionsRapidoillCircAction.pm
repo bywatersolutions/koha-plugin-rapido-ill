@@ -54,6 +54,12 @@ __PACKAGE__->table("koha_plugin_com_bywatersolutions_rapidoill_circ_actions");
   is_nullable: 0
   size: 191
 
+=head2 centralItemType
+
+  accessor: 'central_item_type'
+  data_type: 'integer'
+  is_nullable: 1
+
 =head2 circId
 
   accessor: 'circ_id'
@@ -214,6 +220,12 @@ __PACKAGE__->add_columns(
     data_type => "varchar",
     is_nullable => 0,
     size => 191,
+  },
+  "centralItemType",
+  {
+    accessor    => "central_item_type",
+    data_type   => "integer",
+    is_nullable => 1,
   },
   "circId",
   {
@@ -384,8 +396,8 @@ __PACKAGE__->add_unique_constraint(
 );
 
 
-# Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-09-01 16:17:50
-# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:7SF6SroO2nsqRDblgPJzkg
+# Created by DBIx::Class::Schema::Loader v0.07053 @ 2026-02-02 18:46:25
+# DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:r015A3/uiUFfRRuH9tTvZg
 
 {
     no warnings 'redefine';

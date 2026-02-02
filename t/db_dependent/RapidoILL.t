@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 11;
+use Test::More tests => 12;
 use Test::NoWarnings;
 use Test::Exception;
 use Test::Warn;
@@ -82,6 +82,9 @@ test-pod:
   partners_category: ILL
   default_item_type: BOOK
   default_patron_agency: test_agency
+  central_item_type_mapping:
+    200: BOOK
+    500: DVD
   library_to_location:
     TST:
       location: TEST_LOC
@@ -710,6 +713,78 @@ subtest 'add_buffer_to_due_date() tests' => sub {
         $plugin->add_buffer_to_due_date( { due_date => $due_date } );
     }
     'RapidoILL::Exception::MissingParameter', 'Throws exception for missing parameters';
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'get_item_type_from_central() tests' => sub {
+    plan tests => 4;
+
+    $schema->storage->txn_begin;
+
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+    my $plugin = t::lib::Mocks::Rapido->new(
+        {
+            library  => $library,
+            category => $category,
+            itemtype => $itemtype
+        }
+    );
+
+    # Test with mapping present
+    is(
+        $plugin->get_item_type_from_central(
+            {
+                central_item_type => 200,
+                pod               => 'test-pod',
+                fallback          => 'ILL',
+            }
+        ),
+        'BOOK',
+        'Returns mapped item type for centralItemType 200'
+    );
+
+    # Test with unmapped centralItemType
+    is(
+        $plugin->get_item_type_from_central(
+            {
+                central_item_type => 999,
+                pod               => 'test-pod',
+                fallback          => 'ILL',
+            }
+        ),
+        'ILL',
+        'Returns fallback for unmapped centralItemType'
+    );
+
+    # Test with undefined centralItemType
+    is(
+        $plugin->get_item_type_from_central(
+            {
+                central_item_type => undef,
+                pod               => 'test-pod',
+                fallback          => 'ILL',
+            }
+        ),
+        'ILL',
+        'Returns fallback when centralItemType is undefined'
+    );
+
+    # Test with different mapping
+    is(
+        $plugin->get_item_type_from_central(
+            {
+                central_item_type => 500,
+                pod               => 'test-pod',
+                fallback          => 'ILL',
+            }
+        ),
+        'DVD',
+        'Returns mapped item type for centralItemType 500'
+    );
 
     $schema->storage->txn_rollback;
 };

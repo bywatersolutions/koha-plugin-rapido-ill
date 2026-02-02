@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - Unreleased
+## [1.3.0] - Unreleased
+
+### Added
+- [#146] Add `centralItemType` support in ITEM_SHIPPED sync messages with configurable mapping to Koha item types via `central_item_type_mapping` pod configuration
+- [#146] Add `get_item_type_from_central()` method to resolve centralItemType integers to Koha item types using configured mapping
+- [#146] Add `centralItemType` column to `circ_actions` table to store central item type values
+
+### Changed
+- [#146] Update `add_virtual_record_and_item()` to accept optional `item_type` parameter, allowing override of default item type
+- [#146] Update `item_shipped` handler to resolve and use centralItemType when present, falling back to `default_item_type` when not mapped or absent
+
+## [1.2.0] - 2026-01-26
 
 ### Added
 - [#141] Add `delete_virtual_biblio()` wrapper method for safe deletion of virtual biblio records, items, and holds created for ILL requests
