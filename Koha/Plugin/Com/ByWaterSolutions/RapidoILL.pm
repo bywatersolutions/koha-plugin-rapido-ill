@@ -74,7 +74,7 @@ our $VERSION = "1.3.0";
 
 our $metadata = {
     name            => 'RapidoILL',
-    author          => 'ByWater Solutions',
+    author          => 'Tomas Cohen Arazi, ByWater Solutions',
     date_authored   => '2025-01-29',
     date_updated    => "1970-01-01",
     minimum_version => '24.05',
