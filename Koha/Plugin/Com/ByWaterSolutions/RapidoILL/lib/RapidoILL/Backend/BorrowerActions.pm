@@ -243,6 +243,7 @@ sub item_in_transit {
                 my $biblio = Koha::Biblios->find( $req->biblio_id );
 
                 if ($biblio) {
+
                     # Delete the biblio record, its items, and holds
                     my $error = $self->{plugin}->delete_virtual_biblio(
                         {
@@ -252,22 +253,18 @@ sub item_in_transit {
                     );
 
                     if ($error) {
-                        $self->{plugin}->logger->error(
-                            "[item_in_transit] Failed to delete biblio "
+                        $self->{plugin}->logger->error( "[item_in_transit] Failed to delete biblio "
                                 . $req->biblio_id
                                 . " for ILL request "
                                 . $req->id
-                                . ": $error"
-                        );
+                                . ": $error" );
                     }
                 } else {
-                    $self->{plugin}->logger->warn(
-                        "[item_in_transit] Biblio "
+                    $self->{plugin}->logger->warn( "[item_in_transit] Biblio "
                             . $req->biblio_id
                             . " not found for ILL request "
                             . $req->id
-                            . " - biblio should have been created during item_shipped"
-                    );
+                            . " - biblio should have been created during item_shipped" );
                 }
 
                 $req->status('B_ITEM_IN_TRANSIT')->store;
@@ -336,7 +333,6 @@ to the lender.
 Parameters:
 - $ill_request: The ILL request object
 - $params: Optional hashref with:
-  - due_date: The new due date
   - client_options: Options to pass to the Rapido client
 
 =cut
@@ -354,11 +350,6 @@ sub borrower_renew {
             sub {
                 $req->status('B_ITEM_RENEWAL_REQUESTED')->store;
 
-                # Convert due_date to DateTime with end-of-day time (23:59:59)
-                my $due_datetime = dt_from_string( $params->{due_date} );
-                $due_datetime->set_time_zone('local');
-                $due_datetime->set( hour => 23, minute => 59, second => 59 );
-
                 # Store current due_date as prevDueDateTime before updating
                 if ( $req->due_date ) {
                     my $prev_due_epoch = dt_from_string( $req->due_date )->epoch;
@@ -369,8 +360,6 @@ sub borrower_renew {
                         }
                     );
                 }
-
-                $req->set( { due_date => $due_datetime->datetime() } )->store();
 
                 # Set checkout note for renewal request if configured
                 my $config = $self->{plugin}->configuration->{ $self->{pod} };
@@ -387,19 +376,9 @@ sub borrower_renew {
                     }
                 }
 
-                # Add buffer days to the due date when sending to Rapido
-                my $due_datetime_with_buffer = $self->{plugin}->add_buffer_to_due_date(
-                    {
-                        due_date    => $due_datetime,
-                        pod         => $self->{pod},
-                        buffer_type => 'renewal'
-                    }
-                );
-
                 $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
                     {
-                        circId      => $circId,
-                        dueDateTime => $due_datetime_with_buffer
+                        circId => $circId,
                     },
                     $options
                 );

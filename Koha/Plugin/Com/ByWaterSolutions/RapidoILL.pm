@@ -633,10 +633,7 @@ sub after_circ_action {
                 object_id     => $checkout->id,
                 action        => 'b_item_renewal',
                 pod           => $pod,
-                illrequest_id => $req->id,
-                payload       => {
-                    due_date => $checkout->date_due,
-                }
+                illrequest_id => $req->id
             }
         );
 
