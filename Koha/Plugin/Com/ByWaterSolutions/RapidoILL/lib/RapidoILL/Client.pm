@@ -508,26 +508,15 @@ sub borrower_cancel {
 sub borrower_renew {
     my ( $self, $params, $options ) = @_;
 
-    $self->{plugin}->validate_params( { params => $params, required => [qw(circId dueDateTime)], } );
+    $self->{plugin}->validate_params( { params => $params, required => [qw(circId)], } );
 
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
 
-        # Handle both DateTime objects and strings for dueDateTime
-        my $due_datetime_epoch;
-        if ( ref( $params->{dueDateTime} ) && $params->{dueDateTime}->can('epoch') ) {
-
-            # Already a DateTime object
-            $due_datetime_epoch = $params->{dueDateTime}->epoch;
-        } else {
-
-            # String that needs conversion
-            $due_datetime_epoch = dt_from_string( $params->{dueDateTime} )->epoch;
-        }
 
         my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/borrowerrenew',
-                data     => { dueDateTime => $due_datetime_epoch },
+                data     => { dueDateTime => undef },
                 context  => 'borrower_renew'
             }
         );

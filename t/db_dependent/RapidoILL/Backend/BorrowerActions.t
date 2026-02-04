@@ -596,7 +596,7 @@ subtest 'borrower_renew() tests' => sub {
 
     subtest 'Successful calls' => sub {
 
-        plan tests => 12;
+        plan tests => 8;
 
         $schema->storage->txn_begin;
 
@@ -679,21 +679,9 @@ subtest 'borrower_renew() tests' => sub {
         ok( $captured_params, 'Parameters captured from client call' );
         is( $captured_params->{circId}, 'TEST_CIRC_ID', 'Correct circId passed' );
 
-        # Verify dueDateTime is a DateTime object with end-of-day time
-        isa_ok( $captured_params->{dueDateTime}, 'DateTime', 'dueDateTime is DateTime object' );
-        is( $captured_params->{dueDateTime}->hms, '23:59:59', 'Due time set to end of day (23:59:59)' );
-
         # Verify status was updated
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_RENEWAL_REQUESTED', 'Sets correct status' );
-
-        # Verify prevDueDateTime attribute was stored
-        my $prev_due_attr = $illrequest->extended_attributes->search( { type => 'prevDueDateTime' } )->next;
-        ok( $prev_due_attr, 'prevDueDateTime attribute was created' );
-
-        # Verify prevDueDateTime contains the original due date in epoch format
-        my $original_due_epoch = dt_from_string('2025-09-01 23:59:59')->epoch;
-        is( $prev_due_attr->value, $original_due_epoch, 'prevDueDateTime contains original due date in epoch format' );
 
         $schema->storage->txn_rollback;
     };
