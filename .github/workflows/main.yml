@@ -55,6 +55,7 @@ jobs:
         cd ../koha-testing-docker
         export LOCAL_USER_ID=$(id -u)
         export KTD_HOME=$(pwd)
+        export SKIP_L10N=yes
         # Use version-major-minor but handle main branch case
         if [ "${{ matrix.koha-version }}" = "main" ]; then
           export KOHA_IMAGE=main
