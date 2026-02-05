@@ -89,7 +89,20 @@ jobs:
       run: |
         export KTD_HOME=$(pwd)/../koha-testing-docker
         echo "=== Resetting Koha database ==="
-        ktd --name rapido --shell --run "echo 'y' | reset_all"
+        ktd --name rapido --shell --run "
+          mysql --defaults-file=/etc/mysql/koha_kohadev.cnf -e 'DROP DATABASE koha_kohadev' &&
+          mysql --defaults-file=/etc/mysql/koha_kohadev.cnf -e 'CREATE DATABASE koha_kohadev' &&
+          perl /kohadevbox/misc4dev/do_all_you_can_do.pl \
+            --instance kohadev \
+            --userid koha_kohadev \
+            --password password \
+            --marcflavour marc21 \
+            --koha_dir /kohadevbox/koha \
+            --opac-base-url http://kohadev:8080 \
+            --intranet-base-url http://kohadev:8081 \
+            --gitify_dir /kohadevbox/gitify &&
+          restart_all
+        "
 
     - name: Test upgrade path from v1.1.0
       run: |
