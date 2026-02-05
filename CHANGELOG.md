@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-04
+
+### Changed
+- [#144] Stop sending renewal date in borrower renewal requests - allow Rapido to determine and send the correct due date in the response message
+
+### Removed
+- [#144] Remove due date calculation and buffer logic from `borrower_renew()` in BorrowerActions
+- [#144] Remove `prevDueDateTime` attribute storage during renewal requests
+- [#144] Remove `dueDateTime` parameter requirement from Client `borrower_renew()` method
+
 ## [1.3.0] - 2026-02-02
 
 ### Added
