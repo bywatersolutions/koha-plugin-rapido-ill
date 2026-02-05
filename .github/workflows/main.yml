@@ -19,6 +19,8 @@ jobs:
     steps:
     - name: Checkout plugin code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Get Koha Version Branch Name
       id: koha-version
@@ -59,28 +61,35 @@ jobs:
         else
           export KOHA_IMAGE=${{ steps.koha-version.outputs.version-major-minor }}
         fi
-        ktd --name rapidotest --plugins up -d
+        ktd --name rapido --plugins up -d
 
     - name: Wait for KTD to be ready
       run: |
         cd ../koha-testing-docker
         export KTD_HOME=$(pwd)
-        ktd --name rapidotest --wait-ready 240
+        ktd --name rapido --wait-ready 240
 
     - name: Install plugins in KTD (fresh install)
       run: |
         export KTD_HOME=$(pwd)/../koha-testing-docker
-        ktd --name rapidotest --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
+        ktd --name rapido --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
 
     - name: Run plugin tests (fresh install)
       run: |
         export KTD_HOME=$(pwd)/../koha-testing-docker
-        ktd --name rapidotest --shell --run "
+        ktd --name rapido --shell --run "
           cd /kohadevbox/plugins/${{ env.GITHUB_REPO }} &&
           export PERL5LIB=\$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. &&
           sudo cpanm --notest TAP::Harness::JUnit &&
           JUNIT_OUTPUT_FILE=junit_fresh.xml prove -v -r -s t/ --harness=TAP::Harness::JUnit
         "
+
+    - name: Restart KTD for upgrade test
+      run: |
+        export KTD_HOME=$(pwd)/../koha-testing-docker
+        ktd --name rapido down
+        ktd --name rapido up -d
+        ktd --name rapido --wait-ready 240
 
     - name: Test upgrade path from v1.1.0
       run: |
@@ -89,15 +98,15 @@ jobs:
         CURRENT_HEAD=$(git rev-parse HEAD)
         # Checkout v1.1.0 and install
         git checkout v1.1.0
-        ktd --name rapidotest --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
+        ktd --name rapido --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
         # Return to current HEAD and upgrade
         git checkout $CURRENT_HEAD
-        ktd --name rapidotest --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
+        ktd --name rapido --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
 
     - name: Run plugin tests (after upgrade)
       run: |
         export KTD_HOME=$(pwd)/../koha-testing-docker
-        ktd --name rapidotest --shell --run "
+        ktd --name rapido --shell --run "
           cd /kohadevbox/plugins/${{ env.GITHUB_REPO }} &&
           export PERL5LIB=\$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. &&
           JUNIT_OUTPUT_FILE=junit_upgrade.xml prove -v -r -s t/ --harness=TAP::Harness::JUnit
@@ -117,17 +126,17 @@ jobs:
       run: |
         export KTD_HOME=$(pwd)/../koha-testing-docker
         echo "=== KTD instance status ==="
-        ktd --name rapidotest --list || true
+        ktd --name rapido --list || true
         echo "=== Koha error logs ==="
-        ktd --name rapidotest --shell --run "tail -50 /var/log/koha/kohadev/plack-intranet-error.log" || true
+        ktd --name rapido --shell --run "tail -50 /var/log/koha/kohadev/plack-intranet-error.log" || true
         echo "=== Container logs ==="
-        docker logs rapidotest-koha-1 --tail 50 || true
+        docker logs rapido-koha-1 --tail 50 || true
 
     - name: Cleanup KTD instance
       if: always()
       run: |
         export KTD_HOME=$(pwd)/../koha-testing-docker
-        ktd --name rapidotest down || true
+        ktd --name rapido down || true
 
   release:
     name: Build & Release
