@@ -684,7 +684,9 @@ sub after_circ_action {
                     illrequest_id => $req->id,
                 }
             ) if $config->{lending}->{automatic_final_checkin};
-        } elsif ( any { $req->status eq $_ } qw{B_ITEM_RECEIVED B_ITEM_RECALLED B_ITEM_RENEWAL_ACCEPTED} ) {
+        } elsif ( any { $req->status eq $_ }
+            qw{B_ITEM_RECEIVED B_ITEM_RECALLED B_ITEM_RENEWAL_ACCEPTED B_ITEM_RENEWAL_REQUESTED} )
+        {
             if ( $config->{debug_after_circ_action} ) {
                 $self->logger->debug(
                     sprintf(
