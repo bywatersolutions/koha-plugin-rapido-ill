@@ -45,22 +45,31 @@ my $schema  = Koha::Database->new->schema;
 my $builder = t::lib::TestBuilder->new;
 my $logger  = t::lib::Mocks::Logger->new();
 
+# Default pod in the mocked plugin
+my $pod = t::lib::Mocks::Rapido::POD;
+
 subtest 'new() tests' => sub {
 
     plan tests => 3;
 
     # Test successful construction
-    my $plugin  = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
-    my $actions = RapidoILL::Backend::LenderActions->new(
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+    my $plugin = t::lib::Mocks::Rapido->new(
         {
-            pod    => 'test_pod',
-            plugin => $plugin,
+            library  => $library,
+            category => $category,
+            itemtype => $itemtype,
         }
     );
 
+    my $actions = $plugin->get_lender_actions($pod);
+
     isa_ok( $actions, 'RapidoILL::Backend::LenderActions' );
-    is( $actions->{pod},    'test_pod', 'Pod stored correctly' );
-    is( $actions->{plugin}, $plugin,    'Plugin stored correctly' );
+    is( $actions->{pod},    $pod,    'Pod stored correctly' );
+    is( $actions->{plugin}, $plugin, 'Plugin stored correctly' );
 };
 
 subtest 'cancel_request() tests' => sub {
@@ -108,7 +117,18 @@ subtest 'cancel_request() tests' => sub {
         );
 
         # Add required attributes using plugin method
-        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
+            }
+        );
+
         $plugin->add_or_update_attributes(
             {
                 request    => $illrequest,
@@ -143,12 +163,7 @@ subtest 'cancel_request() tests' => sub {
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
         $plugin_module->mock( 'get_client', sub { return $mock_client; } );
 
-        my $actions = RapidoILL::Backend::LenderActions->new(
-            {
-                pod    => 'test_pod',
-                plugin => $plugin,
-            }
-        );
+        my $actions = $plugin->get_lender_actions($pod);
 
         my $client_options = { timeout => 60, force_cancel => 1 };
 
