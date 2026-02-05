@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#145] Update `item_shipped` in LenderActions to process and apply dueDate returned by Rapido API, updating both checkout and ILL request due dates with buffer subtracted
 - [#145] Refactor LenderActions.t to use mocked plugin pattern for consistency with BorrowerActions.t
 
+### Fixed
+- [#139] Increase `task_queue.pod` column size from VARCHAR(10) to VARCHAR(191) to match `circ_actions.pod` and prevent truncation of longer pod names
+
 ## [1.4.0] - 2026-02-04
 
 ### Changed
