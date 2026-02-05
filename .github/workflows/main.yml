@@ -84,21 +84,11 @@ jobs:
           JUNIT_OUTPUT_FILE=junit_fresh.xml prove -v -r -s t/ --harness=TAP::Harness::JUnit
         "
 
-    - name: Restart KTD for upgrade test
+    - name: Reset database for upgrade test
       run: |
         export KTD_HOME=$(pwd)/../koha-testing-docker
-        echo "=== Stopping KTD instance ==="
-        ktd --name rapido down
-        echo "=== Starting KTD instance ==="
-        ktd --name rapido up -d
-        echo "=== Waiting for KTD to be ready ==="
-        if ! ktd --name rapido --wait-ready 240; then
-          echo "=== KTD failed to start, showing logs ==="
-          docker ps -a | grep rapido || true
-          docker logs rapido-koha-1 --tail 100 || true
-          exit 1
-        fi
-        echo "=== KTD is ready ==="
+        echo "=== Resetting Koha database ==="
+        ktd --name rapido --shell --run "echo 'y' | reset_all"
 
     - name: Test upgrade path from v1.1.0
       run: |
