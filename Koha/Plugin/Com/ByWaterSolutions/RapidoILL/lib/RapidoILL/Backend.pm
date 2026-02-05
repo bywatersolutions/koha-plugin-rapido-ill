@@ -337,7 +337,7 @@ sub status_graph {
             name           => 'Renewal requested to owning library',
             ui_method_name => q{},
             method         => q{},
-            next_actions   => [],
+            next_actions   => ['B_ITEM_IN_TRANSIT'],
             ui_method_icon => 'fa-arrow-rotate-right',
         },
         B_ITEM_RENEWAL_ACCEPTED => {
@@ -346,7 +346,7 @@ sub status_graph {
             name           => 'Renewal accepted owning library',
             ui_method_name => q{},
             method         => q{},
-            next_actions   => [],
+            next_actions   => ['B_ITEM_IN_TRANSIT'],
             ui_method_icon => 'fa-arrow-rotate-right',
         },
         B_ITEM_RECALLED => {
@@ -359,7 +359,7 @@ sub status_graph {
             ui_method_icon => q{},
         },
         B_ITEM_IN_TRANSIT => {
-            prev_actions   => ['B_ITEM_RECEIVED'],
+            prev_actions   => [ 'B_ITEM_RECEIVED', 'B_ITEM_RENEWAL_REQUESTED', 'B_ITEM_RENEWAL_ACCEPTED' ],
             id             => 'B_ITEM_IN_TRANSIT',
             name           => 'Item in transit to owning library',
             ui_method_name => 'Item in transit',
@@ -368,7 +368,7 @@ sub status_graph {
             ui_method_icon => 'fa-send-o',
         },
         B_ITEM_RETURN_UNCIRCULATED => {
-            prev_actions   => ['B_ITEM_RECEIVED'],
+            prev_actions   => ['B_ITEM_RECEIVED '],
             id             => 'B_ITEM_RETURN_UNCIRCULATED',
             name           => 'Item in transit to owning library (uncirculated)',
             ui_method_name => 'Return uncirculated',
