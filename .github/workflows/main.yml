@@ -67,26 +67,49 @@ jobs:
         export KTD_HOME=$(pwd)
         ktd --name rapidotest --wait-ready 240
 
-    - name: Install plugins in KTD
+    - name: Install plugins in KTD (fresh install)
       run: |
         export KTD_HOME=$(pwd)/../koha-testing-docker
         ktd --name rapidotest --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
 
-    - name: Run plugin tests
+    - name: Run plugin tests (fresh install)
       run: |
         export KTD_HOME=$(pwd)/../koha-testing-docker
         ktd --name rapidotest --shell --run "
           cd /kohadevbox/plugins/${{ env.GITHUB_REPO }} &&
           export PERL5LIB=\$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. &&
           sudo cpanm --notest TAP::Harness::JUnit &&
-          JUNIT_OUTPUT_FILE=junit.xml prove -v -r -s t/ --harness=TAP::Harness::JUnit
+          JUNIT_OUTPUT_FILE=junit_fresh.xml prove -v -r -s t/ --harness=TAP::Harness::JUnit
+        "
+
+    - name: Test upgrade path from v1.1.0
+      run: |
+        export KTD_HOME=$(pwd)/../koha-testing-docker
+        # Save current HEAD
+        CURRENT_HEAD=$(git rev-parse HEAD)
+        # Checkout v1.1.0 and install
+        git checkout v1.1.0
+        ktd --name rapidotest --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
+        # Return to current HEAD and upgrade
+        git checkout $CURRENT_HEAD
+        ktd --name rapidotest --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
+
+    - name: Run plugin tests (after upgrade)
+      run: |
+        export KTD_HOME=$(pwd)/../koha-testing-docker
+        ktd --name rapidotest --shell --run "
+          cd /kohadevbox/plugins/${{ env.GITHUB_REPO }} &&
+          export PERL5LIB=\$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. &&
+          JUNIT_OUTPUT_FILE=junit_upgrade.xml prove -v -r -s t/ --harness=TAP::Harness::JUnit
         "
 
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
       with:
-        files: junit.xml
+        files: |
+          junit_fresh.xml
+          junit_upgrade.xml
         check_name: "Test Results (Koha ${{ matrix.koha-version }})"
 
     - name: Show logs on failure
