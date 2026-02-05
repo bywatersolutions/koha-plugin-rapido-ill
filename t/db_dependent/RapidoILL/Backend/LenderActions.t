@@ -351,7 +351,7 @@ subtest 'cancel_request() tests' => sub {
 
 subtest 'item_shipped() tests' => sub {
 
-    plan tests => 2;
+    plan tests => 3;
 
     subtest 'Successful calls' => sub {
         plan tests => 3;
@@ -434,6 +434,125 @@ subtest 'item_shipped() tests' => sub {
         $illrequest->discard_changes();
         is( $illrequest->status, 'O_ITEM_SHIPPED', 'Sets correct status' );
         is( $result,             $actions,         'Returns self for method chaining' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Due date handling from Rapido response' => sub {
+        plan tests => 5;
+
+        $schema->storage->txn_begin;
+
+        # Setup test data
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+        my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio   = $builder->build_object( { class => 'Koha::Biblios' } );
+        my $item     = $builder->build_object(
+            {
+                class => 'Koha::Items',
+                value => {
+                    biblionumber => $biblio->biblionumber,
+                    barcode      => 'TEST_ITEM_BARCODE'
+                }
+            }
+        );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'NEW',
+                }
+            }
+        );
+
+        # Mock Rapido response with dueDate (epoch timestamp)
+        # Using a date 14 days from now (with 7 day buffer = 7 days actual)
+        my $due_date_with_buffer = DateTime->now()->add( days => 14 );
+
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock(
+            'lender_shipped',
+            sub {
+                return { dueDate => $due_date_with_buffer->epoch };
+            }
+        );
+
+        my $checkout;
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock(
+            'get_client',
+            sub {
+                return $mock_client;
+            }
+        );
+        $plugin_module->mock(
+            'add_issue',
+            sub {
+                $checkout = $builder->build_object(
+                    {
+                        class => 'Koha::Checkouts',
+                        value => {
+                            borrowernumber => $patron->borrowernumber,
+                            itemnumber     => $item->id,
+                        }
+                    }
+                );
+                return $checkout;
+            }
+        );
+
+        # Create plugin using t::lib::Mocks::Rapido
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
+            }
+        );
+
+        # Add required attributes
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => 'test_circ_123',
+                    itemId => $item->id,
+                }
+            }
+        );
+
+        # Default pod in the mocked plugin
+        my $pod = t::lib::Mocks::Rapido::POD;
+
+        my $actions = $plugin->get_lender_actions($pod);
+
+        lives_ok {
+            $actions->item_shipped($illrequest);
+        }
+        'item_shipped with dueDate response executes without error';
+
+        # Verify due dates were updated
+        $illrequest->discard_changes();
+        $checkout->discard_changes();
+
+        ok( $illrequest->due_date, 'ILL request due_date was set' );
+        ok( $checkout->date_due,   'Checkout date_due was set' );
+
+        # Verify the dates are approximately correct (within 1 minute to account for test execution time)
+        my $expected_actual_due = DateTime->now()->add( days => 7 );
+        my $ill_due             = dt_from_string( $illrequest->due_date );
+        my $co_due              = dt_from_string( $checkout->date_due );
+
+        my $diff_ill = abs( $ill_due->epoch - $expected_actual_due->epoch );
+        my $diff_co  = abs( $co_due->epoch - $expected_actual_due->epoch );
+
+        ok( $diff_ill < 60, 'ILL request due date is correct (within 1 minute)' );
+        ok( $diff_co < 60,  'Checkout due date is correct (within 1 minute)' );
 
         $schema->storage->txn_rollback;
     };

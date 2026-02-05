@@ -229,7 +229,7 @@ sub item_shipped {
                 $req->status('O_ITEM_SHIPPED')->store;
 
                 # notify Rapido. Throws an exception if failed
-                $self->{plugin}->get_client($pod)->lender_shipped(
+                my $response = $self->{plugin}->get_client($pod)->lender_shipped(
                     {
                         callNumber  => $item->itemcallnumber,
                         circId      => $circId,
@@ -237,6 +237,23 @@ sub item_shipped {
                     },
                     $options
                 );
+
+                # Update due dates if Rapido returned a dueDate
+                if ( $response && $response->{dueDate} ) {
+                    my ( $actual_due_date, $original_due_date ) = $self->{plugin}->process_due_date_with_buffer(
+                        {
+                            epoch       => $response->{dueDate},
+                            pod         => $pod,
+                            buffer_type => 'due_date'
+                        }
+                    );
+
+                    # Update the checkout due date
+                    $checkout->date_due( $actual_due_date->datetime() )->store();
+
+                    # Update the ILL request due date
+                    $req->due_date( $actual_due_date->datetime() )->store();
+                }
             }
         );
         return $self;
