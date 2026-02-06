@@ -1883,7 +1883,6 @@ sub add_hold {
             branchcode       => $params->{library_id},
             borrowernumber   => $params->{patron_id},
             biblionumber     => $params->{biblio_id},
-            priority         => 1,
             reservation_date => undef,
             expiration_date  => undef,
             notes            => $params->{notes} // 'Placed by ILL',
