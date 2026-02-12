@@ -29,6 +29,7 @@ use t::lib::Mocks::Rapido;
 
 use C4::Context;
 use Koha::Database;
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 my $schema  = Koha::Database->new->schema;

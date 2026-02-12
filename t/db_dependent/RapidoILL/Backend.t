@@ -31,6 +31,7 @@ use t::lib::Mocks::Rapido;
 
 use Koha::Database;
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 BEGIN {

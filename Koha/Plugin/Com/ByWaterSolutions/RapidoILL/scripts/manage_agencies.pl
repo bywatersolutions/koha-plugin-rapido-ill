@@ -21,6 +21,7 @@ use DDP;
 use Getopt::Long;
 use Text::Table;
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 use RapidoILL::CircActions;
 

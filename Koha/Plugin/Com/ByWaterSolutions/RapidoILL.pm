@@ -32,7 +32,7 @@ use YAML::XS;
 use C4::Context;
 use C4::Biblio      qw(AddBiblio DelBiblio);
 use C4::Circulation qw(AddIssue AddReturn);
-use C4::Reserves    qw(AddReserve CanItemBeReserved);
+use C4::Reserves    qw(AddReserve CanItemBeReserved CalculatePriority);
 
 use Koha::Biblios;
 use Koha::Database;
@@ -70,7 +70,7 @@ BEGIN {
     Koha::Database->schema( { new => 1 } );
 }
 
-our $VERSION = "1.4.3";
+our $VERSION = "1.4.4";
 
 our $metadata = {
     name            => 'RapidoILL',
@@ -1877,6 +1877,8 @@ sub add_hold {
             params   => $params
         }
     );
+    my $biblionumber = $params->{biblio_id};
+    my $priority = CalculatePriority($biblionumber);
 
     return AddReserve(
         {
@@ -1889,7 +1891,8 @@ sub add_hold {
             title            => '',
             itemnumber       => $params->{item_id},
             found            => undef,
-            itemtype         => undef
+            itemtype         => undef,
+            priority         => $priority
         }
     );
 }

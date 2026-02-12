@@ -21,6 +21,7 @@ use Test::More tests => 2;
 use Test::NoWarnings;
 use Test::Exception;
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;

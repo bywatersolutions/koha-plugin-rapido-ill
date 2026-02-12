@@ -31,6 +31,7 @@ use Koha::ILL::Requests;
 use Koha::Items;
 use Koha::Patrons;
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 my $schema  = Koha::Database->new->schema;

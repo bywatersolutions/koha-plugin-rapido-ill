@@ -21,6 +21,8 @@ use Getopt::Long;
 use JSON qw(encode_json);
 use Try::Tiny;
 
+use Koha::Plugins;
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 use Koha::Script;
