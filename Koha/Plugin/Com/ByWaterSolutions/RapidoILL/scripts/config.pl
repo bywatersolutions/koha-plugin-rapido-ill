@@ -21,6 +21,7 @@ use Getopt::Long;
 use YAML::XS;
 use Try::Tiny qw(catch try);
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 binmode STDOUT, ':encoding(UTF-8)';

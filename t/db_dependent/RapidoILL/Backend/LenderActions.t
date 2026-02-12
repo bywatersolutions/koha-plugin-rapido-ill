@@ -35,6 +35,7 @@ use Koha::DateUtils qw(dt_from_string);
 use Koha::Holds;
 use Koha::Old::Holds;
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 BEGIN {

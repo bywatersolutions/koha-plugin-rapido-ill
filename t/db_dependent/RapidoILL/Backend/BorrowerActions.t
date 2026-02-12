@@ -32,6 +32,7 @@ use t::lib::Mocks::Rapido;
 use Koha::Database;
 use Koha::DateUtils qw( dt_from_string );
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 BEGIN {

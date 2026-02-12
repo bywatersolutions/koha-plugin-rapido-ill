@@ -31,6 +31,7 @@ use Koha::Patrons;
 use Encode;
 use Try::Tiny;
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 =head1 Koha::Plugin::Com::ByWaterSolutions::RapidoILL::APIController

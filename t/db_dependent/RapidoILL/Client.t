@@ -28,6 +28,7 @@ use t::lib::Mocks;
 use t::lib::Mocks::Rapido;
 use t::lib::Mocks::Client;
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 BEGIN {

@@ -28,6 +28,7 @@ use Koha::Logger;
 
 use Koha::Script;
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 use RapidoILL::Exceptions;
 

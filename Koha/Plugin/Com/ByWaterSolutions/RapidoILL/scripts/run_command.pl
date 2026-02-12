@@ -23,6 +23,8 @@ use Getopt::Long;
 use List::MoreUtils qw(none);
 use Try::Tiny       qw( catch try );
 
+use Koha::Plugins;
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 binmode STDOUT, ':encoding(UTF-8)';

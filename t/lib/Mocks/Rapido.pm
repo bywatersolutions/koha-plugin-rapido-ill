@@ -19,6 +19,7 @@ package t::lib::Mocks::Rapido;
 
 use Modern::Perl;
 
+use Koha::Plugins;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
 use constant POD => 'test-pod';
