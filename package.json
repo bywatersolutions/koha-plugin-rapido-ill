@@ -7,7 +7,7 @@
         "gulp-cli": "^3.0.0"
     },
     "scripts": {
-        "preversion": "sed -i -e \"s/^our \\$VERSION = .*/our \\$VERSION = \\\"$npm_new_version\\\";/\" Koha/Plugin/Com/ByWaterSolutions/RapidoILL.pm; git add -u; rm Koha/Plugin/Com/ByWaterSolutions/RapidoILL.pm-e",
+        "preversion": "sed -i -e \"s/^our \\$VERSION = .*/our \\$VERSION = \\\"$npm_new_version\\\";/\" Koha/Plugin/Com/ByWaterSolutions/RapidoILL.pm; git add -u;",
         "test": "echo \"Error: no test specified\" && exit 1",
         "kpz": "echo -n ${npm_package_name}-v${npm_package_version}.kpz",
         "print-name": "echo -n ${npm_package_name}"
