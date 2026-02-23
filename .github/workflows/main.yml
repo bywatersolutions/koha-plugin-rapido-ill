@@ -147,6 +147,22 @@ jobs:
       fail-fast: false
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check if tag is on main branch
+      id: check-branch
+      run: |
+        # Get the commit the tag points to
+        TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }})
+        # Check if this commit is on main branch
+        if git branch -r --contains $TAG_COMMIT | grep -q 'origin/main'; then
+          echo "on_main=true" >> $GITHUB_OUTPUT
+          echo "Tag is on main branch, proceeding with release"
+        else
+          echo "on_main=false" >> $GITHUB_OUTPUT
+          echo "Tag is NOT on main branch, skipping release"
+        fi
 
     - name: Parse out and store the GitHub repository name
       id: myvars
@@ -178,6 +194,7 @@ jobs:
       run: echo "$GITHUB_CONTEXT"
 
     - name: Build Koha Plugin kpz artifact
+      if: steps.check-branch.outputs.on_main == 'true'
       id: kpz
       run: |
         docker run -v ${PWD}:/plugin registry.gitlab.com/thekesolutions/tools/koha-plugin-builder
@@ -185,13 +202,14 @@ jobs:
 
 
     - name: See if kpz was created
+      if: steps.check-branch.outputs.on_main == 'true'
       run: |
         echo "FILENAME: ${{ steps.kpz.outputs.filename }}"
         ls -alh
 
     - name: Release
       uses: softprops/action-gh-release@v2
-      if: startsWith(github.ref, 'refs/tags/')
+      if: startsWith(github.ref, 'refs/tags/') && steps.check-branch.outputs.on_main == 'true'
       with:
         files: |
           ${{ steps.kpz.outputs.filename }}
