@@ -636,7 +636,8 @@ sub receive_unshipped {
                         callNumber => $params->{other}->{item_callnumber},
                         barcode    => $params->{other}->{item_barcode}
                     },
-                    barcode => $params->{other}->{item_barcode}
+                    barcode        => $params->{other}->{item_barcode},
+                    client_options => { notify_rapido => 1 }
                 }
             );
 
@@ -653,11 +654,15 @@ sub receive_unshipped {
         } catch {
             $self->{plugin}->logger->warn("[receive_unshipped] $_");
 
-            # FIXME: need to check error type
+            my $message = "$_";
+            if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+                $message = "$_ | " . $_->method . " - " . $_->response->decoded_content;
+            }
+
             return {
                 status   => 'error',
                 error    => 1,
-                message  => "$_ | " . $_->method . " - " . $_->response->decoded_content,
+                message  => $message,
                 stage    => 'init',
                 method   => 'receive_unshipped',
                 template => 'receive_unshipped',

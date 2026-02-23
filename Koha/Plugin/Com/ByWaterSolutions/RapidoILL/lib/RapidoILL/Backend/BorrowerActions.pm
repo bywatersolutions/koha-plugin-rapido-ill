@@ -186,7 +186,10 @@ sub borrower_receive_unshipped {
                 $request->status('B_ITEM_RECEIVED')->store();
 
                 if ( $options && $options->{notify_rapido} ) {
-                    $self->{plugin}->get_client( $self->{pod} )->borrower_receive_unshipped( {}, $options );
+                    $self->{plugin}->get_client( $self->{pod} )->borrower_receive_unshipped(
+                        { circId => $circId },
+                        $options
+                    );
                 }
             }
         );
