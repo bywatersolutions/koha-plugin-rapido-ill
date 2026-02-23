@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - [#177] Restore dist directory cleanup in gulpfile build process
+- [#177] Restore -e flag in sed command for cross-platform compatibility
 
 ## [1.4.5] - 2026-02-23
 
