@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - [#165] Fix hold priority calculation to use proper priority instead of always setting to 1
+- [#178] Remove deprecated reservefee column from bootstrap script
+- [#178] Fix mock_config.json to use correct itemId instead of barcode
 
 ## [1.4.6] - 2026-02-23
 
