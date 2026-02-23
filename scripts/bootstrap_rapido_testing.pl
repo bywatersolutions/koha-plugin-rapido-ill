@@ -243,8 +243,8 @@ eval {
 
     # Create ILL patron category
     my $category_sth = $dbh->prepare(
-        "INSERT IGNORE INTO categories (categorycode, description, enrolmentperiod, upperagelimit, dateofbirthrequired, enrolmentfee, overduenoticerequired, reservefee, hidelostitems, category_type) 
-         VALUES ('ILL', 'Interlibrary Loan', 99, 999, 0, 0.00, 0, 0.00, 0, 'A')"
+        "INSERT IGNORE INTO categories (categorycode, description, enrolmentperiod, upperagelimit, dateofbirthrequired, enrolmentfee, overduenoticerequired, hidelostitems, category_type) 
+         VALUES ('ILL', 'Interlibrary Loan', 99, 999, 0, 0.00, 0, 0, 'A')"
     );
     $category_sth->execute();
     print "   ✓ ILL patron category created\n";
