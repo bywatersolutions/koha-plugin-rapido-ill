@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 use Test::NoWarnings;
 use Test::MockModule;
 use Test::MockObject;
@@ -623,6 +623,181 @@ subtest 'return_uncirculated() delegation tests' => sub {
 
         # Verify error response structure
         is( $result->{error}, 1, 'Returns error status when BorrowerActions fails' );
+
+        $schema->storage->txn_rollback;
+    };
+};
+
+subtest 'receive_unshipped() tests' => sub {
+
+    plan tests => 2;
+
+    subtest 'Rapido API is called with correct circId' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
+            }
+        );
+
+        my $patron = $builder->build_object(
+            {
+                class => 'Koha::Patrons',
+                value => { branchcode => $library->branchcode }
+            }
+        );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    backend        => 'RapidoILL',
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+
+        my $test_circ_id = 'test_circ_receive_unshipped';
+
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => $test_circ_id,
+                    pod    => t::lib::Mocks::Rapido::POD,
+                }
+            }
+        );
+
+        # Mock client to track API calls
+        my $mock_client  = Test::MockObject->new();
+        my @client_calls = ();
+        $mock_client->mock(
+            'borrower_receive_unshipped',
+            sub {
+                my ( $self, $data, $options ) = @_;
+                push @client_calls, {
+                    data    => $data,
+                    options => $options,
+                };
+                return;
+            }
+        );
+
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $result = $backend->receive_unshipped(
+            {
+                request => $illrequest,
+                other   => {
+                    stage           => 'confirm',
+                    item_callnumber => 'TEST 123',
+                    item_barcode    => 'BC_' . time(),
+                }
+            }
+        );
+
+        is( $result->{error}, 0, 'receive_unshipped completed successfully' );
+        is( scalar @client_calls, 1, 'Rapido /receiveunshipped API was called' );
+        is( $client_calls[0]->{data}->{circId}, $test_circ_id, 'circId passed correctly to API' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Rapido API receives circId, not empty hash' => sub {
+        plan tests => 2;
+
+        $schema->storage->txn_begin;
+
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
+            }
+        );
+
+        my $patron = $builder->build_object(
+            {
+                class => 'Koha::Patrons',
+                value => { branchcode => $library->branchcode }
+            }
+        );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    backend        => 'RapidoILL',
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+
+        my $test_circ_id = 'test_circ_empty_hash_check';
+
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => $test_circ_id,
+                    pod    => t::lib::Mocks::Rapido::POD,
+                }
+            }
+        );
+
+        # Mock client - verify data param is not empty
+        my $mock_client = Test::MockObject->new();
+        my $received_data;
+        $mock_client->mock(
+            'borrower_receive_unshipped',
+            sub {
+                my ( $self, $data, $options ) = @_;
+                $received_data = $data;
+                return;
+            }
+        );
+
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        $backend->receive_unshipped(
+            {
+                request => $illrequest,
+                other   => {
+                    stage           => 'confirm',
+                    item_callnumber => 'TEST 456',
+                    item_barcode    => 'BC2_' . time(),
+                }
+            }
+        );
+
+        ok( defined $received_data && keys %{$received_data}, 'API data param is not empty' );
+        is( $received_data->{circId}, $test_circ_id, 'circId is present in API data' );
 
         $schema->storage->txn_rollback;
     };
