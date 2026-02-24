@@ -128,12 +128,15 @@ try {
 
     # If it's a RequestFailed exception, show more details
     if ( ref($error) eq 'RapidoILL::Exception::RequestFailed' ) {
-        my $response = $error->response;
-        print STDERR "HTTP Status: " . $response->code . " " . $response->message . "\n";
-        print STDERR "Response Body: "
-            . ( $response->decoded_content || $response->content || 'No response body' ) . "\n";
-        print STDERR "Method: " . $error->method . "\n";
-        print STDERR "Request URL: " . ( $response->request ? $response->request->uri : 'Unknown' ) . "\n";
+        if ( $error->can('status_code') && $error->can('status_message') ) {
+            print STDERR "HTTP Status: " . $error->status_code . " " . $error->status_message . "\n";
+        }
+        if ( $error->can('response_body') && $error->response_body ) {
+            print STDERR "Response Body: " . $error->response_body . "\n";
+        }
+        if ( $error->can('method') && $error->method ) {
+            print STDERR "Method: " . $error->method . "\n";
+        }
     }
 
     exit 1;
