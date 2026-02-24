@@ -550,9 +550,14 @@ sub cancel_request {
         };
     } catch {
         $self->{plugin}->logger->warn("[cancel_request] $_");
+        my $message = "$_";
+        if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+            $message .= " | " . $_->method if $_->can('method');
+            $message .= " - " . $_->response_body if $_->can('response_body');
+        }
         return {
             error    => 1,
-            message  => "$_ | " . $_->method . " - " . $_->response->decoded_content,
+            message  => $message,
             method   => 'cancel_request',
             stage    => 'init',
             status   => 'error',
@@ -656,7 +661,8 @@ sub receive_unshipped {
 
             my $message = "$_";
             if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
-                $message = "$_ | " . $_->method . " - " . $_->response->decoded_content;
+                $message .= " | " . $_->method if $_->can('method');
+                $message .= " - " . $_->response_body if $_->can('response_body');
             }
 
             return {
@@ -697,11 +703,16 @@ sub item_in_transit {
     } catch {
         $self->{plugin}->logger->warn("[item_in_transit] $_");
 
-        # FIXME: need to check error type
+        my $message = "$_";
+        if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+            $message .= " | " . $_->method if $_->can('method');
+            $message .= " - " . $_->response_body if $_->can('response_body');
+        }
+
         return {
             status   => 'error',
             error    => 1,
-            message  => "$_ | " . $_->method . " - " . $_->response->decoded_content,
+            message  => $message,
             stage    => 'init',
             method   => 'item_in_transit',
             template => 'item_in_transit',
@@ -776,8 +787,10 @@ sub borrower_cancel {
         if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
 
             # Extract basic error info for user-facing message
-            my $status_line = $_->response->status_line || 'Unknown HTTP error';
-            $message = "Borrower cancellation failed: HTTP " . $status_line;
+            my $status_info = '';
+            $status_info .= $_->status_code if $_->can('status_code');
+            $status_info .= ' ' . $_->status_message if $_->can('status_message');
+            $message = "Borrower cancellation failed: HTTP " . ( $status_info || 'Unknown error' );
         } else {
             $message = "Borrower cancellation failed: $_";
         }

@@ -173,11 +173,17 @@ try {
     say "Command '$command' executed successfully for request $request_id";
 } catch {
     if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+        my $error_msg = 'Unknown error';
+        if ( $_->can('response_body') && $_->response_body ) {
+            $error_msg = $_->response_body;
+        } elsif ( $_->can('status_code') && $_->can('status_message') ) {
+            $error_msg = $_->status_code . ' ' . $_->status_message;
+        }
         warn sprintf(
             "[rapido] [ill_req=%s] %s request error: %s",
             $req->id,
             $_->method,
-            $_->response->decoded_content // $_->response->status_line // 'Unknown error'
+            $error_msg
         );
     } else {
         warn sprintf(
