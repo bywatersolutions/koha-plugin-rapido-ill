@@ -82,6 +82,7 @@ sub handle_from_action {
         'BORROWING_SITE_CANCEL' => \&borrowing_site_cancel,
         'ITEM_IN_TRANSIT'       => \&item_in_transit,
         'ITEM_RECEIVED'         => \&item_received,
+        'ITEM_SHIPPED'          => \&item_shipped,
         'DEFAULT'               => \&default_handler,
     };
 
@@ -89,7 +90,6 @@ sub handle_from_action {
     my @no_op_statuses = qw(
         FINAL_CHECKIN
         ITEM_HOLD
-        ITEM_SHIPPED
         OWNING_SITE_CANCEL
         RECALL
     );
@@ -123,6 +123,65 @@ sub default_handler {
             $action->lastCircState
         )
     );
+}
+
+=head2 Lender-generated actions
+
+=head3 item_shipped
+
+    $handler->item_shipped($action);
+
+Handle incoming I<ITEM_SHIPPED> sync action. If the action contains a
+dueDateTime (epoch), updates the checkout due date and ILL request due_date
+using the configured buffer days. This is needed because the initial checkout
+is created via AddIssue which uses Koha's circulation rules, and the Rapido
+dueDateTime only becomes available later through sync.
+
+=cut
+
+sub item_shipped {
+    my ( $self, $action ) = @_;
+
+    return unless $action->dueDateTime;
+
+    my $req = $action->ill_request;
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            my ( $actual_due_date, $original_due_date ) = $self->{plugin}->process_due_date_with_buffer(
+                {
+                    epoch       => $action->dueDateTime,
+                    pod         => $action->pod,
+                    buffer_type => 'due_date'
+                }
+            );
+
+            # Update checkout due date
+            my $checkout = $self->{plugin}->get_checkout($req);
+            if ($checkout) {
+                $checkout->date_due( $actual_due_date->datetime() )->store();
+            } else {
+                $self->{plugin}->logger->warn(
+                    sprintf(
+                        "[lender_actions][item_shipped] No checkout found for ILL request %d - could not update checkout due date",
+                        $req->id
+                    )
+                );
+            }
+
+            # Update ILL request due date and store original
+            $self->{plugin}->add_or_update_attributes(
+                {
+                    request    => $req,
+                    attributes => { dueDateWithBuffer => $original_due_date->datetime() },
+                }
+            );
+
+            $req->due_date( $actual_due_date->datetime() )->store();
+        }
+    );
+
+    return;
 }
 
 =head2 Borrower-generated actions

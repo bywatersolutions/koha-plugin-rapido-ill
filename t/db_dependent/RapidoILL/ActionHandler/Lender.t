@@ -17,8 +17,9 @@
 
 use Modern::Perl;
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use Test::NoWarnings;
+use Test::MockModule;
 use Test::MockObject;
 use Test::Exception;
 
@@ -26,6 +27,7 @@ use t::lib::TestBuilder;
 use t::lib::Mocks;
 use t::lib::Mocks::Rapido;
 
+use C4::Circulation qw( AddIssue );
 use Koha::Database;
 use Koha::ILL::Requests;
 use Koha::Items;
@@ -210,10 +212,17 @@ subtest 'final_checkin method (lender-generated - no-op)' => sub {
     $schema->storage->txn_rollback;
 };
 
-subtest 'item_shipped method (lender-generated - no-op)' => sub {
+subtest 'item_shipped method (lender-generated - no-op without dueDateTime)' => sub {
     plan tests => 1;
 
     $schema->storage->txn_begin;
+
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => { backend => 'RapidoILL', status => 'O_ITEM_SHIPPED' }
+        }
+    );
 
     my $mock_plugin = Test::MockObject->new();
     my $handler     = RapidoILL::ActionHandler::Lender->new(
@@ -223,15 +232,17 @@ subtest 'item_shipped method (lender-generated - no-op)' => sub {
         }
     );
 
-    # Create a mock action for ITEM_SHIPPED
+    # Create a mock action for ITEM_SHIPPED without dueDateTime
     my $mock_action = Test::MockObject->new();
     $mock_action->mock( 'lastCircState', sub { return 'ITEM_SHIPPED'; } );
+    $mock_action->mock( 'dueDateTime',   sub { return undef; } );
+    $mock_action->mock( 'ill_request',   sub { return $ill_request; } );
 
-    # Test that ITEM_SHIPPED is handled as no-op (no exception thrown)
+    # Without dueDateTime, item_shipped is effectively a no-op
     lives_ok {
         $handler->handle_from_action($mock_action)
     }
-    'ITEM_SHIPPED handled as no-op without exception';
+    'ITEM_SHIPPED without dueDateTime handled without exception';
 
     $schema->storage->txn_rollback;
 };
@@ -674,6 +685,218 @@ subtest 'renewal() tests' => sub {
     my $renewal_circId_attr = $ill_request->extended_attributes->find( { type => 'renewal_circId' } );
     ok( $renewal_circId_attr, 'Renewal circId attribute created' );
     is( $renewal_circId_attr->value, 'TEST_CIRC_001', 'Renewal circId stored correctly' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'item_shipped() updates checkout due date from Rapido dueDateTime' => sub {
+
+    plan tests => 11;
+
+    $schema->storage->txn_begin;
+
+    # Create test data
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+    my $patron   = $builder->build_object(
+        {
+            class => 'Koha::Patrons',
+            value => {
+                branchcode   => $library->branchcode,
+                categorycode => $category->categorycode,
+            }
+        }
+    );
+    my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+    my $item   = $builder->build_object(
+        {
+            class => 'Koha::Items',
+            value => {
+                biblionumber  => $biblio->biblionumber,
+                homebranch    => $library->branchcode,
+                holdingbranch => $library->branchcode,
+                itype         => $itemtype->itemtype,
+            }
+        }
+    );
+
+    # Create a checkout (simulating what LenderActions::item_shipped does via AddIssue)
+    t::lib::Mocks::mock_userenv( { branchcode => $library->branchcode } );
+    my $checkout = AddIssue( $patron, $item->barcode );
+    ok( $checkout, 'Checkout created' );
+
+    # Record the circ-rule-based due date
+    my $circ_rule_due_date = $checkout->date_due;
+
+    # Create ILL request
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                biblio_id      => $biblio->biblionumber,
+                branchcode     => $library->branchcode,
+                backend        => 'RapidoILL',
+                status         => 'O_ITEM_SHIPPED',
+                due_date       => undef,
+            }
+        }
+    );
+
+    # Create plugin with test config (due_date_buffer_days: 7)
+    my $plugin = t::lib::Mocks::Rapido->new(
+        {
+            library  => $library,
+            category => $category,
+            itemtype => $itemtype,
+        }
+    );
+
+    # Store checkout_id attribute so get_checkout() can find it
+    $plugin->add_or_update_attributes(
+        {
+            request    => $ill_request,
+            attributes => {
+                checkout_id => $checkout->id,
+                pod         => t::lib::Mocks::Rapido::POD,
+            }
+        }
+    );
+
+    my $handler = RapidoILL::ActionHandler::Lender->new(
+        {
+            pod    => t::lib::Mocks::Rapido::POD,
+            plugin => $plugin,
+        }
+    );
+
+    # Rapido dueDateTime: March 6, 2026 23:59:23 UTC (epoch 1772841563)
+    my $rapido_epoch = 1772841563;
+
+    # Create CircAction with dueDateTime
+    my $action = $builder->build_object(
+        {
+            class => 'RapidoILL::CircActions',
+            value => {
+                lastCircState => 'ITEM_SHIPPED',
+                illrequest_id => $ill_request->id,
+                pod           => t::lib::Mocks::Rapido::POD,
+                circId        => 'TEST_SHIPPED_DUE',
+                borrowerCode  => 'TEST',
+                callNumber    => 'TEST',
+                dueDateTime   => $rapido_epoch,
+            }
+        }
+    );
+
+    # Run the handler
+    lives_ok {
+        $handler->item_shipped($action);
+    }
+    'item_shipped with dueDateTime processes without exception';
+
+    # Verify checkout due date was updated (Rapido date minus 7 buffer days)
+    $checkout->discard_changes;
+    like( $checkout->date_due, qr/2026-02-27/, 'Checkout due date updated to Rapido date minus 7 buffer days' );
+
+    # Verify ILL request due_date was set
+    $ill_request->discard_changes;
+    like( $ill_request->due_date, qr/2026-02-27/, 'ILL request due_date set to buffered date' );
+
+    # Verify dueDateWithBuffer attribute stored the original Rapido date
+    my $buffer_attr = $ill_request->extended_attributes->find( { type => 'dueDateWithBuffer' } );
+    ok( $buffer_attr, 'dueDateWithBuffer attribute created' );
+    like( $buffer_attr->value, qr/2026-03-06/, 'dueDateWithBuffer contains original Rapido due date' );
+
+    # Test with dueDateTime but no checkout — should warn
+    my $ill_request_no_checkout = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                branchcode     => $library->branchcode,
+                backend        => 'RapidoILL',
+                status         => 'O_ITEM_SHIPPED',
+                due_date       => undef,
+            }
+        }
+    );
+
+    # Store pod but NO checkout_id
+    $plugin->add_or_update_attributes(
+        {
+            request    => $ill_request_no_checkout,
+            attributes => { pod => t::lib::Mocks::Rapido::POD },
+        }
+    );
+
+    my $action_no_checkout = $builder->build_object(
+        {
+            class => 'RapidoILL::CircActions',
+            value => {
+                lastCircState => 'ITEM_SHIPPED',
+                illrequest_id => $ill_request_no_checkout->id,
+                pod           => t::lib::Mocks::Rapido::POD,
+                circId        => 'TEST_SHIPPED_NO_CHECKOUT',
+                borrowerCode  => 'TEST',
+                callNumber    => 'TEST',
+                dueDateTime   => $rapido_epoch,
+            }
+        }
+    );
+
+    my $warn_logged = 0;
+    my $logger_mock = Test::MockModule->new('Koha::Logger');
+    $logger_mock->mock( 'warn', sub { $warn_logged = 1; } );
+
+    lives_ok {
+        $handler->item_shipped($action_no_checkout);
+    }
+    'item_shipped with dueDateTime but no checkout processes without exception';
+
+    ok( $warn_logged, 'Warning logged when no checkout found' );
+
+    # ILL request due_date should still be updated even without checkout
+    $ill_request_no_checkout->discard_changes;
+    like( $ill_request_no_checkout->due_date, qr/2026-02-27/, 'ILL request due_date still set even without checkout' );
+
+    # Test without dueDateTime — should be a no-op
+    my $ill_request2 = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                branchcode     => $library->branchcode,
+                backend        => 'RapidoILL',
+                status         => 'O_ITEM_SHIPPED',
+                due_date       => undef,
+            }
+        }
+    );
+
+    my $action_no_due = $builder->build_object(
+        {
+            class => 'RapidoILL::CircActions',
+            value => {
+                lastCircState => 'ITEM_SHIPPED',
+                illrequest_id => $ill_request2->id,
+                pod           => t::lib::Mocks::Rapido::POD,
+                circId        => 'TEST_SHIPPED_NO_DUE',
+                borrowerCode  => 'TEST',
+                callNumber    => 'TEST',
+                dueDateTime   => undef,
+            }
+        }
+    );
+
+    lives_ok {
+        $handler->item_shipped($action_no_due);
+    }
+    'item_shipped without dueDateTime is a no-op';
+
+    $ill_request2->discard_changes;
+    is( $ill_request2->due_date, undef, 'ILL request due_date remains NULL when no dueDateTime' );
 
     $schema->storage->txn_rollback;
 };
