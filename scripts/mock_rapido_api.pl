@@ -23,7 +23,7 @@ mock_rapido_api_working.pl [options]
  Options:
    --port=N             Port to run on (default: 3000)
    --config=FILE        Configuration file (default: mock_config.json)
-   --scenario=NAME      Load predefined scenario (borrowing|lending|mixed)
+   --scenario=NAME      Load predefined scenario (borrowing|lending|mixed|borrower_failed_cancel)
    --list-scenarios, -l List all available scenarios and exit
    --help              This help message
 
@@ -389,6 +389,33 @@ post '/view/broker/circ/:circId/itemreturned' => sub ($c) {
         json => {
             success => 1,
             message => "Borrower item returned processed successfully",
+            circId  => $circ_id
+        }
+    );
+};
+
+# Borrower cancel: POST /view/broker/circ/{circId}/borrowercancel
+post '/view/broker/circ/:circId/borrowercancel' => sub ($c) {
+    my $circ_id = $c->param('circId');
+
+    app->log->info("Borrower cancel for circId: $circ_id");
+
+    # Check if we're in borrower_failed_cancel scenario
+    if ( $api_state->{current_scenario} && $api_state->{current_scenario} eq 'borrower_failed_cancel' ) {
+        app->log->info("Returning 400 error for borrower_failed_cancel scenario");
+        $c->render(
+            status => 400,
+            json   => {
+                error => "No circulation request processable request was found"
+            }
+        );
+        return;
+    }
+
+    $c->render(
+        json => {
+            success => 1,
+            message => "Borrower cancel processed successfully",
             circId  => $circ_id
         }
     );

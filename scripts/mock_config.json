@@ -705,6 +705,15 @@
                     "response": "lending_renew_rejected"
                 }
             ]
+        },
+        "borrower_failed_cancel": {
+            "description": "Borrowing workflow where cancel fails with 'no processable request' error",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_initial"
+                }
+            ]
         }
     }
 }
