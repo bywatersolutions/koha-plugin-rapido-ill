@@ -19,11 +19,12 @@
 
 use Modern::Perl;
 
-use Test::More tests => 7;
+use Test::More tests => 8;
 use Test::NoWarnings;
 use Test::MockModule;
 use Test::MockObject;
 use Test::Exception;
+use JSON qw( encode_json );
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
@@ -798,6 +799,179 @@ subtest 'receive_unshipped() tests' => sub {
 
         ok( defined $received_data && keys %{$received_data}, 'API data param is not empty' );
         is( $received_data->{circId}, $test_circ_id, 'circId is present in API data' );
+
+        $schema->storage->txn_rollback;
+    };
+};
+
+subtest 'borrower_cancel() force cancel tests' => sub {
+
+    plan tests => 3;
+
+    subtest 'Force cancel parameter' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $result = $backend->borrower_cancel(
+            {
+                request => $illrequest,
+                other   => { force_cancel => 1 }
+            }
+        );
+
+        is( $result->{method}, 'illview', 'Returns illview method' );
+        is( $result->{stage},  'commit',  'Returns commit stage' );
+
+        $illrequest->discard_changes;
+        is( $illrequest->status, 'B_ITEM_CANCELLED_BY_US', 'Status updated to cancelled' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Returns allow_force on 400 error' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => { circId => 'test_circ_123', pod => 'test_pod' }
+            }
+        );
+
+        # Mock get_borrower_actions to return a mock that throws the exception
+        my $mock_borrower_actions = Test::MockObject->new();
+        $mock_borrower_actions->mock(
+            'borrower_cancel',
+            sub {
+                RapidoILL::Exception::RequestFailed->throw(
+                    method        => 'borrower_cancel',
+                    status_code   => 400,
+                    status_message => 'Bad Request',
+                    response_body => encode_json( { error => "No circulation request processable request was found" } )
+                );
+            }
+        );
+
+        my $plugin_module = Test::MockModule->new( ref($plugin) );
+        $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+        my $result = $backend->borrower_cancel( { request => $illrequest } );
+
+        is( $result->{stage},              'form', 'Returns form stage' );
+        is( $result->{value}->{allow_force}, 1,      'Returns allow_force flag in value' );
+        like( $result->{message}, qr/may have already been cancelled/, 'Message indicates possible cancellation' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'No allow_force on other errors' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => { circId => 'test_circ_123', pod => 'test_pod' }
+            }
+        );
+
+        # Mock get_borrower_actions to return a mock that throws a different exception
+        my $mock_borrower_actions = Test::MockObject->new();
+        $mock_borrower_actions->mock(
+            'borrower_cancel',
+            sub {
+                RapidoILL::Exception::RequestFailed->throw(
+                    method        => 'borrower_cancel',
+                    status_code   => 500,
+                    status_message => 'Internal Server Error',
+                    response_body => 'Server error'
+                );
+            }
+        );
+
+        my $plugin_module = Test::MockModule->new( ref($plugin) );
+        $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+        my $result = $backend->borrower_cancel( { request => $illrequest } );
+
+        is( $result->{stage},              'form', 'Returns form stage for other errors too' );
+        is( $result->{value}->{allow_force}, 0, 'Does not return allow_force flag for other errors' );
+        ok( $result->{value}->{error_message}, 'Returns error_message in value' );
 
         $schema->storage->txn_rollback;
     };

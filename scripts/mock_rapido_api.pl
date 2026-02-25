@@ -405,9 +405,7 @@ post '/view/broker/circ/:circId/borrowercancel' => sub ($c) {
         app->log->info("Returning 400 error for borrower_failed_cancel scenario");
         $c->render(
             status => 400,
-            json   => {
-                error => "No circulation request processable request was found"
-            }
+            json   => { error => "No circulation request processable request was found" }
         );
         return;
     }

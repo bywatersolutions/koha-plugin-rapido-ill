@@ -770,6 +770,29 @@ sub borrower_cancel {
 
     my $req = $params->{request};
 
+    # Handle force cancel (local only, skip Rapido API)
+    if ( $params->{other}->{force_cancel} ) {
+        return try {
+            $req->status('B_ITEM_CANCELLED_BY_US')->store;
+            $self->{plugin}->logger->info("[borrower_cancel] Force cancelled locally [ill_req=" . $req->id . "]");
+            return {
+                status  => q{},
+                message => 'Request cancelled locally (Rapido not notified)',
+                method  => 'illview',
+                stage   => 'commit',
+            };
+        } catch {
+            return {
+                status   => '',
+                stage    => 'form',
+                method   => 'borrower_cancel',
+                template => 'borrower_cancel',
+                message  => "Force cancel failed: $_",
+                value    => { error_message => "Force cancel failed: $_" },
+            };
+        };
+    }
+
     return try {
         $self->{plugin}->get_borrower_actions( $self->{plugin}->get_req_pod($req) )->borrower_cancel($req);
         return {
@@ -784,27 +807,50 @@ sub borrower_cancel {
         $self->{plugin}->logger->warn("[borrower_cancel] Operation failed");
 
         my $message = "Borrower cancellation failed";
-        if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+        my $allow_force = 0;
+        my $exception = $_;
 
-            # Extract basic error info for user-facing message
+        # Unwrap if it's a wrapped exception
+        if ( ref($exception) eq 'RapidoILL::Exception' && $exception =~ /RequestFailed/ ) {
+            # Extract status code and response body from the stringified exception
+            if ( $exception =~ /status_code => (\d+)/ ) {
+                my $status_code = $1;
+                if ( $exception =~ /response_body => (.+?), status/ ) {
+                    my $response_body = $1;
+                    if ( $status_code == 400 && $response_body =~ /No circulation request processable/i ) {
+                        $allow_force = 1;
+                        $message = "Borrower cancellation failed: HTTP $status_code. The request may have already been cancelled on Rapido's side.";
+                    } else {
+                        $message = "Borrower cancellation failed: HTTP $status_code";
+                    }
+                }
+            }
+        } elsif ( ref($exception) eq 'RapidoILL::Exception::RequestFailed' ) {
             my $status_info = '';
-            $status_info .= $_->status_code if $_->can('status_code');
-            $status_info .= ' ' . $_->status_message if $_->can('status_message');
+            $status_info .= $exception->status_code if $exception->can('status_code');
+            $status_info .= ' ' . $exception->status_message if $exception->can('status_message');
             $message = "Borrower cancellation failed: HTTP " . ( $status_info || 'Unknown error' );
+
+            if ( $exception->status_code == 400 && $exception->response_body =~ /No circulation request processable/i ) {
+                $allow_force = 1;
+                $message .= ". The request may have already been cancelled on Rapido's side.";
+            }
         } else {
-            $message = "Borrower cancellation failed: $_";
+            $message = "Borrower cancellation failed: $exception";
         }
 
-        my $result = {
-            status   => 'error',
-            error    => 1,
-            stage    => 'init',
-            method   => 'borrower_cancel',
-            template => 'borrower_cancel',
-            message  => $message,
+        # Return form stage for all errors (no error => 1)
+        return {
+            status       => '',
+            stage        => 'form',
+            method       => 'borrower_cancel',
+            template     => 'borrower_cancel',
+            message      => $message,
+            value        => {
+                allow_force   => $allow_force,
+                error_message => $message,
+            },
         };
-
-        return $result;
     };
 }
 
