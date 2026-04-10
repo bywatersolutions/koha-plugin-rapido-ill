@@ -4,24 +4,29 @@ $(document).ready(function () {
     var $icon = $indicator.find("i");
     var $link = $indicator.find("a");
 
-    $.ajax({
-        url: "/api/v1/contrib/rapidoill/status/api",
-        dataType: "json",
-        success: function (data) {
-            if (data.status === "ok") {
-                $icon.css("color", "#2ecc40");
-                $link.attr("title", "Rapido ILL: operational");
-            } else {
-                $icon.css("color", "#e74c3c");
-                var tip = "Rapido ILL: service disruption\n" +
-                    "HTTP " + data.status_code + " since " + data.since + "\n" +
-                    "Tasks delayed until " + data.delayed_until;
-                $link.attr("title", tip);
+    function checkStatus() {
+        $.ajax({
+            url: "/api/v1/contrib/rapidoill/status/api",
+            dataType: "json",
+            success: function (data) {
+                if (data.status === "ok") {
+                    $icon.css("color", "#2ecc40");
+                    $link.attr("title", "Rapido ILL: operational");
+                } else {
+                    $icon.css("color", "#e74c3c");
+                    var tip = "Rapido ILL: service disruption\n" +
+                        "HTTP " + data.status_code + " since " + data.since + "\n" +
+                        "Tasks delayed until " + data.delayed_until;
+                    $link.attr("title", tip);
+                }
+            },
+            error: function () {
+                $icon.css("color", "#999");
+                $link.attr("title", "Rapido ILL: status unavailable");
             }
-        },
-        error: function () {
-            $icon.css("color", "#999");
-            $link.attr("title", "Rapido ILL: status unavailable");
-        }
-    });
+        });
+    }
+
+    checkStatus();
+    setInterval(checkStatus, 60000);
 });
