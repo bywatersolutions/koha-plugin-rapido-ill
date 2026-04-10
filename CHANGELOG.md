@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-04-10
+
+### Added
+
+- [#182] Task queue daemon detects Rapido 5xx errors and delays all runnable tasks with configurable backoff (`task_queue_5xx_delay_minutes`, default 20)
+- [#182] New `ExternalRequestFailed` and `ExternalRequestRejected` exception types to distinguish server-side (5xx) from client-side (4xx) API errors
+- [#182] New `server_status_log` table to record 5xx incidents with pod, status code, affected task IDs, and delayed_until timestamp
+- [#182] Mock API `force_5xx`/`clear_5xx` control endpoints for testing backoff behavior
+- [#184] Rapido status indicator (colored dot) in the staff interface navbar showing integration health
+- [#184] New `/status/api` endpoint returning current Rapido status based on active outages
+
+### Changed
+
+- [#182] Backend action catch blocks now re-throw `RequestFailed` as typed exceptions instead of wrapping in generic `RapidoILL::Exception`
+- [#182] Task queue daemon marks 4xx errors as permanent failures (no retry)
+
 ## [1.4.10] - 2026-02-25
 
 ### Fixed
