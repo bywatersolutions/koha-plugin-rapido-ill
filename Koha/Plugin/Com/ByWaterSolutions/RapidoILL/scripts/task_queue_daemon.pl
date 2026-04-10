@@ -102,7 +102,12 @@ sub run_tasks_batch {
 
     while ( my $task = $tasks->next ) {
         $logger->debug( "Dispatching task ID " . $task->id . " (action: " . $task->action . ")" );
-        dispatch_task( { plugin => $plugin, task => $task } );
+        my $result = dispatch_task( { plugin => $plugin, task => $task } );
+
+        if ( $result && $result->{backoff} ) {
+            delay_all_runnable_tasks( $result->{delay_minutes} );
+            last;
+        }
     }
 }
 
@@ -143,6 +148,24 @@ sub dispatch_task {
         $logger->info( "Task ID " . $task->id . " completed successfully (action: " . $task->action . ")" );
     } catch {
         my $error = $_ || 'Unknown error';
+
+        # Detect Rapido 5xx errors and trigger global backoff
+        my $status_code = ref($error) eq 'RapidoILL::Exception::RequestFailed' ? ( $error->status_code // 0 ) : 0;
+        if ( $status_code >= 500 && $status_code < 600 ) {
+            $task->retry( { error => "$error" } );
+
+            my $pod_config    = $plugin->configuration->{ $task->pod } // {};
+            my $delay_minutes = $pod_config->{task_queue_5xx_delay_minutes} // 20;
+
+            $logger->warn(
+                "Rapido returned $status_code on task ID "
+                    . $task->id
+                    . ", backing off all tasks for ${delay_minutes} minutes"
+            );
+
+            return { backoff => 1, delay_minutes => $delay_minutes };
+        }
+
         if ( $task->can_retry ) {
             $task->retry( { error => "$error" } );
             $logger->warn( "Task ID " . $task->id . " failed, will retry: $error" );
@@ -151,6 +174,25 @@ sub dispatch_task {
             $logger->error( "Task ID " . $task->id . " failed permanently: $error" );
         }
     };
+}
+
+=head3 delay_all_runnable_tasks
+
+    delay_all_runnable_tasks($delay_minutes);
+
+Sets C<run_after> on all currently runnable tasks to delay them by the
+given number of minutes. Used when Rapido returns a 5xx error to avoid
+hammering the server while it recovers.
+
+=cut
+
+sub delay_all_runnable_tasks {
+    my ($delay_minutes) = @_;
+
+    my $delay_seconds = $delay_minutes * 60;
+
+    $plugin->get_queued_tasks->filter_by_runnable->update(
+        { run_after => \"DATE_ADD(NOW(), INTERVAL $delay_seconds SECOND)" } );
 }
 
 =head3 default_handler

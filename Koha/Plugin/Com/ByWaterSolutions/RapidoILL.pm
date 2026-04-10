@@ -200,8 +200,9 @@ sub configuration {
             $configuration->{$pod}->{max_debt_blocks_holds}    //= 100;
             $configuration->{$pod}->{expiration_blocks_holds}  //= 1;
             $configuration->{$pod}->{restriction_blocks_holds} //= 1;
-            $configuration->{$pod}->{due_date_buffer_days}     //= 7;
-            $configuration->{$pod}->{renewal_buffer_days}      //= 7;
+            $configuration->{$pod}->{due_date_buffer_days}          //= 7;
+            $configuration->{$pod}->{renewal_buffer_days}             //= 7;
+            $configuration->{$pod}->{task_queue_5xx_delay_minutes}    //= 20;
         }
 
         $self->{_configuration} = $configuration;
