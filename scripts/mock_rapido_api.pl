@@ -594,6 +594,35 @@ post '/control/reset' => sub ($c) {
     );
 };
 
+# Force 5xx responses on action endpoints (for testing task queue backoff)
+post '/control/force_5xx/:code' => sub ($c) {
+    my $code = $c->param('code') + 0;
+    $api_state->{force_5xx} = $code;
+    app->log->info("Forcing $code responses on action endpoints");
+    $c->render( json => { success => 1, message => "Action endpoints will return $code" } );
+};
+
+post '/control/clear_5xx' => sub ($c) {
+    delete $api_state->{force_5xx};
+    app->log->info("Cleared forced 5xx responses");
+    $c->render( json => { success => 1, message => "5xx forcing cleared" } );
+};
+
+# Hook to intercept action endpoints when force_5xx is active
+hook before_dispatch => sub ($c) {
+    return unless $api_state->{force_5xx};
+
+    my $path = $c->req->url->path->to_string;
+
+    # Only intercept action endpoints (POST to /view/broker/circ/{circId}/*)
+    # but not auth or circrequests
+    if ( $c->req->method eq 'POST' && $path =~ m{^/view/broker/circ/[^/]+/} ) {
+        my $code = $api_state->{force_5xx};
+        app->log->info("Returning forced $code for: $path");
+        $c->render( status => $code, json => { error => "Simulated $code error" } );
+    }
+};
+
 # Start the server
 app->log->info("Starting Mock Rapido API (Working) on port $port");
 app->log->info("Configuration file: $config_file");

@@ -69,6 +69,8 @@ dev03-na:
   restriction_blocks_holds: true
   due_date_buffer_days: 7
   renewal_buffer_days: 7
+  # Task queue
+  task_queue_5xx_delay_minutes: 20
   # Debug options
   debug_after_circ_action: false
   # Development mode
@@ -88,6 +90,8 @@ dev03-na:
 **renewal_buffer_days**: Number of buffer days Rapido adds to due dates for renewals. When processing OWNER_RENEW actions, this number of days is subtracted from the received due date. When sending renewal requests to Rapido, this number of days is added to the requested due date. Default: 7 days.
 
 **debug_after_circ_action**: Enable detailed debug logging for the `after_circ_action` hook, including action types, request lookups, status checks, and task enqueueing. Useful for troubleshooting circulation-triggered ILL workflows. Default: false.
+
+**task_queue_5xx_delay_minutes**: When the task queue daemon encounters a 5xx HTTP error from Rapido, all runnable tasks are delayed by this many minutes to avoid hammering the server while it recovers. Each incident is recorded in the `server_status_log` table for monitoring. Default: 20 minutes.
 
 ### Task Queue Daemon
 
