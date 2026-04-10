@@ -57,6 +57,7 @@ BEGIN {
     require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillAgencyToPatron;
     require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCircAction;
     require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue;
+    require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillServerStatusLog;
 
     # register the additional schema classes
     Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillAgencyToPatron =>
@@ -65,6 +66,8 @@ BEGIN {
             'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCircAction' );
     Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillTaskQueue =>
             'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue' );
+    Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillServerStatusLog =>
+            'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillServerStatusLog' );
 
     # force a refresh of the database handle so that it includes the new classes
     Koha::Database->schema( { new => 1 } );
@@ -309,6 +312,29 @@ sub install {
         );
     }
 
+    my $server_status_log = $self->get_qualified_table_name('server_status_log');
+
+    unless ( $self->_table_exists($server_status_log) ) {
+        $dbh->do(
+            qq{
+            CREATE TABLE $server_status_log (
+                `id`                INT(11) NOT NULL AUTO_INCREMENT,
+                `pod`               VARCHAR(191) NOT NULL,
+                `status_code`       INT(11) NOT NULL,
+                `task_id`           INT(11) NULL DEFAULT NULL,
+                `action`            VARCHAR(191) NULL DEFAULT NULL,
+                `delay_minutes`     INT(11) NOT NULL,
+                `delayed_until`     TIMESTAMP NOT NULL,
+                `affected_task_ids` TEXT NULL DEFAULT NULL,
+                `timestamp`         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                KEY `pod` (`pod`),
+                KEY `timestamp` (`timestamp`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        }
+        );
+    }
+
     return 1;
 }
 
@@ -442,6 +468,35 @@ sub upgrade {
             MODIFY COLUMN `pod` VARCHAR(191) NOT NULL
             }
         );
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "1.4.11";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        my $server_status_log = $self->get_qualified_table_name('server_status_log');
+
+        unless ( $self->_table_exists($server_status_log) ) {
+            $dbh->do(
+                qq{
+                CREATE TABLE $server_status_log (
+                    `id`                INT(11) NOT NULL AUTO_INCREMENT,
+                    `pod`               VARCHAR(191) NOT NULL,
+                    `status_code`       INT(11) NOT NULL,
+                    `task_id`           INT(11) NULL DEFAULT NULL,
+                    `action`            VARCHAR(191) NULL DEFAULT NULL,
+                    `delay_minutes`     INT(11) NOT NULL,
+                    `delayed_until`     TIMESTAMP NOT NULL,
+                    `affected_task_ids` TEXT NULL DEFAULT NULL,
+                    `timestamp`         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    KEY `pod` (`pod`),
+                    KEY `timestamp` (`timestamp`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            }
+            );
+        }
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
