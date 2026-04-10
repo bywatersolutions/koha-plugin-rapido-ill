@@ -284,4 +284,43 @@ sub get_print_slip {
     };
 }
 
+=head3 status_api
+
+Returns the current Rapido integration status based on recent 5xx incidents
+in the server_status_log table.
+
+=cut
+
+sub status_api {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::ServerStatusLogs;
+
+        my $incident = RapidoILL::ServerStatusLogs->new->search(
+            { delayed_until => { '>' => \'NOW()' } },
+            { order_by => { -desc => 'delayed_until' }, rows => 1 }
+        )->next;
+
+        if ($incident) {
+            return $c->render(
+                status => 200,
+                json   => {
+                    status        => 'outage',
+                    status_code   => $incident->status_code,
+                    since         => $incident->timestamp . "",
+                    delayed_until => $incident->delayed_until . "",
+                },
+            );
+        }
+
+        return $c->render(
+            status => 200,
+            json   => { status => 'ok' },
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
 1;

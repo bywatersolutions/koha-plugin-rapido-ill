@@ -989,6 +989,19 @@ sub template_include_paths {
     return [ $self->mbf_path('templates'), ];
 }
 
+=head3 intranet_js
+
+Plugin hook that injects JavaScript into the staff interface.
+
+=cut
+
+sub intranet_js {
+    my ($self) = @_;
+
+    my $js = Encode::decode_utf8( $self->mbf_read('intranet.js') );
+    return qq{<script>$js</script>};
+}
+
 =head3 cronjob_nightly
 
 Plugin hook for running nightly tasks

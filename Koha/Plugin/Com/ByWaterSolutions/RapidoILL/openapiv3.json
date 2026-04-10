@@ -1,4 +1,36 @@
 {
+  "/status/api": {
+    "get": {
+      "operationId": "rapidoILLStatusApi",
+      "description": "Returns the current Rapido integration status",
+      "tags": ["status"],
+      "responses": {
+        "200": {
+          "description": "Current status",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["ok", "outage"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "500": { "description": "Internal server error" }
+      },
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#status_api",
+      "x-koha-authorization": {
+        "permissions": {
+          "ill": "1"
+        }
+      }
+    }
+  },
   "/circulation/verifypatron": {
     "post": {
       "operationId": "rapidoILLVerifypatron",
