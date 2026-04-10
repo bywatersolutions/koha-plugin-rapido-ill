@@ -30,6 +30,7 @@ use Koha::Script;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 use RapidoILL::Exceptions;
+use RapidoILL::ServerStatusLog;
 
 # Initialize logger with custom category for daemon
 my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
@@ -105,7 +106,20 @@ sub run_tasks_batch {
         my $result = dispatch_task( { plugin => $plugin, task => $task } );
 
         if ( $result && $result->{backoff} ) {
-            delay_all_runnable_tasks( $result->{delay_minutes} );
+            my $affected_task_ids = delay_all_runnable_tasks( $result->{delay_seconds} );
+
+            RapidoILL::ServerStatusLog->new(
+                {
+                    pod               => $result->{pod},
+                    status_code       => $result->{status_code},
+                    task_id           => $result->{task_id},
+                    action            => $result->{action},
+                    delay_minutes     => $result->{delay_minutes},
+                    delayed_until     => \"DATE_ADD(NOW(), INTERVAL $result->{delay_seconds} SECOND)",
+                    affected_task_ids => $affected_task_ids,
+                }
+            )->store();
+
             last;
         }
     }
@@ -149,13 +163,16 @@ sub dispatch_task {
     } catch {
         my $error = $_ || 'Unknown error';
 
-        # Detect Rapido 5xx errors and trigger global backoff
-        my $status_code = ref($error) eq 'RapidoILL::Exception::RequestFailed' ? ( $error->status_code // 0 ) : 0;
-        if ( $status_code >= 500 && $status_code < 600 ) {
+        # Rapido 5xx: server-side failure, trigger global backoff
+        if ( ref($error) eq 'RapidoILL::Exception::ExternalRequestFailed' ) {
+            my $orig        = $error->original_exception;
+            my $status_code = ref($orig) eq 'RapidoILL::Exception::RequestFailed' ? ( $orig->status_code // 0 ) : 0;
+
             $task->retry( { error => "$error" } );
 
             my $pod_config    = $plugin->configuration->{ $task->pod } // {};
             my $delay_minutes = $pod_config->{task_queue_5xx_delay_minutes} // 20;
+            my $delay_seconds = $delay_minutes * 60;
 
             $logger->warn(
                 "Rapido returned $status_code on task ID "
@@ -163,9 +180,25 @@ sub dispatch_task {
                     . ", backing off all tasks for ${delay_minutes} minutes"
             );
 
-            return { backoff => 1, delay_minutes => $delay_minutes };
+            return {
+                backoff       => 1,
+                pod           => $task->pod,
+                status_code   => $status_code,
+                task_id       => $task->id,
+                action        => $task->action,
+                delay_minutes => $delay_minutes,
+                delay_seconds => $delay_seconds,
+            };
         }
 
+        # Rapido 4xx: client-side error, don't retry
+        if ( ref($error) eq 'RapidoILL::Exception::ExternalRequestRejected' ) {
+            $task->error( { error => "$error" } );
+            $logger->error( "Task ID " . $task->id . " rejected by Rapido (4xx), not retrying: $error" );
+            return;
+        }
+
+        # Everything else: transient errors, retry with backoff
         if ( $task->can_retry ) {
             $task->retry( { error => "$error" } );
             $logger->warn( "Task ID " . $task->id . " failed, will retry: $error" );
@@ -178,21 +211,23 @@ sub dispatch_task {
 
 =head3 delay_all_runnable_tasks
 
-    delay_all_runnable_tasks($delay_minutes);
+    my $affected_task_ids = delay_all_runnable_tasks($delay_seconds);
 
 Sets C<run_after> on all currently runnable tasks to delay them by the
-given number of minutes. Used when Rapido returns a 5xx error to avoid
-hammering the server while it recovers.
+given number of seconds. Used when Rapido returns a 5xx error to avoid
+hammering the server while it recovers. Returns an arrayref of affected task IDs.
 
 =cut
 
 sub delay_all_runnable_tasks {
-    my ($delay_minutes) = @_;
+    my ($delay_seconds) = @_;
 
-    my $delay_seconds = $delay_minutes * 60;
+    my $runnable = $plugin->get_queued_tasks->filter_by_runnable;
+    my @ids      = $runnable->get_column('id');
 
-    $plugin->get_queued_tasks->filter_by_runnable->update(
-        { run_after => \"DATE_ADD(NOW(), INTERVAL $delay_seconds SECOND)" } );
+    $runnable->reset->update( { run_after => \"DATE_ADD(NOW(), INTERVAL $delay_seconds SECOND)" } ) if @ids;
+
+    return \@ids;
 }
 
 =head3 default_handler

@@ -99,6 +99,16 @@ use Exception::Class (
         description => 'HTTP request error response',
         fields      => [ 'method', 'response', 'status_code', 'status_message', 'response_body' ]
     },
+    'RapidoILL::Exception::ExternalRequestFailed' => {
+        isa         => 'RapidoILL::Exception',
+        description => 'A Rapido API call failed due to a server-side error (5xx)',
+        fields      => ['original_exception']
+    },
+    'RapidoILL::Exception::ExternalRequestRejected' => {
+        isa         => 'RapidoILL::Exception',
+        description => 'A Rapido API call was rejected due to a client-side error (4xx)',
+        fields      => ['original_exception']
+    },
     'RapidoILL::Exception::OAuth2::AuthError' => {
         isa         => 'RapidoILL::Exception',
         description => 'Error authenticating against Rapido ILL',

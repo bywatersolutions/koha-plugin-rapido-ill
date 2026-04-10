@@ -157,12 +157,15 @@ sub cancel_request {
         );
         return $self;
     } catch {
-        RapidoILL::Exception->throw(
-            sprintf(
-                "Unhandled exception: %s",
-                $_
-            )
-        );
+        if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+            my $code = $_->status_code // 0;
+            RapidoILL::Exception::ExternalRequestFailed->throw( original_exception => $_ )
+                if $code >= 500;
+            RapidoILL::Exception::ExternalRequestRejected->throw( original_exception => $_ )
+                if $code >= 400;
+        }
+
+        RapidoILL::Exception->throw( sprintf( "Unhandled exception: %s", $_ ) );
     }
 }
 
@@ -258,12 +261,15 @@ sub item_shipped {
         );
         return $self;
     } catch {
-        RapidoILL::Exception->throw(
-            sprintf(
-                "Unhandled exception: %s",
-                $_
-            )
-        );
+        if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+            my $code = $_->status_code // 0;
+            RapidoILL::Exception::ExternalRequestFailed->throw( original_exception => $_ )
+                if $code >= 500;
+            RapidoILL::Exception::ExternalRequestRejected->throw( original_exception => $_ )
+                if $code >= 400;
+        }
+
+        RapidoILL::Exception->throw( sprintf( "Unhandled exception: %s", $_ ) );
     }
 }
 
@@ -302,12 +308,15 @@ sub final_checkin {
         );
         return $self;
     } catch {
-        RapidoILL::Exception->throw(
-            sprintf(
-                "Unhandled exception: %s",
-                $_
-            )
-        );
+        if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+            my $code = $_->status_code // 0;
+            RapidoILL::Exception::ExternalRequestFailed->throw( original_exception => $_ )
+                if $code >= 500;
+            RapidoILL::Exception::ExternalRequestRejected->throw( original_exception => $_ )
+                if $code >= 400;
+        }
+
+        RapidoILL::Exception->throw( sprintf( "Unhandled exception: %s", $_ ) );
     }
 }
 
@@ -388,12 +397,15 @@ sub renewal_request {
         );
         return $self;
     } catch {
-        RapidoILL::Exception->throw(
-            sprintf(
-                "Unhandled exception: %s",
-                $_
-            )
-        );
+        if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+            my $code = $_->status_code // 0;
+            RapidoILL::Exception::ExternalRequestFailed->throw( original_exception => $_ )
+                if $code >= 500;
+            RapidoILL::Exception::ExternalRequestRejected->throw( original_exception => $_ )
+                if $code >= 400;
+        }
+
+        RapidoILL::Exception->throw( sprintf( "Unhandled exception: %s", $_ ) );
     }
 }
 
@@ -442,12 +454,15 @@ sub item_recalled {
         );
         return $self;
     } catch {
-        RapidoILL::Exception->throw(
-            sprintf(
-                "Unhandled exception: %s",
-                $_
-            )
-        );
+        if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
+            my $code = $_->status_code // 0;
+            RapidoILL::Exception::ExternalRequestFailed->throw( original_exception => $_ )
+                if $code >= 500;
+            RapidoILL::Exception::ExternalRequestRejected->throw( original_exception => $_ )
+                if $code >= 400;
+        }
+
+        RapidoILL::Exception->throw( sprintf( "Unhandled exception: %s", $_ ) );
     };
 }
 
