@@ -1002,6 +1002,68 @@ sub intranet_js {
     return qq{<script>$js</script>};
 }
 
+=head3 admin
+
+Plugin hook that provides an administration/status page accessible
+from Koha's Administration home.
+
+=cut
+
+sub admin {
+    my ( $self, $args ) = @_;
+
+    require RapidoILL::ServerStatusLogs;
+    require JSON;
+
+    my $cgi      = $self->{'cgi'};
+    my $template = $self->get_template( { file => 'templates/admin.tt' } );
+
+    # Active outage
+    my $active = RapidoILL::ServerStatusLogs->new->search(
+        { delayed_until => { '>' => \'NOW()' } },
+        { order_by => { -desc => 'delayed_until' }, rows => 1 }
+    )->next;
+
+    if ($active) {
+        my $ids = $active->affected_task_ids ? JSON::decode_json( $active->affected_task_ids ) : [];
+        $template->param(
+            active_outage => {
+                status_code       => $active->status_code,
+                timestamp         => $active->timestamp,
+                delayed_until     => $active->delayed_until,
+                affected_task_ids => $active->affected_task_ids,
+                affected_count    => scalar @$ids,
+            }
+        );
+    }
+
+    # Recent incidents (last 20)
+    my @incidents;
+    my $logs = RapidoILL::ServerStatusLogs->new->search(
+        {},
+        { order_by => { -desc => 'id' }, rows => 20 }
+    );
+
+    while ( my $log = $logs->next ) {
+        my $ids = $log->affected_task_ids ? JSON::decode_json( $log->affected_task_ids ) : [];
+        push @incidents,
+            {
+            timestamp      => $log->timestamp,
+            status_code    => $log->status_code,
+            task_id        => $log->task_id,
+            action         => $log->action,
+            delayed_until  => $log->delayed_until,
+            affected_count => scalar @$ids,
+            pod            => $log->pod,
+            };
+    }
+
+    $template->param( incidents => \@incidents );
+
+    print $cgi->header( -type => 'text/html', -charset => 'UTF-8' );
+    print $template->output();
+}
+
 =head3 cronjob_nightly
 
 Plugin hook for running nightly tasks

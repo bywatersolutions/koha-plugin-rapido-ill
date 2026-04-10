@@ -1,0 +1,86 @@
+[% USE raw %]
+[% USE KohaDates %]
+
+[% INCLUDE 'doc-head-open.inc' %]
+<title>Koha: Rapido ILL: Status</title>
+[% INCLUDE 'doc-head-close.inc' %]
+</head>
+
+<body>
+[% WRAPPER 'header.inc' %]
+    [% INCLUDE 'cat-search.inc' %]
+[% END %]
+
+[% WRAPPER 'sub-header.inc' %]
+    [% WRAPPER breadcrumbs %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="#">Rapido ILL</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item bc_active=1 %]
+            Status
+        [% END %]
+    [% END %]
+[% END %]
+
+<div class="main container-fluid">
+    <div class="row">
+        <div class="col-md-10 order-md-2 order-sm-1">
+            <h1>Rapido ILL Status</h1>
+
+            <div class="page-section">
+                <h2>Current status</h2>
+                [% IF active_outage %]
+                    <div class="alert alert-danger">
+                        <strong><i class="fa fa-circle" style="color:#e74c3c"></i> Service disruption</strong><br/>
+                        Rapido returned HTTP [% active_outage.status_code | html %] at [% active_outage.timestamp | $KohaDates with_hours => 1 %].<br/>
+                        Tasks delayed until [% active_outage.delayed_until | $KohaDates with_hours => 1 %].
+                        [% IF active_outage.affected_task_ids %]
+                            <br/>[% active_outage.affected_count | html %] task(s) affected.
+                        [% END %]
+                    </div>
+                [% ELSE %]
+                    <div class="alert alert-success">
+                        <strong><i class="fa fa-circle" style="color:#2ecc40"></i> Operational</strong><br/>
+                        No active service disruptions.
+                    </div>
+                [% END %]
+            </div>
+
+            [% IF incidents.size %]
+            <div class="page-section">
+                <h2>Recent incidents</h2>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>HTTP status</th>
+                            <th>Trigger</th>
+                            <th>Delayed until</th>
+                            <th>Affected tasks</th>
+                            <th>Pod</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        [% FOREACH incident IN incidents %]
+                        <tr>
+                            <td>[% incident.timestamp | $KohaDates with_hours => 1 %]</td>
+                            <td>[% incident.status_code | html %]</td>
+                            <td>Task [% incident.task_id | html %] ([% incident.action | html %])</td>
+                            <td>[% incident.delayed_until | $KohaDates with_hours => 1 %]</td>
+                            <td>[% incident.affected_count | html %]</td>
+                            <td>[% incident.pod | html %]</td>
+                        </tr>
+                        [% END %]
+                    </tbody>
+                </table>
+            </div>
+            [% END %]
+
+        </div>
+    </div>
+</div>
+
+[% INCLUDE 'intranet-bottom.inc' %]
