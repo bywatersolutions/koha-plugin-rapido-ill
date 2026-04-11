@@ -512,11 +512,19 @@ sub borrower_renew {
 
     if ( !$self->{configuration}->{dev_mode} && !$options->{skip_api_request} ) {
 
+        my $data = {};
+        if ( $params->{dueDateTime} ) {
+            if ( ref( $params->{dueDateTime} ) && $params->{dueDateTime}->can('epoch') ) {
+                $data->{dueDateTime} = $params->{dueDateTime}->epoch;
+            } else {
+                $data->{dueDateTime} = dt_from_string( $params->{dueDateTime} )->epoch;
+            }
+        }
 
         my $response = $self->{ua}->post_request(
             {
                 endpoint => '/view/broker/circ/' . $params->{circId} . '/borrowerrenew',
-                data     => { dueDateTime => undef },
+                data     => $data,
                 context  => 'borrower_renew'
             }
         );

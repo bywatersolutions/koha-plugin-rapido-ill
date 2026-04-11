@@ -596,7 +596,7 @@ subtest 'borrower_renew() tests' => sub {
 
     subtest 'Successful calls' => sub {
 
-        plan tests => 8;
+        plan tests => 9;
 
         $schema->storage->txn_begin;
 
@@ -678,6 +678,14 @@ subtest 'borrower_renew() tests' => sub {
         # Verify parameters passed to client
         ok( $captured_params, 'Parameters captured from client call' );
         is( $captured_params->{circId}, 'TEST_CIRC_ID', 'Correct circId passed' );
+
+        # Verify dueDateTime includes renewal_buffer_days (7 days)
+        my $expected_due = dt_from_string($due_date)->add( days => 7 );
+        is(
+            $captured_params->{dueDateTime}->ymd,
+            $expected_due->ymd,
+            'dueDateTime passed with renewal_buffer_days added'
+        );
 
         # Verify status was updated
         $illrequest->discard_changes();

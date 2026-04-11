@@ -381,9 +381,17 @@ sub borrower_renew {
                     }
                 }
 
+                my $due_date_with_buffer;
+                if ( $params->{due_date} ) {
+                    my $renewal_buffer = $config->{renewal_buffer_days} // 7;
+                    $due_date_with_buffer =
+                        dt_from_string( $params->{due_date} )->add( days => $renewal_buffer );
+                }
+
                 $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
                     {
-                        circId      => $circId
+                        circId      => $circId,
+                        ( $due_date_with_buffer ? ( dueDateTime => $due_date_with_buffer ) : () ),
                     },
                     $options
                 );
