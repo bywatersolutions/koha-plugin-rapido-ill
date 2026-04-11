@@ -160,6 +160,7 @@ sub dispatch_task {
         $action_to_method->{$action}->( { task => $task, plugin => $plugin } );
         $task->success();
         $logger->info( "Task ID " . $task->id . " completed successfully (action: " . $task->action . ")" );
+        return;
     } catch {
         my $error = $_ || 'Unknown error';
 

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [#186] Fix borrower renewal sending null dueDateTime to Rapido API causing 500 errors
 - [#186] Thread due_date from task payload through BorrowerActions to Client with renewal_buffer_days applied
+- [#186] Fix task queue daemon crash on successful task completion (dispatch_task return value used as hashref)
 
 ## [1.5.1] - 2026-04-10
 
