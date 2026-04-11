@@ -386,6 +386,12 @@ sub borrower_renew {
                     my $renewal_buffer = $config->{renewal_buffer_days} // 7;
                     $due_date_with_buffer =
                         dt_from_string( $params->{due_date} )->add( days => $renewal_buffer );
+
+                    if ( $due_date_with_buffer < dt_from_string() ) {
+                        RapidoILL::Exception::ExternalRequestRejected->throw(
+                            "Renewal due date with buffer ($due_date_with_buffer) is in the past"
+                        );
+                    }
                 }
 
                 $self->{plugin}->get_client( $self->{pod} )->borrower_renew(

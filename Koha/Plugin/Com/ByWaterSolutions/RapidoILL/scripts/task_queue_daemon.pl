@@ -169,6 +169,15 @@ sub dispatch_task {
             my $orig        = $error->original_exception;
             my $status_code = ref($orig) eq 'RapidoILL::Exception::RequestFailed' ? ( $orig->status_code // 0 ) : 0;
 
+            # Treat "dueDate already passed" 500 as permanent error (Rapido misuses 500 for validation)
+            if ( ref($orig) eq 'RapidoILL::Exception::RequestFailed'
+                && ( $orig->response_body // '' ) =~ /dueDate already passed/ )
+            {
+                $task->error( { error => "$error" } );
+                $logger->error( "Task ID " . $task->id . " failed permanently (past due date): $error" );
+                return;
+            }
+
             $task->retry( { error => "$error" } );
 
             my $pod_config    = $plugin->configuration->{ $task->pod } // {};

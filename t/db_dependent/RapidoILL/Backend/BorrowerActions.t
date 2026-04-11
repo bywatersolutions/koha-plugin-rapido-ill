@@ -657,8 +657,8 @@ subtest 'borrower_renew() tests' => sub {
 
         my $actions = $plugin->get_borrower_actions($pod);
 
-        # Test with a due date string
-        my $due_date = '2025-09-15';
+        # Test with a future due date string
+        my $due_date = dt_from_string()->add( days => 30 )->ymd;
         lives_ok {
             $actions->borrower_renew( $illrequest, { due_date => $due_date } );
         }
@@ -695,7 +695,7 @@ subtest 'borrower_renew() tests' => sub {
     };
 
     subtest 'Error cases' => sub {
-        plan tests => 2;
+        plan tests => 3;
 
         $schema->storage->txn_begin;
 
@@ -726,13 +726,19 @@ subtest 'borrower_renew() tests' => sub {
         );
 
         throws_ok {
-            $actions->borrower_renew( $illrequest, { due_date => '2025-09-15' } );
+            $actions->borrower_renew( $illrequest, { due_date => dt_from_string()->add( days => 30 )->ymd } );
         }
         qr/API Error/, 'Throws exception on API failure';
 
         # Verify transaction rollback
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_RECEIVED', 'Status unchanged after transaction rollback' );
+
+        # Past due date (even with buffer) should be rejected without hitting the API
+        throws_ok {
+            $actions->borrower_renew( $illrequest, { due_date => dt_from_string()->subtract( days => 30 )->ymd } );
+        }
+        qr/is in the past/, 'Throws ExternalRequestRejected for past due date';
 
         $schema->storage->txn_rollback;
     };
