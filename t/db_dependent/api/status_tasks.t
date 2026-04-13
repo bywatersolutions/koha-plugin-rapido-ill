@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 3;
+use Test::More tests => 4;
 use Test::Mojo;
 use t::lib::TestBuilder;
 use t::lib::Mocks;
@@ -49,6 +49,26 @@ my $patron = $builder->build_object(
 );
 $patron->set_password( { password => 'noAccess123', skip_validation => 1 } );
 my $unauth_userid = $patron->userid;
+
+subtest 'GET /status/api' => sub {
+
+    plan tests => 9;
+
+    $schema->storage->txn_begin;
+
+    $t->get_ok("$base/status/api")->status_is(401);
+
+    $t->get_ok("//$unauth_userid:noAccess123\@$base/status/api")->status_is(403);
+
+    $t->get_ok("//$userid:$password\@$base/status/api")->status_is(200)
+        ->json_is( '/status' => 'ok' );
+
+    # No active outage
+    $t->get_ok("//$userid:$password\@$base/status/api")
+        ->json_hasnt('/status_code');
+
+    $schema->storage->txn_rollback;
+};
 
 subtest 'GET /status/tasks' => sub {
 
