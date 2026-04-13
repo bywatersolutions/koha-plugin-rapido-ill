@@ -23,32 +23,17 @@ use Test::More tests => 4;
 use Test::Mojo;
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Rapido;
 
 use Koha::Database;
 
-my $schema  = Koha::Database->new->schema;
-my $builder = t::lib::TestBuilder->new();
-
-my $plugin    = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
-my $namespace = $plugin->api_namespace;
-my $base      = "/api/v1/contrib/$namespace";
+my $schema   = Koha::Database->new->schema;
+my $builder  = t::lib::TestBuilder->new();
+my $password = t::lib::Mocks::Rapido::PASSWORD;
 
 t::lib::Mocks::mock_preference( 'RESTBasicAuth', 1 );
 
 my $t = Test::Mojo->new('Koha::REST::V1');
-
-my $librarian = $builder->build_object(
-    { class => 'Koha::Patrons', value => { flags => 2**4 } }    # borrowers permission
-);
-my $password = 'thePassword123';
-$librarian->set_password( { password => $password, skip_validation => 1 } );
-my $userid = $librarian->userid;
-
-my $patron = $builder->build_object(
-    { class => 'Koha::Patrons', value => { flags => 0 } }
-);
-$patron->set_password( { password => 'noAccess123', skip_validation => 1 } );
-my $unauth_userid = $patron->userid;
 
 subtest 'auth' => sub {
 
@@ -56,15 +41,18 @@ subtest 'auth' => sub {
 
     $schema->storage->txn_begin;
 
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new( { flags => 2**4 } );
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+
     my $body = {
-        visiblePatronId  => $patron->cardnumber,
+        visiblePatronId  => $unauth_patron->cardnumber,
         patronAgencyCode => 'TEST',
         patronName       => 'Test Patron',
     };
 
     $t->post_ok( "$base/circulation/verifypatron" => json => $body )->status_is(401);
 
-    $t->post_ok( "//$unauth_userid:noAccess123\@$base/circulation/verifypatron" => json => $body )
+    $t->post_ok( "//" . $unauth_patron->userid . ":$password\@$base/circulation/verifypatron" => json => $body )
         ->status_is(403);
 
     $schema->storage->txn_rollback;
@@ -76,14 +64,18 @@ subtest 'missing parameters' => sub {
 
     $schema->storage->txn_begin;
 
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new( { flags => 2**4 } );
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+    my $auth_base = "//" . $librarian->userid . ":$password\@$base";
+
     $t->post_ok(
-        "//$userid:$password\@$base/circulation/verifypatron" => json =>
+        "$auth_base/circulation/verifypatron" => json =>
             { patronAgencyCode => 'TEST', patronName => 'Test' }
     )->status_is(400)
         ->json_like( '/error' => qr/visiblePatronId/ );
 
     $t->post_ok(
-        "//$userid:$password\@$base/circulation/verifypatron" => json => {}
+        "$auth_base/circulation/verifypatron" => json => {}
     )->status_is(400);
 
     $schema->storage->txn_rollback;
@@ -95,8 +87,12 @@ subtest 'patron not found' => sub {
 
     $schema->storage->txn_begin;
 
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new( { flags => 2**4 } );
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+    my $auth_base = "//" . $librarian->userid . ":$password\@$base";
+
     $t->post_ok(
-        "//$userid:$password\@$base/circulation/verifypatron" => json => {
+        "$auth_base/circulation/verifypatron" => json => {
             visiblePatronId  => 'NONEXISTENT_CARDNUMBER_XYZ',
             patronAgencyCode => 'TEST',
             patronName       => 'Nobody',
@@ -113,6 +109,10 @@ subtest 'successful verification' => sub {
 
     $schema->storage->txn_begin;
 
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new( { flags => 2**4 } );
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+    my $auth_base = "//" . $librarian->userid . ":$password\@$base";
+
     my $test_patron = $builder->build_object(
         {
             class => 'Koha::Patrons',
@@ -124,7 +124,7 @@ subtest 'successful verification' => sub {
     );
 
     $t->post_ok(
-        "//$userid:$password\@$base/circulation/verifypatron" => json => {
+        "$auth_base/circulation/verifypatron" => json => {
             visiblePatronId  => $test_patron->cardnumber,
             patronAgencyCode => 'TEST',
             patronName       => $test_patron->surname,

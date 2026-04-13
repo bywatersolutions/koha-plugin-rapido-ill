@@ -21,7 +21,8 @@ use Modern::Perl;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
-use constant POD => 'test-pod';
+use constant POD      => 'test-pod';
+use constant PASSWORD => 'thePassword123';
 
 =head1 NAME
 
@@ -59,9 +60,13 @@ Creates a new RapidoILL plugin instance with test configuration.
 sub new {
     my ( $class, $params ) = @_;
 
-    my $library         = $params->{library}                  || die "library parameter required";
-    my $category        = $params->{category}                 || die "category parameter required";
-    my $itemtype        = $params->{itemtype}                 || die "itemtype parameter required";
+    $params //= {};
+
+    my $builder = t::lib::TestBuilder->new();
+
+    my $library         = $params->{library}  || $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category        = $params->{category} || $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype        = $params->{itemtype} || $builder->build_object( { class => 'Koha::ItemTypes' } );
     my $pickup_strategy = $params->{pickup_location_strategy} || 'partners_library';
     my $dev_mode        = $params->{dev_mode} // 1;    # Default to true for testing
 
@@ -105,7 +110,20 @@ EOF
     my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
     $plugin->store_data( { configuration => $config_yaml } );
 
-    return $plugin;
+    return $plugin unless wantarray;
+
+    # List context: also return auth patrons for API tests
+    my $librarian = $builder->build_object(
+        { class => 'Koha::Patrons', value => { flags => $params->{flags} // 2**22 } }
+    );
+    $librarian->set_password( { password => PASSWORD, skip_validation => 1 } );
+
+    my $unauth_patron = $builder->build_object(
+        { class => 'Koha::Patrons', value => { flags => 0 } }
+    );
+    $unauth_patron->set_password( { password => PASSWORD, skip_validation => 1 } );
+
+    return ( $plugin, $librarian, $unauth_patron );
 }
 
 1;

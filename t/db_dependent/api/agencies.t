@@ -23,34 +23,17 @@ use Test::More tests => 6;
 use Test::Mojo;
 use t::lib::TestBuilder;
 use t::lib::Mocks;
-
-use JSON qw(encode_json);
+use t::lib::Mocks::Rapido;
 
 use Koha::Database;
 
-my $schema  = Koha::Database->new->schema;
-my $builder = t::lib::TestBuilder->new();
-
-my $plugin    = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
-my $namespace = $plugin->api_namespace;
-my $base      = "/api/v1/contrib/$namespace";
+my $schema   = Koha::Database->new->schema;
+my $builder  = t::lib::TestBuilder->new();
+my $password = t::lib::Mocks::Rapido::PASSWORD;
 
 t::lib::Mocks::mock_preference( 'RESTBasicAuth', 1 );
 
 my $t = Test::Mojo->new('Koha::REST::V1');
-
-my $librarian = $builder->build_object(
-    { class => 'Koha::Patrons', value => { flags => 2**22 } }
-);
-my $password = 'thePassword123';
-$librarian->set_password( { password => $password, skip_validation => 1 } );
-my $userid = $librarian->userid;
-
-my $patron = $builder->build_object(
-    { class => 'Koha::Patrons', value => { flags => 0 } }
-);
-$patron->set_password( { password => 'noAccess123', skip_validation => 1 } );
-my $unauth_userid = $patron->userid;
 
 subtest 'GET /agencies (list)' => sub {
 
@@ -58,11 +41,14 @@ subtest 'GET /agencies (list)' => sub {
 
     $schema->storage->txn_begin;
 
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new();
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+
     $t->get_ok("$base/agencies")->status_is(401);
 
-    $t->get_ok("//$unauth_userid:noAccess123\@$base/agencies")->status_is(403);
+    $t->get_ok( "//" . $unauth_patron->userid . ":$password\@$base/agencies" )->status_is(403);
 
-    $t->get_ok("//$userid:$password\@$base/agencies")->status_is(200)
+    $t->get_ok( "//" . $librarian->userid . ":$password\@$base/agencies" )->status_is(200)
         ->json_is( [] );
 
     $schema->storage->txn_rollback;
@@ -73,6 +59,10 @@ subtest 'POST /agencies (create)' => sub {
     plan tests => 10;
 
     $schema->storage->txn_begin;
+
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new();
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+    my $auth_base = "//" . $librarian->userid . ":$password\@$base";
 
     my $agency = {
         pod                       => 'test-pod',
@@ -85,14 +75,15 @@ subtest 'POST /agencies (create)' => sub {
 
     $t->post_ok( "$base/agencies" => json => $agency )->status_is(401);
 
-    $t->post_ok( "//$unauth_userid:noAccess123\@$base/agencies" => json => $agency )->status_is(403);
+    $t->post_ok( "//" . $unauth_patron->userid . ":$password\@$base/agencies" => json => $agency )
+        ->status_is(403);
 
-    $t->post_ok( "//$userid:$password\@$base/agencies" => json => $agency )->status_is(201)
+    $t->post_ok( "$auth_base/agencies" => json => $agency )->status_is(201)
         ->json_is( '/agency_id' => 'AGENCY001' )
         ->json_is( '/description' => 'Test Agency' );
 
     # Duplicate
-    $t->post_ok( "//$userid:$password\@$base/agencies" => json => $agency )->status_is(409);
+    $t->post_ok( "$auth_base/agencies" => json => $agency )->status_is(409);
 
     $schema->storage->txn_rollback;
 };
@@ -102,6 +93,10 @@ subtest 'POST /agencies/batch (bulk create)' => sub {
     plan tests => 8;
 
     $schema->storage->txn_begin;
+
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new();
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+    my $auth_base = "//" . $librarian->userid . ":$password\@$base";
 
     my $batch = [
         {
@@ -120,9 +115,10 @@ subtest 'POST /agencies/batch (bulk create)' => sub {
 
     $t->post_ok( "$base/agencies/batch" => json => $batch )->status_is(401);
 
-    $t->post_ok( "//$unauth_userid:noAccess123\@$base/agencies/batch" => json => $batch )->status_is(403);
+    $t->post_ok( "//" . $unauth_patron->userid . ":$password\@$base/agencies/batch" => json => $batch )
+        ->status_is(403);
 
-    $t->post_ok( "//$userid:$password\@$base/agencies/batch" => json => $batch )->status_is(201)
+    $t->post_ok( "$auth_base/agencies/batch" => json => $batch )->status_is(201)
         ->json_is( '/0/agency_id' => 'BATCH001' )
         ->json_is( '/1/agency_id' => 'BATCH002' );
 
@@ -134,6 +130,10 @@ subtest 'GET /agencies/{pod}/{agency_id}' => sub {
     plan tests => 7;
 
     $schema->storage->txn_begin;
+
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new();
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+    my $auth_base = "//" . $librarian->userid . ":$password\@$base";
 
     require RapidoILL::AgencyPatron;
     RapidoILL::AgencyPatron->new(
@@ -147,19 +147,23 @@ subtest 'GET /agencies/{pod}/{agency_id}' => sub {
 
     $t->get_ok("$base/agencies/test-pod/AG001")->status_is(401);
 
-    $t->get_ok("//$userid:$password\@$base/agencies/test-pod/AG001")->status_is(200)
+    $t->get_ok("$auth_base/agencies/test-pod/AG001")->status_is(200)
         ->json_is( '/agency_id' => 'AG001' );
 
-    $t->get_ok("//$userid:$password\@$base/agencies/test-pod/NONEXISTENT")->status_is(404);
+    $t->get_ok("$auth_base/agencies/test-pod/NONEXISTENT")->status_is(404);
 
     $schema->storage->txn_rollback;
 };
 
 subtest 'PUT /agencies/{pod}/{agency_id}' => sub {
 
-    plan tests => 6;
+    plan tests => 5;
 
     $schema->storage->txn_begin;
+
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new();
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+    my $auth_base = "//" . $librarian->userid . ":$password\@$base";
 
     require RapidoILL::AgencyPatron;
     RapidoILL::AgencyPatron->new(
@@ -171,20 +175,12 @@ subtest 'PUT /agencies/{pod}/{agency_id}' => sub {
         }
     )->store;
 
-    $t->put_ok(
-        "//$userid:$password\@$base/agencies/test-pod/AG002" => json =>
-            { description => 'After Update' }
-    )->status_is(200)
+    $t->put_ok( "$auth_base/agencies/test-pod/AG002" => json => { description => 'After Update' } )
+        ->status_is(200)
         ->json_is( '/description' => 'After Update' );
 
-    $t->put_ok(
-        "//$userid:$password\@$base/agencies/test-pod/NONEXISTENT" => json =>
-            { description => 'Nope' }
-    )->status_is(404);
-
-    # Verify persistence
-    $t->get_ok("//$userid:$password\@$base/agencies/test-pod/AG002")
-        ;
+    $t->put_ok( "$auth_base/agencies/test-pod/NONEXISTENT" => json => { description => 'Nope' } )
+        ->status_is(404);
 
     $schema->storage->txn_rollback;
 };
@@ -194,6 +190,10 @@ subtest 'DELETE /agencies/{pod}/{agency_id}' => sub {
     plan tests => 5;
 
     $schema->storage->txn_begin;
+
+    my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new();
+    my $base = "/api/v1/contrib/" . $plugin->api_namespace;
+    my $auth_base = "//" . $librarian->userid . ":$password\@$base";
 
     require RapidoILL::AgencyPatron;
     RapidoILL::AgencyPatron->new(
@@ -205,14 +205,11 @@ subtest 'DELETE /agencies/{pod}/{agency_id}' => sub {
         }
     )->store;
 
-    $t->delete_ok("//$userid:$password\@$base/agencies/test-pod/AG003")->status_is(204);
+    $t->delete_ok("$auth_base/agencies/test-pod/AG003")->status_is(204);
 
-    # Verify gone
-    $t->get_ok("//$userid:$password\@$base/agencies/test-pod/AG003")->status_is(404);
+    $t->get_ok("$auth_base/agencies/test-pod/AG003")->status_is(404);
 
-    # Delete nonexistent
-    $t->delete_ok("//$userid:$password\@$base/agencies/test-pod/NONEXISTENT")
-        ;
+    $t->delete_ok("$auth_base/agencies/test-pod/NONEXISTENT");
 
     $schema->storage->txn_rollback;
 };
