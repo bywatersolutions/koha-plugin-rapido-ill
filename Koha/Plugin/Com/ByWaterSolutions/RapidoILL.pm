@@ -30,6 +30,7 @@ use Try::Tiny;
 use YAML::XS;
 
 use C4::Context;
+use C4::Auth        qw(haspermission);
 use C4::Biblio      qw(AddBiblio DelBiblio);
 use C4::Circulation qw(AddIssue AddReturn);
 use C4::Reserves    qw(AddReserve CanItemBeReserved CalculatePriority);
@@ -998,6 +999,9 @@ Plugin hook that injects JavaScript into the staff interface.
 sub intranet_js {
     my ($self) = @_;
 
+    my $user = C4::Context->userenv;
+    return '' unless $user && C4::Auth::haspermission( $user->{id}, { ill => '1' } );
+
     my $js = Encode::decode_utf8( $self->mbf_read('intranet.js') );
     return qq{<script>$js</script>};
 }
@@ -1012,7 +1016,15 @@ from Koha's Administration home.
 sub admin {
     my ( $self, $args ) = @_;
 
-    my $cgi      = $self->{'cgi'};
+    my $cgi  = $self->{'cgi'};
+    my $user = C4::Context->userenv;
+
+    unless ( $user && haspermission( $user->{id}, { ill => '1' } ) ) {
+        print $cgi->header( -type => 'text/html', -status => '403 Forbidden', -charset => 'UTF-8' );
+        print 'Access denied: ILL permission required';
+        return;
+    }
+
     my $template = $self->get_template( { file => 'templates/admin.tt' } );
 
     print $cgi->header( -type => 'text/html', -charset => 'UTF-8' );

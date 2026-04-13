@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#190] CRUD REST API endpoints for agency-to-patron mappings (`/agencies`)
 - [#190] Bulk creation endpoint for agencies (`POST /agencies/batch`)
 
+### Fixed
+
+- [#191] Require ILL permission for status indicator and admin page
+
 ## [1.6.0] - 2026-04-13
 
 ### Added
