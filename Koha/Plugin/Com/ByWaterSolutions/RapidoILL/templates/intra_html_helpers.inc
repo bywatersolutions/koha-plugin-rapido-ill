@@ -2,7 +2,7 @@
 
 [% BLOCK rapido_docs_header %]
     [% INCLUDE 'doc-head-open.inc' %]
-    <title>Koha: Rapido ILL</title>
+    <title>Rapido ILL - Configuration &rsaquo; Plugins &rsaquo; Administration &rsaquo; Koha</title>
     [% INCLUDE 'doc-head-close.inc' %]
     </head>
 
@@ -14,14 +14,17 @@
     [% WRAPPER 'sub-header.inc' %]
         [% WRAPPER breadcrumbs %]
             [% WRAPPER breadcrumb_item %]
+                <a href="/cgi-bin/koha/admin/admin-home.pl">Administration</a>
+            [% END %]
+            [% WRAPPER breadcrumb_item %]
                 <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
             [% END %]
             [% WRAPPER breadcrumb_item %]
-                <a href="#">Rapido ILL</a>
+                <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=admin">Rapido ILL</a>
             [% END %]
             [% WRAPPER breadcrumb_item bc_active=1 %]
-                <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=configure">Configuration</a>
+                Configuration
             [% END %]
-        [% END #/ WRAPPER breadcrumbs %]
-    [% END #/ WRAPPER sub-header.inc %]
+        [% END %]
+    [% END %]
 [% END %]

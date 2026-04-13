@@ -1,0 +1,158 @@
+[% USE raw %]
+[% PROCESS 'i18n.inc' %]
+[% INCLUDE 'doc-head-open.inc' %]
+<title>Rapido ILL - Task queue &rsaquo; Plugins &rsaquo; Tools &rsaquo; Koha</title>
+[% INCLUDE 'doc-head-close.inc' %]
+</head>
+
+<body id="plugins_run_tool" class="plugins">
+[% WRAPPER 'header.inc' %]
+    [% INCLUDE 'prefs-admin-search.inc' %]
+[% END %]
+
+[% WRAPPER 'sub-header.inc' %]
+    [% WRAPPER breadcrumbs %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/tools/tools-home.pl">Tools</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=admin">Rapido ILL</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item bc_active=1 %]
+            Task queue
+        [% END %]
+    [% END %]
+[% END %]
+
+<div class="main container-fluid">
+    <div class="row">
+        <div class="col-md-10 order-md-2 order-sm-1">
+            <main>
+
+<h1>Task queue</h1>
+
+<div class="page-section">
+    <table id="task_queue_table" class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Action</th>
+                <th>Status</th>
+                <th>Pod</th>
+                <th>Attempts</th>
+                <th>Created</th>
+                <th>Run after</th>
+                <th>ILL request</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+
+<!-- Modal for task error details -->
+<div class="modal" id="taskErrorModal" tabindex="-1" role="dialog" aria-labelledby="taskErrorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title" id="taskErrorModalLabel">Task error details</h1>
+            </div>
+            <div class="modal-body">
+                <div id="taskErrorContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+[% INCLUDE 'datatables.inc' %]
+[% INCLUDE 'js-date-format.inc' %]
+<script>
+    $(document).ready(function() {
+        var task_filters = { actions: [], statuses: [] };
+        $.ajax({
+            url: "/api/v1/contrib/rapidoill/status/tasks/filters",
+            dataType: "json",
+            async: false,
+            success: function(data) { task_filters = data; }
+        });
+
+        var tasks_table = $("#task_queue_table").kohaTable({
+            ajax: { url: "/api/v1/contrib/rapidoill/status/tasks" },
+            order: [[0, "desc"]],
+            columns: [
+                { data: "id", searchable: true, orderable: true },
+                { data: "action", searchable: true, orderable: true, dataFilter: "actions" },
+                {
+                    data: "status", searchable: true, orderable: true, dataFilter: "statuses",
+                    render: function(data) {
+                        var colors = {
+                            queued: "background:#333;color:#fff", success: "background:#2ecc40;color:#fff",
+                            retry: "background:#f0ad4e;color:#000", error: "background:#e74c3c;color:#fff"
+                        };
+                        return '<span class="badge" style="' + (colors[data] || "background:#999;color:#fff") + '">' + data + '</span>';
+                    }
+                },
+                { data: "pod", searchable: true, orderable: true },
+                { data: "attempts", searchable: false, orderable: true },
+                { data: "timestamp", searchable: true, orderable: true, render: function(data) { return data ? $datetime(data) : ""; } },
+                { data: "run_after", searchable: false, orderable: true, render: function(data) { return data ? $datetime(data) : ""; } },
+                {
+                    data: "illrequest_id", searchable: true, orderable: true,
+                    render: function(data) {
+                        if (!data) return "";
+                        return '<a href="/cgi-bin/koha/ill/ill-requests.pl?op=illview&illrequest_id=' + data + '">' + data + '</a>';
+                    }
+                },
+                {
+                    data: "last_error", searchable: false, orderable: false,
+                    render: function(data, type, row) {
+                        if (!data || (row.status !== "error" && row.status !== "retry")) return "";
+                        return '<a href="#" class="show-task-error" data-error="' + encodeURIComponent(data) + '">View</a>';
+                    }
+                }
+            ]
+        }, null, 1, null, {
+            actions: function() { return task_filters.actions.map(function(v) { return { _id: v, _str: v }; }); },
+            statuses: function() { return task_filters.statuses.map(function(v) { return { _id: v, _str: v }; }); }
+        });
+
+        $(document).on("click", ".show-task-error", function(e) {
+            e.preventDefault();
+            var raw = decodeURIComponent($(this).attr("data-error"));
+            var html = "";
+            try {
+                var parsed = JSON.parse(raw);
+                var err = parsed.error || raw;
+                var status_match = err.match(/status_code\s*=>\s*(\d+)/);
+                var body_match = err.match(/response_body\s*=>\s*(\{.*?\}(?=,\s*status_))/);
+                if (status_match) html += "<strong>Status code:</strong> " + status_match[1] + "<br/>";
+                if (body_match) {
+                    try { var body = JSON.parse(body_match[1]); html += "<strong>Response:</strong> " + (body.error || body_match[1]).escapeHtml(); }
+                    catch(ex) { html += "<strong>Response:</strong> " + body_match[1].escapeHtml(); }
+                }
+                if (!html) html = "<pre style='white-space:pre-wrap;word-break:break-word'>" + err.escapeHtml() + "</pre>";
+            } catch(ex) {
+                html = "<pre style='white-space:pre-wrap;word-break:break-word'>" + raw.escapeHtml() + "</pre>";
+            }
+            $("#taskErrorContent").html(html);
+            $("#taskErrorModal").modal("show");
+        });
+    });
+</script>
+
+            </main>
+        </div>
+        <div class="col-md-2 order-sm-2 order-md-1">
+            <aside>
+                [% INCLUDE 'tools-menu.inc' %]
+            </aside>
+        </div>
+    </div>
+
+    [% INCLUDE 'intranet-bottom.inc' %]
+</div>

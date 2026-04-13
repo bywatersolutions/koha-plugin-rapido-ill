@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - Unreleased
+
+### Changed
+
+- [#192] Restructure plugin pages: admin landing page with links to configuration, status, and agencies
+- [#192] Status and agencies pages served via `tool` method with `page` parameter dispatch
+- [#192] Consistent breadcrumbs with Rapido ILL node linking to landing page across all pages
+- [#192] Use Koha-native layout with `wrapper-staff-tool-plugin.inc` and `tools-menu.inc` sidebar
+
 ## [1.7.0] - Unreleased
 
 ### Added

@@ -1031,6 +1031,45 @@ sub admin {
     print $template->output();
 }
 
+=head3 tool
+
+Plugin hook that dispatches to sub-pages based on the C<page> CGI parameter.
+
+=cut
+
+sub tool {
+    my ( $self, $args ) = @_;
+
+    my $cgi  = $self->{'cgi'};
+    my $user = C4::Context->userenv;
+
+    unless ( $user && haspermission( $user->{id}, { ill => '1' } ) ) {
+        print $cgi->header( -type => 'text/html', -status => '403 Forbidden', -charset => 'UTF-8' );
+        print 'Access denied: ILL permission required';
+        return;
+    }
+
+    my $page = $cgi->param('page') // 'status';
+
+    my %pages = (
+        status   => 'templates/status.tt',
+        tasks    => 'templates/tasks.tt',
+        agencies => 'templates/agencies.tt',
+    );
+
+    my $template_file = $pages{$page};
+    unless ($template_file) {
+        print $cgi->header( -type => 'text/html', -status => '404 Not Found', -charset => 'UTF-8' );
+        print 'Page not found';
+        return;
+    }
+
+    my $template = $self->get_template( { file => $template_file } );
+
+    print $cgi->header( -type => 'text/html', -charset => 'UTF-8' );
+    print $template->output();
+}
+
 =head3 cronjob_nightly
 
 Plugin hook for running nightly tasks

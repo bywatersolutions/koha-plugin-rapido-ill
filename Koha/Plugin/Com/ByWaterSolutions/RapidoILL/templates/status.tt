@@ -1,0 +1,178 @@
+[% USE raw %]
+[% PROCESS 'i18n.inc' %]
+[% INCLUDE 'doc-head-open.inc' %]
+<title>Rapido ILL - Status &rsaquo; Plugins &rsaquo; Tools &rsaquo; Koha</title>
+[% INCLUDE 'doc-head-close.inc' %]
+</head>
+
+<body id="plugins_run_tool" class="plugins">
+[% WRAPPER 'header.inc' %]
+    [% INCLUDE 'prefs-admin-search.inc' %]
+[% END %]
+
+[% WRAPPER 'sub-header.inc' %]
+    [% WRAPPER breadcrumbs %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/tools/tools-home.pl">Tools</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=admin">Rapido ILL</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item bc_active=1 %]
+            Status
+        [% END %]
+    [% END %]
+[% END %]
+
+<div class="main container-fluid">
+    <div class="row">
+        <div class="col-md-10 order-md-2 order-sm-1">
+            <main>
+
+<h1>Rapido ILL Status</h1>
+
+<div id="rapido-status-banner" class="page-section">
+    <h2>Current status</h2>
+    <div id="status-loading" class="alert alert-info">
+        <i class="fa fa-spinner fa-spin"></i> Checking status...
+    </div>
+</div>
+
+<div class="page-section">
+    <h2>Recent incidents</h2>
+    <table id="incidents_table" class="table table-striped">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>HTTP status</th>
+                <th>Trigger</th>
+                <th>Delayed until</th>
+                <th>Affected tasks</th>
+                <th>Pod</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+
+<!-- Modal for affected tasks -->
+<div class="modal" id="affectedTasksModal" tabindex="-1" role="dialog" aria-labelledby="affectedTasksModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title" id="affectedTasksModalLabel">Affected tasks</h1>
+            </div>
+            <div class="modal-body">
+                <table id="affected_tasks_table" class="table table-striped" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Action</th>
+                            <th>Status</th>
+                            <th>Attempts</th>
+                        </tr>
+                    </thead>
+                    <tbody id="affected_tasks_body"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+[% INCLUDE 'datatables.inc' %]
+[% INCLUDE 'js-date-format.inc' %]
+<script>
+    function loadStatus() {
+        $.ajax({
+            url: "/api/v1/contrib/rapidoill/status/api",
+            dataType: "json",
+            success: function(data) {
+                var html;
+                if (data.status === "outage") {
+                    html = '<div class="alert alert-danger">' +
+                        '<strong><i class="fa fa-circle" style="color:#e74c3c"></i> Service disruption</strong><br/>' +
+                        'Rapido returned HTTP ' + data.status_code + ' at ' + data.since + '.<br/>' +
+                        'Tasks delayed until ' + data.delayed_until + '.' +
+                        '</div>';
+                } else {
+                    html = '<div class="alert alert-success">' +
+                        '<strong><i class="fa fa-circle" style="color:#2ecc40"></i> Operational</strong><br/>' +
+                        'No active service disruptions.' +
+                        '</div>';
+                }
+                $("#rapido-status-banner").html("<h2>Current status</h2>" + html);
+            },
+            error: function() {
+                $("#rapido-status-banner").html('<h2>Current status</h2><div class="alert alert-warning">Unable to fetch status.</div>');
+            }
+        });
+    }
+
+    $(document).ready(function() {
+        loadStatus();
+
+        $("#incidents_table").kohaTable({
+            ajax: { url: "/api/v1/contrib/rapidoill/status/incidents" },
+            order: [[0, "desc"]],
+            columns: [
+                { data: "timestamp", searchable: true, orderable: true, render: function(data) { return data ? $datetime(data) : ""; } },
+                { data: "status_code", searchable: true, orderable: true },
+                { data: "task_id", searchable: true, orderable: true, render: function(data, type, row) { return "Task " + (data || "?") + " (" + (row.action || "?") + ")"; } },
+                { data: "delayed_until", searchable: false, orderable: true, render: function(data) { return data ? $datetime(data) : ""; } },
+                {
+                    data: "affected_task_ids", searchable: false, orderable: false,
+                    render: function(data) {
+                        if (!data) return "0";
+                        var ids; try { ids = JSON.parse(data); } catch(e) { return "?"; }
+                        if (!ids || !ids.length) return "0";
+                        return '<a href="#" class="show-affected-tasks" data-task-ids="' + encodeURIComponent(data) + '">' + ids.length + ' task(s)</a>';
+                    }
+                },
+                { data: "pod", searchable: true, orderable: true }
+            ]
+        });
+
+        $(document).on("click", ".show-affected-tasks", function(e) {
+            e.preventDefault();
+            var taskIds;
+            try { taskIds = JSON.parse(decodeURIComponent($(this).attr("data-task-ids"))); } catch(err) { return; }
+            if (!taskIds || !taskIds.length) return;
+            var tbody = $("#affected_tasks_body");
+            tbody.html('<tr><td colspan="4"><i class="fa fa-spinner fa-spin"></i> Loading...</td></tr>');
+            $("#affectedTasksModal").modal("show");
+            $.ajax({
+                url: "/api/v1/contrib/rapidoill/status/tasks?_per_page=-1&q=" + encodeURIComponent(JSON.stringify({ id: taskIds })),
+                dataType: "json",
+                success: function(data) {
+                    var rows = "";
+                    data.forEach(function(task) {
+                        var colors = { queued: "background:#333;color:#fff", success: "background:#2ecc40;color:#fff", retry: "background:#f0ad4e;color:#000", error: "background:#e74c3c;color:#fff" };
+                        var style = colors[task.status] || "background:#999;color:#fff";
+                        rows += "<tr><td>" + task.id + "</td><td>" + (task.action || "") + "</td>" +
+                            '<td><span class="badge" style="' + style + '">' + (task.status || "") + "</span></td>" +
+                            "<td>" + (task.attempts || 0) + "</td></tr>";
+                    });
+                    tbody.html(rows || '<tr><td colspan="4">No tasks found</td></tr>');
+                },
+                error: function() { tbody.html('<tr><td colspan="4">Failed to load tasks</td></tr>'); }
+            });
+        });
+    });
+</script>
+
+            </main>
+        </div>
+        <div class="col-md-2 order-sm-2 order-md-1">
+            <aside>
+                [% INCLUDE 'tools-menu.inc' %]
+            </aside>
+        </div>
+    </div>
+
+    [% INCLUDE 'intranet-bottom.inc' %]
+</div>
