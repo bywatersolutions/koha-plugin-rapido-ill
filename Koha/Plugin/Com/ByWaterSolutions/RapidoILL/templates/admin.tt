@@ -1,7 +1,7 @@
-[% WRAPPER "wrapper-staff-tool-plugin.inc" method="config" plugin_title="Rapido ILL" %]
 [% USE raw %]
+[% WRAPPER "wrapper-staff-tool-plugin.inc" method="config" plugin_title="Rapido ILL" %]
 
-<h1>Rapido ILL</h1>
+<h1>Rapido ILL Test</h1>
 
 <div class="row">
     <div class="col-md-6">
