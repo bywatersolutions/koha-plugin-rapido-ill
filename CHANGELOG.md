@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#189] Modal to view affected tasks for each incident with live data from the API
 - [#189] New REST API endpoints: `GET /status/tasks` and `GET /status/incidents`
 - [#189] Error detail modal for failed/retrying tasks showing status code and response body
+- [#189] Dynamic dropdown filters for Action and Status columns via `GET /status/tasks/filters`
+- [#189] New REST API endpoint: `GET /status/tasks/filters` returning distinct action and status values
 
 ## [1.5.4] - Unreleased
 

@@ -153,6 +153,14 @@
             loadStatus();
 
             // Task queue table
+            var task_filters = { actions: [], statuses: [] };
+            $.ajax({
+                url: "/api/v1/contrib/rapidoill/status/tasks/filters",
+                dataType: "json",
+                async: false,
+                success: function(data) { task_filters = data; }
+            });
+
             var tasks_table = $("#task_queue_table").kohaTable({
                 ajax: {
                     url: "/api/v1/contrib/rapidoill/status/tasks"
@@ -167,12 +175,14 @@
                     {
                         data: "action",
                         searchable: true,
-                        orderable: true
+                        orderable: true,
+                        dataFilter: "actions"
                     },
                     {
                         data: "status",
                         searchable: true,
                         orderable: true,
+                        dataFilter: "statuses",
                         render: function(data) {
                             var colors = {
                                 queued:  "background:#333;color:#fff",
@@ -229,7 +239,14 @@
                         }
                     }
                 ]
-            }, null, 1, { status: function() { return $("#task_status_filter").val() || "" } });
+            }, null, 1, null, {
+                actions: function() {
+                    return task_filters.actions.map(function(v) { return { _id: v, _str: v }; });
+                },
+                statuses: function() {
+                    return task_filters.statuses.map(function(v) { return { _id: v, _str: v }; });
+                }
+            });
 
             // Incidents table
             $("#incidents_table").kohaTable({

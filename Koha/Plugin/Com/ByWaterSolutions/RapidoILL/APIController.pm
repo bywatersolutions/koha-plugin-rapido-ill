@@ -367,4 +367,33 @@ sub list_incidents {
     };
 }
 
+=head3 list_task_filters
+
+Returns distinct action and status values currently in the task queue.
+
+=cut
+
+sub list_task_filters {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::QueuedTasks;
+
+        my @actions =
+            map { $_->action }
+            RapidoILL::QueuedTasks->new->search( {}, { columns => ['action'], distinct => 1 } )->as_list;
+
+        my @statuses =
+            map { $_->status }
+            RapidoILL::QueuedTasks->new->search( {}, { columns => ['status'], distinct => 1 } )->as_list;
+
+        return $c->render(
+            status => 200,
+            json   => { actions => \@actions, statuses => \@statuses },
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
 1;
