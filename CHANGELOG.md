@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - Unreleased
+
+### Added
+
+- [#190] CRUD REST API endpoints for agency-to-patron mappings (`/agencies`)
+- [#190] Bulk creation endpoint for agencies (`POST /agencies/batch`)
+
 ## [1.6.0] - 2026-04-13
 
 ### Added
@@ -16,8 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#189] Error detail modal for failed/retrying tasks showing status code and response body
 - [#189] Dynamic dropdown filters for Action and Status columns via `GET /status/tasks/filters`
 - [#189] New REST API endpoint: `GET /status/tasks/filters` returning distinct action and status values
-- [#190] CRUD REST API endpoints for agency-to-patron mappings (`/agencies`)
-- [#190] Bulk creation endpoint for agencies (`POST /agencies/batch`)
 
 ## [1.5.4] - Unreleased
 
