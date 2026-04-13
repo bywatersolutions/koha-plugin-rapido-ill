@@ -323,4 +323,48 @@ sub status_api {
     };
 }
 
+=head3 list_tasks
+
+Lists task queue entries with server-side pagination, filtering, and sorting
+via Koha's REST framework.
+
+=cut
+
+sub list_tasks {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::QueuedTasks;
+
+        return $c->render(
+            status  => 200,
+            openapi => $c->objects->search( RapidoILL::QueuedTasks->new ),
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
+=head3 list_incidents
+
+Lists server status log entries with server-side pagination, filtering, and sorting
+via Koha's REST framework.
+
+=cut
+
+sub list_incidents {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::ServerStatusLogs;
+
+        return $c->render(
+            status  => 200,
+            openapi => $c->objects->search( RapidoILL::ServerStatusLogs->new ),
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
 1;

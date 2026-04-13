@@ -1,4 +1,54 @@
 {
+  "/status/tasks": {
+    "get": {
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#list_tasks",
+      "operationId": "rapidoILLListTasks",
+      "description": "List task queue entries with pagination",
+      "tags": ["status"],
+      "produces": ["application/json"],
+      "parameters": [
+        { "name": "_page", "in": "query", "type": "integer", "description": "Page number" },
+        { "name": "_per_page", "in": "query", "type": "integer", "description": "Items per page" },
+        { "name": "_match", "in": "query", "type": "string", "description": "Match type" },
+        { "name": "_order_by", "in": "query", "type": "string", "description": "Order by column" },
+        { "name": "status", "in": "query", "type": "string", "description": "Filter by status" },
+        { "name": "action", "in": "query", "type": "string", "description": "Filter by action" },
+        { "name": "pod", "in": "query", "type": "string", "description": "Filter by pod" },
+        { "name": "id", "in": "query", "type": "integer", "description": "Filter by task ID" },
+        { "name": "q", "in": "query", "type": "string", "description": "JSON query filter" }
+      ],
+      "responses": {
+        "200": { "description": "A list of tasks" },
+        "500": { "description": "Internal server error" }
+      },
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    }
+  },
+  "/status/incidents": {
+    "get": {
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#list_incidents",
+      "operationId": "rapidoILLListIncidents",
+      "description": "List server status log entries with pagination",
+      "tags": ["status"],
+      "produces": ["application/json"],
+      "parameters": [
+        { "name": "_page", "in": "query", "type": "integer", "description": "Page number" },
+        { "name": "_per_page", "in": "query", "type": "integer", "description": "Items per page" },
+        { "name": "_match", "in": "query", "type": "string", "description": "Match type" },
+        { "name": "_order_by", "in": "query", "type": "string", "description": "Order by column" },
+        { "name": "pod", "in": "query", "type": "string", "description": "Filter by pod" }
+      ],
+      "responses": {
+        "200": { "description": "A list of incidents" },
+        "500": { "description": "Internal server error" }
+      },
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    }
+  },
   "/status/api": {
     "get": {
       "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#status_api",
