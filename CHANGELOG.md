@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#189] Incidents table on admin status page backed by REST API with server-side pagination via kohaTable
 - [#189] Modal to view affected tasks for each incident with live data from the API
 - [#189] New REST API endpoints: `GET /status/tasks` and `GET /status/incidents`
+- [#189] Error detail modal for failed/retrying tasks showing status code and response body
 
 ## [1.5.4] - Unreleased
 

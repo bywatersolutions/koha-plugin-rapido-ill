@@ -50,6 +50,7 @@
                             <th>Created</th>
                             <th>Run after</th>
                             <th>ILL request</th>
+                            <th>Error</th>
                         </tr>
                     </thead>
                 </table>
@@ -94,6 +95,23 @@
                     </thead>
                     <tbody id="affected_tasks_body"></tbody>
                 </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for task error details -->
+<div class="modal" id="taskErrorModal" tabindex="-1" role="dialog" aria-labelledby="taskErrorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title" id="taskErrorModalLabel">Task error details</h1>
+            </div>
+            <div class="modal-body">
+                <div id="taskErrorContent"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-bs-dismiss="modal">Close</button>
@@ -200,6 +218,15 @@
                             if (!data) return "";
                             return '<a href="/cgi-bin/koha/ill/ill-requests.pl?op=illview&illrequest_id=' + data + '">' + data + '</a>';
                         }
+                    },
+                    {
+                        data: "last_error",
+                        searchable: false,
+                        orderable: false,
+                        render: function(data, type, row) {
+                            if (!data || (row.status !== "error" && row.status !== "retry")) return "";
+                            return '<a href="#" class="show-task-error" data-error="' + encodeURIComponent(data) + '">View</a>';
+                        }
                     }
                 ]
             }, null, 1, { status: function() { return $("#task_status_filter").val() || "" } });
@@ -258,6 +285,37 @@
                         orderable: true
                     }
                 ]
+            });
+
+            // Modal for task error details
+            $(document).on("click", ".show-task-error", function(e) {
+                e.preventDefault();
+                var raw = decodeURIComponent($(this).attr("data-error"));
+                var html = "";
+                try {
+                    var parsed = JSON.parse(raw);
+                    var err = parsed.error || raw;
+                    var status_match = err.match(/status_code\s*=>\s*(\d+)/);
+                    var body_match = err.match(/response_body\s*=>\s*(\{.*?\}(?=,\s*status_))/);
+                    if (status_match) {
+                        html += "<strong>Status code:</strong> " + status_match[1] + "<br/>";
+                    }
+                    if (body_match) {
+                        try {
+                            var body = JSON.parse(body_match[1]);
+                            html += "<strong>Response:</strong> " + (body.error || body_match[1]).escapeHtml();
+                        } catch(ex) {
+                            html += "<strong>Response:</strong> " + body_match[1].escapeHtml();
+                        }
+                    }
+                    if (!html) {
+                        html = "<pre style='white-space:pre-wrap;word-break:break-word'>" + err.escapeHtml() + "</pre>";
+                    }
+                } catch(ex) {
+                    html = "<pre style='white-space:pre-wrap;word-break:break-word'>" + raw.escapeHtml() + "</pre>";
+                }
+                $("#taskErrorContent").html(html);
+                $("#taskErrorModal").modal("show");
             });
 
             // Modal for affected tasks
