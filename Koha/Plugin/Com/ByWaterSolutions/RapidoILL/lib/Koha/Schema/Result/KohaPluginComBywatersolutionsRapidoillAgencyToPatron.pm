@@ -115,6 +115,16 @@ __PACKAGE__->set_primary_key("pod", "agency_id");
 # Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-09-01 16:17:50
 # DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:zoZL0+Uo2z0C5K86Rc8STg
 
+{
+    no warnings 'redefine';
 
-# You can replace this text with custom code or comments, and it will be preserved on regeneration
+    sub koha_objects_class {
+        'RapidoILL::AgencyPatrons';
+    }
+
+    sub koha_object_class {
+        'RapidoILL::AgencyPatron';
+    }
+}
+
 1;

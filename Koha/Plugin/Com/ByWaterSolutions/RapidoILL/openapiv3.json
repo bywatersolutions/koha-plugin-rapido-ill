@@ -328,5 +328,157 @@
         }
       }
     }
+  },
+  "/agencies": {
+    "get": {
+      "operationId": "rapidoILLListAgencies",
+      "description": "List agency-to-patron mappings",
+      "tags": ["agencies"],
+      "parameters": [
+        { "name": "_page", "in": "query", "schema": { "type": "integer" }, "description": "Page number" },
+        { "name": "_per_page", "in": "query", "schema": { "type": "integer" }, "description": "Items per page" },
+        { "name": "_match", "in": "query", "schema": { "type": "string" }, "description": "Match type" },
+        { "name": "_order_by", "in": "query", "schema": { "type": "string" }, "description": "Order by column" },
+        { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "JSON query filter" },
+        { "name": "pod", "in": "query", "schema": { "type": "string" }, "description": "Filter by pod" },
+        { "name": "agency_id", "in": "query", "schema": { "type": "string" }, "description": "Filter by agency ID" }
+      ],
+      "responses": {
+        "200": { "description": "A list of agencies" },
+        "400": { "description": "Bad request" },
+        "403": { "description": "Forbidden" },
+        "500": { "description": "Internal server error" },
+        "503": { "description": "Service unavailable" }
+      },
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#list_agencies",
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    },
+    "post": {
+      "operationId": "rapidoILLAddAgency",
+      "description": "Create an agency-to-patron mapping",
+      "tags": ["agencies"],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": { "type": "object" }
+          }
+        }
+      },
+      "responses": {
+        "201": { "description": "Agency created" },
+        "400": { "description": "Bad request" },
+        "403": { "description": "Forbidden" },
+        "409": { "description": "Conflict (duplicate)" },
+        "500": { "description": "Internal server error" },
+        "503": { "description": "Service unavailable" }
+      },
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#add_agency",
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    }
+  },
+  "/agencies/batch": {
+    "post": {
+      "operationId": "rapidoILLAddAgenciesBatch",
+      "description": "Create multiple agency-to-patron mappings",
+      "tags": ["agencies"],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": { "type": "array", "items": { "type": "object" } }
+          }
+        }
+      },
+      "responses": {
+        "201": { "description": "Agencies created" },
+        "400": { "description": "Bad request" },
+        "403": { "description": "Forbidden" },
+        "409": { "description": "Conflict (duplicate)" },
+        "500": { "description": "Internal server error" },
+        "503": { "description": "Service unavailable" }
+      },
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#add_agencies_batch",
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    }
+  },
+  "/agencies/{pod}/{agency_id}": {
+    "get": {
+      "operationId": "rapidoILLGetAgency",
+      "description": "Get a single agency-to-patron mapping",
+      "tags": ["agencies"],
+      "parameters": [
+        { "name": "pod", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "agency_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "responses": {
+        "200": { "description": "An agency" },
+        "400": { "description": "Bad request" },
+        "403": { "description": "Forbidden" },
+        "404": { "description": "Not found" },
+        "500": { "description": "Internal server error" },
+        "503": { "description": "Service unavailable" }
+      },
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#get_agency",
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    },
+    "put": {
+      "operationId": "rapidoILLUpdateAgency",
+      "description": "Update an agency-to-patron mapping",
+      "tags": ["agencies"],
+      "parameters": [
+        { "name": "pod", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "agency_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": { "type": "object" }
+          }
+        }
+      },
+      "responses": {
+        "200": { "description": "Agency updated" },
+        "400": { "description": "Bad request" },
+        "403": { "description": "Forbidden" },
+        "404": { "description": "Not found" },
+        "500": { "description": "Internal server error" },
+        "503": { "description": "Service unavailable" }
+      },
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#update_agency",
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    },
+    "delete": {
+      "operationId": "rapidoILLDeleteAgency",
+      "description": "Delete an agency-to-patron mapping",
+      "tags": ["agencies"],
+      "parameters": [
+        { "name": "pod", "in": "path", "required": true, "schema": { "type": "string" } },
+        { "name": "agency_id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "responses": {
+        "204": { "description": "Agency deleted" },
+        "400": { "description": "Bad request" },
+        "403": { "description": "Forbidden" },
+        "404": { "description": "Not found" },
+        "500": { "description": "Internal server error" },
+        "503": { "description": "Service unavailable" }
+      },
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#delete_agency",
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    }
   }
 }

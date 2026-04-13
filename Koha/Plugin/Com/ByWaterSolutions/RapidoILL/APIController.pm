@@ -396,4 +396,191 @@ sub list_task_filters {
     };
 }
 
+=head3 list_agencies
+
+Lists agency-to-patron mappings.
+
+=cut
+
+sub list_agencies {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::AgencyPatrons;
+
+        return $c->render(
+            status  => 200,
+            openapi => $c->objects->search( RapidoILL::AgencyPatrons->new ),
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
+=head3 get_agency
+
+Gets a single agency-to-patron mapping.
+
+=cut
+
+sub get_agency {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::AgencyPatrons;
+
+        my $agency = RapidoILL::AgencyPatrons->new->search(
+            {
+                pod       => $c->param('pod'),
+                agency_id => $c->param('agency_id'),
+            }
+        )->next;
+
+        return $c->render_resource_not_found("Agency")
+            unless $agency;
+
+        return $c->render(
+            status  => 200,
+            openapi => $agency->to_api,
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
+=head3 add_agency
+
+Creates a single agency-to-patron mapping.
+
+=cut
+
+sub add_agency {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::AgencyPatron;
+
+        my $body   = $c->req->json;
+        my $agency = RapidoILL::AgencyPatron->new_from_api($body)->store;
+
+        return $c->render(
+            status  => 201,
+            openapi => $agency->to_api,
+        );
+    } catch {
+        if ( ref($_) =~ /Koha::Exceptions::Object::DuplicateID/ ) {
+            return $c->render(
+                status  => 409,
+                openapi => { error => "Agency already exists" },
+            );
+        }
+        return $c->unhandled_exception($_);
+    };
+}
+
+=head3 add_agencies_batch
+
+Creates multiple agency-to-patron mappings in a single request.
+
+=cut
+
+sub add_agencies_batch {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::AgencyPatron;
+
+        my $body    = $c->req->json;
+        my @created;
+
+        Koha::Database->new->schema->txn_do(
+            sub {
+                for my $entry (@$body) {
+                    my $agency = RapidoILL::AgencyPatron->new_from_api($entry)->store;
+                    push @created, $agency->to_api;
+                }
+            }
+        );
+
+        return $c->render(
+            status  => 201,
+            openapi => \@created,
+        );
+    } catch {
+        if ( ref($_) =~ /Koha::Exceptions::Object::DuplicateID/ ) {
+            return $c->render(
+                status  => 409,
+                openapi => { error => "Duplicate agency in batch" },
+            );
+        }
+        return $c->unhandled_exception($_);
+    };
+}
+
+=head3 update_agency
+
+Updates an agency-to-patron mapping.
+
+=cut
+
+sub update_agency {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::AgencyPatrons;
+
+        my $agency = RapidoILL::AgencyPatrons->new->search(
+            {
+                pod       => $c->param('pod'),
+                agency_id => $c->param('agency_id'),
+            }
+        )->next;
+
+        return $c->render_resource_not_found("Agency")
+            unless $agency;
+
+        $agency->set_from_api( $c->req->json )->store;
+
+        return $c->render(
+            status  => 200,
+            openapi => $agency->to_api,
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
+=head3 delete_agency
+
+Deletes an agency-to-patron mapping.
+
+=cut
+
+sub delete_agency {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::AgencyPatrons;
+
+        my $agency = RapidoILL::AgencyPatrons->new->search(
+            {
+                pod       => $c->param('pod'),
+                agency_id => $c->param('agency_id'),
+            }
+        )->next;
+
+        return $c->render_resource_not_found("Agency")
+            unless $agency;
+
+        $agency->delete;
+
+        return $c->render(
+            status  => 204,
+            openapi => q{},
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
 1;
