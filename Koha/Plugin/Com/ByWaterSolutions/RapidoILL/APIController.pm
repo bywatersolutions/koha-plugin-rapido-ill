@@ -132,7 +132,7 @@ sub verifypatron {
             patronId          => $patron->borrowernumber . "",
             patronExpireDate  => $expiration_date->epoch(),
             patronAgencyCode  => $agency_code,
-            centralPatronType => 0, # hardcoded 0 as in the docs
+            centralPatronType => 0,                              # hardcoded 0 as in the docs
             localLoans        => $local_loans,
             nonLocalLoans     => $non_local_loans,
             patronName        => $THE_name,
@@ -255,10 +255,10 @@ sub get_print_slip {
             tables                 => {
 
                 illrequests => $req->illrequest_id,
-                borrowers => $req->borrowernumber,
-                biblio    => $req->biblio_id,
-                item      => $item_id,
-                branches  => $req->branchcode,
+                borrowers   => $req->borrowernumber,
+                biblio      => $req->biblio_id,
+                item        => $item_id,
+                branches    => $req->branchcode,
             },
             substitute => {
                 illrequestattributes => $illrequestattributes,
@@ -298,8 +298,8 @@ sub status_api {
         require RapidoILL::ServerStatusLogs;
 
         my $incident = RapidoILL::ServerStatusLogs->new->search(
-            { delayed_until => { '>' => \'NOW()' } },
-            { order_by => { -desc => 'delayed_until' }, rows => 1 }
+            { delayed_until => { '>'   => \'NOW()' } },
+            { order_by      => { -desc => 'delayed_until' }, rows => 1 }
         )->next;
 
         if ($incident) {
@@ -483,9 +483,8 @@ sub add_agency {
         my $body = $c->req->json;
 
         # Check for duplicate
-        my $existing = $plugin->get_agency_patrons->search(
-            { pod => $body->{pod}, agency_id => $body->{agency_id} }
-        )->next;
+        my $existing =
+            $plugin->get_agency_patrons->search( { pod => $body->{pod}, agency_id => $body->{agency_id} } )->next;
 
         return $c->render(
             status  => 409,
@@ -539,29 +538,41 @@ sub add_agencies_batch {
     return try {
         my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
 
-        my $body    = $c->req->json;
-        my @created;
+        my $body = $c->req->json;
+        my @results;
 
         Koha::Database->new->schema->txn_do(
             sub {
                 for my $entry (@$body) {
-                    my $agency = $plugin->get_agency_patrons->object_class->new_from_api($entry)->store;
-                    push @created, $agency->to_api;
+                    my $existing = $plugin->get_agency_patrons->search(
+                        { pod => $entry->{pod}, agency_id => $entry->{agency_id} } )->next;
+
+                    if ($existing) {
+                        $existing->set_from_api($entry)->store;
+                        push @results, { %{ $existing->to_api }, _status => 'updated' };
+                    } elsif ( $entry->{patron_id} ) {
+                        my $agency = $plugin->get_agency_patrons->object_class->new_from_api($entry)->store;
+                        push @results, { %{ $agency->to_api }, _status => 'created' };
+                    } else {
+                        my $config = $plugin->pod_config( $entry->{pod} );
+                        my $agency = $plugin->get_agency_patrons->create_with_patron(
+                            {
+                                %$entry,
+                                library_id    => $config->{partners_library_id},
+                                category_code => $config->{partners_category},
+                            }
+                        );
+                        push @results, { %{ $agency->to_api }, _status => 'created' };
+                    }
                 }
             }
         );
 
         return $c->render(
             status  => 201,
-            openapi => \@created,
+            openapi => \@results,
         );
     } catch {
-        if ( ref($_) =~ /Koha::Exceptions::Object::DuplicateID/ ) {
-            return $c->render(
-                status  => 409,
-                openapi => { error => "Duplicate agency in batch" },
-            );
-        }
         return $c->unhandled_exception($_);
     };
 }
