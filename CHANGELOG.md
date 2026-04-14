@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - [#197] Add `update_with_patron` to `AgencyPatrons` for transactional agency+patron updates
+- [#197] Migrate `sync_agencies` from raw SQL to `AgencyPatrons` classes
+- [#197] Migrate `manage_agencies.pl` to use `AgencyPatrons` classes, implement delete action
+- [#197] Replace `get_patron_id_from_agency` in circulation hook with `AgencyPatrons` search
 
 ## [1.8.2] - 2026-04-14
 

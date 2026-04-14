@@ -140,20 +140,27 @@ if ($list_pods) {
 
 } elsif ($delete) {
 
-    # unless ( $pod && $agency_id ) {
-    #     print_usage();
-    #     print STDERR "pod and agency_id are mandatory\n";
-    #     exit 1;
-    # }
+    unless ( $pod && $agency_id ) {
+        print_usage();
+        print STDERR "pod and agency_id are mandatory\n";
+        exit 1;
+    }
 
-    # my $patron_id = $plugin->get_patron_id_from_agency( { agency_id => $agency_id, pod => $pod } );
+    my $agency = $plugin->get_agency_patrons->search( { pod => $pod, agency_id => $agency_id } )->next;
 
-    # unless ($patron_id) {
-    #     print STDERR "agency_id not found on the DB\n";
-    #     exit 0;
-    # }
+    unless ($agency) {
+        print STDERR "agency_id not found on the DB\n";
+        exit 0;
+    }
 
-    print STDERR "Not implemented\n";
+    unless ($keep_patron) {
+        my $patron = $agency->patron;
+        $patron->delete if $patron;
+    }
+
+    $agency->delete;
+    printf( "Agency '%s' deleted\n", $agency_id );
+    exit 0;
 
 } elsif ($add) {
 
@@ -163,14 +170,15 @@ if ($list_pods) {
         exit 1;
     }
 
-    my $patron_id = $plugin->get_patron_id_from_agency( { agency_id => $agency_id, pod => $pod } );
+    my $existing = $plugin->get_agency_patrons->search( { pod => $pod, agency_id => $agency_id } )->next;
 
-    if ($patron_id) {
+    if ($existing) {
         print STDERR "agency_id already on the DB\n";
         exit 0;
     }
 
-    my $patron = $plugin->generate_patron_for_agency(
+    my $config = $plugin->pod_config($pod);
+    my $agency = $plugin->get_agency_patrons->create_with_patron(
         {
             pod                       => $pod,
             local_server              => $local_server,
@@ -178,10 +186,12 @@ if ($list_pods) {
             agency_id                 => $agency_id,
             requires_passcode         => $passcode,
             visiting_checkout_allowed => $visiting_checkout,
+            library_id                => $config->{partners_library_id},
+            category_code             => $config->{partners_category},
         }
     );
 
-    print STDOUT printf( "Agency '%s' loaded (patron_id=%s)\n", $agency_id, $patron->id );
+    printf( "Agency '%s' loaded (patron_id=%s)\n", $agency_id, $agency->patron_id );
     exit 0;
 
 } elsif ($update) {
@@ -192,25 +202,24 @@ if ($list_pods) {
         exit 1;
     }
 
-    my $patron_id = $plugin->get_patron_id_from_agency( { agency_id => $agency_id, pod => $pod } );
+    my $agency = $plugin->get_agency_patrons->search( { pod => $pod, agency_id => $agency_id } )->next;
 
-    unless ($patron_id) {
+    unless ($agency) {
         print STDERR "agency_id not found on the DB\n";
         exit 0;
     }
 
-    my $patron = $plugin->update_patron_for_agency(
+    $plugin->get_agency_patrons->update_with_patron(
+        $agency,
         {
-            pod                       => $pod,
-            local_server              => $local_server,
             description               => $description,
-            agency_id                 => $agency_id,
+            local_server              => $local_server,
             requires_passcode         => $passcode,
             visiting_checkout_allowed => $visiting_checkout,
         }
     );
 
-    print STDOUT printf( "Agency '$agency_id' updated\n", );
+    printf( "Agency '%s' updated\n", $agency_id );
     exit 0;
 }
 

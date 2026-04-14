@@ -200,13 +200,13 @@ sub configuration {
                 };
             }
 
-            $configuration->{$pod}->{debt_blocks_holds}        //= 1;
-            $configuration->{$pod}->{max_debt_blocks_holds}    //= 100;
-            $configuration->{$pod}->{expiration_blocks_holds}  //= 1;
-            $configuration->{$pod}->{restriction_blocks_holds} //= 1;
-            $configuration->{$pod}->{due_date_buffer_days}          //= 7;
-            $configuration->{$pod}->{renewal_buffer_days}             //= 7;
-            $configuration->{$pod}->{task_queue_5xx_delay_minutes}    //= 20;
+            $configuration->{$pod}->{debt_blocks_holds}            //= 1;
+            $configuration->{$pod}->{max_debt_blocks_holds}        //= 100;
+            $configuration->{$pod}->{expiration_blocks_holds}      //= 1;
+            $configuration->{$pod}->{restriction_blocks_holds}     //= 1;
+            $configuration->{$pod}->{due_date_buffer_days}         //= 7;
+            $configuration->{$pod}->{renewal_buffer_days}          //= 7;
+            $configuration->{$pod}->{task_queue_5xx_delay_minutes} //= 20;
         }
 
         $self->{_configuration} = $configuration;
@@ -2031,7 +2031,7 @@ sub add_hold {
         }
     );
     my $biblionumber = $params->{biblio_id};
-    my $priority = CalculatePriority($biblionumber);
+    my $priority     = CalculatePriority($biblionumber);
 
     return AddReserve(
         {
@@ -2183,6 +2183,8 @@ sub sync_agencies {
     my ( $self, $pod ) = @_;
 
     my $response = $self->get_agencies_list($pod);
+    my $config   = $self->pod_config($pod);
+    my $agencies = $self->get_agency_patrons;
 
     my $result = {};
 
@@ -2190,78 +2192,49 @@ sub sync_agencies {
         my $local_server = $server->{localCode};
         my $agency_list  = $server->{agencyList};
 
-        foreach my $agency ( @{$agency_list} ) {
+        foreach my $agency_data ( @{$agency_list} ) {
 
-            my $agency_id                 = $agency->{agencyCode};
-            my $description               = $agency->{description};
-            my $requires_passcode         = $agency->{requiresPasscode}        ? 1 : 0;
-            my $visiting_checkout_allowed = $agency->{visitingCheckoutAllowed} ? 1 : 0;
+            my $agency_id                 = $agency_data->{agencyCode};
+            my $description               = $agency_data->{description};
+            my $requires_passcode         = $agency_data->{requiresPasscode}        ? 1 : 0;
+            my $visiting_checkout_allowed = $agency_data->{visitingCheckoutAllowed} ? 1 : 0;
 
-            $result->{$local_server}->{$agency_id}->{description} =
-                $description;
+            $result->{$local_server}->{$agency_id}->{description} = $description;
 
-            my $patron_id = $self->get_patron_id_from_agency(
-                {
-                    pod       => $pod,
-                    agency_id => $agency_id,
-                }
-            );
+            my $existing = $agencies->search( { pod => $pod, agency_id => $agency_id } )->next;
 
-            my $patron;
+            $result->{$local_server}->{$agency_id}->{current_status} = 'no_entry';
 
-            $result->{$local_server}->{$agency_id}->{current_status} =
-                'no_entry';
+            if ( $existing && !$existing->patron ) {
 
-            if ($patron_id) {
-                $result->{$local_server}->{$agency_id}->{current_status} =
-                    'entry_exists';
-                $patron = Koha::Patrons->find($patron_id);
-            }
-
-            if ( $patron_id && !$patron ) {
-
-                # cleanup needed!
+                # Orphan: agency row exists but patron is gone
                 $self->logger->warn(
                     "There is a 'agency_to_patron' entry for '$agency_id', but the patron is not present on the DB!");
-                my $agency_to_patron = $self->get_qualified_table_name('agency_to_patron');
-
-                my $sth = C4::Context->dbh->prepare(
-                    qq{
-                    DELETE FROM $agency_to_patron
-                    WHERE patron_id='$patron_id';
-                }
-                );
-
-                $sth->execute();
-                $result->{$local_server}->{$agency_id}->{current_status} =
-                    'invalid_entry';
+                $existing->delete;
+                $existing = undef;
+                $result->{$local_server}->{$agency_id}->{current_status} = 'invalid_entry';
+            } elsif ($existing) {
+                $result->{$local_server}->{$agency_id}->{current_status} = 'entry_exists';
             }
 
-            if ($patron) {
+            my $params = {
+                description               => $description,
+                local_server              => $local_server,
+                requires_passcode         => $requires_passcode,
+                visiting_checkout_allowed => $visiting_checkout_allowed,
+            };
 
-                # Update description
-                $self->update_patron_for_agency(
-                    {
-                        agency_id                 => $agency_id,
-                        description               => $description,
-                        local_server              => $local_server,
-                        pod                       => $pod,
-                        requires_passcode         => $requires_passcode,
-                        visiting_checkout_allowed => $visiting_checkout_allowed,
-                    }
-                );
+            if ($existing) {
+                $agencies->update_with_patron( $existing, $params );
                 $result->{$local_server}->{$agency_id}->{status} = 'updated';
             } else {
-
-                # Create it
-                $self->generate_patron_for_agency(
+                $agencies->create_with_patron(
                     {
-                        agency_id                 => $agency_id,
-                        description               => $description,
-                        local_server              => $local_server,
-                        pod                       => $pod,
-                        requires_passcode         => $requires_passcode,
-                        visiting_checkout_allowed => $visiting_checkout_allowed,
+                        %$params,
+                        pod           => $pod,
+                        agency_id     => $agency_id,
+                        library_id    => $config->{partners_library_id},
+                        category_code => $config->{partners_category},
                     }
                 );
                 $result->{$local_server}->{$agency_id}->{status} = 'created';
@@ -2577,12 +2550,10 @@ sub create_item_hold {
                     $library_id = $config->{partners_library_id};
                 }
 
-                my $patron_id = $self->get_patron_id_from_agency(
-                    {
-                        agency_id => $agency_id,
-                        pod       => $action->pod,
-                    }
-                );
+                my $agency_entry =
+                    $self->get_agency_patrons->search( { agency_id => $agency_id, pod => $action->pod } )->next;
+
+                my $patron_id = $agency_entry ? $agency_entry->patron_id : undef;
 
                 if ( !$patron_id ) {
 
