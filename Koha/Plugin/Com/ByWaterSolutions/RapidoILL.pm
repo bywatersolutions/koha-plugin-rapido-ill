@@ -1864,6 +1864,22 @@ sub get_queued_tasks {
     return RapidoILL::QueuedTasks->new;
 }
 
+=head3 get_agency_patrons
+
+    my $agency_patrons = $plugin->get_agency_patrons;
+
+Returns a new I<RapidoILL::AgencyPatrons> resultset.
+
+=cut
+
+sub get_agency_patrons {
+    my ($self) = @_;
+
+    require RapidoILL::AgencyPatrons;
+
+    return RapidoILL::AgencyPatrons->new;
+}
+
 =head3 get_normalizer
 
 =cut

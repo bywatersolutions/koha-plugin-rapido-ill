@@ -426,11 +426,11 @@ sub list_agencies {
     my $c = shift->openapi->valid_input or return;
 
     return try {
-        require RapidoILL::AgencyPatrons;
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
 
         return $c->render(
             status  => 200,
-            openapi => $c->objects->search( RapidoILL::AgencyPatrons->new ),
+            openapi => $c->objects->search( $plugin->get_agency_patrons ),
         );
     } catch {
         return $c->unhandled_exception($_);
@@ -447,9 +447,9 @@ sub get_agency {
     my $c = shift->openapi->valid_input or return;
 
     return try {
-        require RapidoILL::AgencyPatrons;
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
 
-        my $agency = RapidoILL::AgencyPatrons->new->search(
+        my $agency = $plugin->get_agency_patrons->search(
             {
                 pod       => $c->param('pod'),
                 agency_id => $c->param('agency_id'),
@@ -478,13 +478,12 @@ sub add_agency {
     my $c = shift->openapi->valid_input or return;
 
     return try {
-        require RapidoILL::AgencyPatrons;
-        require RapidoILL::AgencyPatron;
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
 
         my $body = $c->req->json;
 
         # Check for duplicate
-        my $existing = RapidoILL::AgencyPatrons->new->search(
+        my $existing = $plugin->get_agency_patrons->search(
             { pod => $body->{pod}, agency_id => $body->{agency_id} }
         )->next;
 
@@ -495,11 +494,10 @@ sub add_agency {
 
         my $agency;
         if ( $body->{patron_id} ) {
-            $agency = RapidoILL::AgencyPatron->new_from_api($body)->store;
+            $agency = $plugin->get_agency_patrons->object_class->new_from_api($body)->store;
         } else {
-            my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
             my $config = $plugin->pod_config( $body->{pod} );
-            $agency = RapidoILL::AgencyPatrons->new->create_with_patron(
+            $agency = $plugin->get_agency_patrons->create_with_patron(
                 {
                     %$body,
                     library_id    => $config->{partners_library_id},
@@ -539,7 +537,7 @@ sub add_agencies_batch {
     my $c = shift->openapi->valid_input or return;
 
     return try {
-        require RapidoILL::AgencyPatron;
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
 
         my $body    = $c->req->json;
         my @created;
@@ -547,7 +545,7 @@ sub add_agencies_batch {
         Koha::Database->new->schema->txn_do(
             sub {
                 for my $entry (@$body) {
-                    my $agency = RapidoILL::AgencyPatron->new_from_api($entry)->store;
+                    my $agency = $plugin->get_agency_patrons->object_class->new_from_api($entry)->store;
                     push @created, $agency->to_api;
                 }
             }
@@ -578,9 +576,9 @@ sub update_agency {
     my $c = shift->openapi->valid_input or return;
 
     return try {
-        require RapidoILL::AgencyPatrons;
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
 
-        my $agency = RapidoILL::AgencyPatrons->new->search(
+        my $agency = $plugin->get_agency_patrons->search(
             {
                 pod       => $c->param('pod'),
                 agency_id => $c->param('agency_id'),
@@ -611,9 +609,9 @@ sub delete_agency {
     my $c = shift->openapi->valid_input or return;
 
     return try {
-        require RapidoILL::AgencyPatrons;
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
 
-        my $agency = RapidoILL::AgencyPatrons->new->search(
+        my $agency = $plugin->get_agency_patrons->search(
             {
                 pod       => $c->param('pod'),
                 agency_id => $c->param('agency_id'),

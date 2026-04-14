@@ -11,8 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [#194] Agency CRUD page with datatables listing, add/edit modal, and delete confirmation
 - [#194] Auto-create patron when adding agency without manual patron_id
-- [#194] `AgencyPatron::create_with_patron` class method for transactional agency+patron creation
+- [#194] `AgencyPatrons::create_with_patron` for transactional agency+patron creation
 - [#194] `GET /config/pods` API endpoint returning configured pod identifiers
+- [#194] Support embedding patron in agencies endpoint via `x-koha-embed: patron`
+- [#194] `get_agency_patrons` plugin accessor for agency resultset
 
 ## [1.7.2] - Unreleased
 
