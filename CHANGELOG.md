@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.8.0] - Unreleased
+## [1.8.1] - 2026-04-14
+
+### Fixed
+
+- [#192] Status indicator now links to the status page instead of the admin landing page
+
+## [1.8.0] - 2026-04-14
 
 ### Added
 
@@ -16,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#194] Support embedding patron in agencies endpoint via `x-koha-embed: patron`
 - [#194] `get_agency_patrons` plugin accessor for agency resultset
 
-## [1.7.2] - Unreleased
+## [1.7.2] - 2026-04-13
 
 ### Changed
 
@@ -25,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#192] Consistent breadcrumbs with Rapido ILL node linking to landing page across all pages
 - [#192] Use Koha-native layout with `wrapper-staff-tool-plugin.inc` and `tools-menu.inc` sidebar
 
-## [1.7.0] - Unreleased
+## [1.7.0] - 2026-04-13
 
 ### Added
 
@@ -48,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#189] Dynamic dropdown filters for Action and Status columns via `GET /status/tasks/filters`
 - [#189] New REST API endpoint: `GET /status/tasks/filters` returning distinct action and status values
 
-## [1.5.4] - Unreleased
+## [1.5.4] - 2026-04-11
 
 ### Fixed
 

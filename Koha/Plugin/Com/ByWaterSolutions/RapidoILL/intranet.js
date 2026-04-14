@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    var $indicator = $('<li class="nav-item"><a class="nav-link" href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=admin" id="rapido-status-indicator" title="Rapido ILL: checking…"><i class="fa fa-circle" style="font-size:12px;color:#999"></i></a></li>');
+    var $indicator = $('<li class="nav-item"><a class="nav-link" href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=tool&page=status" id="rapido-status-indicator" title="Rapido ILL: checking…"><i class="fa fa-circle" style="font-size:12px;color:#999"></i></a></li>');
     $("#toplevelmenu").append($indicator);
     var $icon = $indicator.find("i");
     var $link = $indicator.find("a");
