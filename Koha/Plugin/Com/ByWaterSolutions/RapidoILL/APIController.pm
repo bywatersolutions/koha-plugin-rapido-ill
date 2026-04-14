@@ -396,6 +396,26 @@ sub list_task_filters {
     };
 }
 
+=head3 list_pods
+
+Returns the list of configured pod identifiers.
+
+=cut
+
+sub list_pods {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
+        return $c->render(
+            status => 200,
+            json   => $plugin->pods,
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
 =head3 list_agencies
 
 Lists agency-to-patron mappings.
@@ -458,10 +478,35 @@ sub add_agency {
     my $c = shift->openapi->valid_input or return;
 
     return try {
+        require RapidoILL::AgencyPatrons;
         require RapidoILL::AgencyPatron;
 
-        my $body   = $c->req->json;
-        my $agency = RapidoILL::AgencyPatron->new_from_api($body)->store;
+        my $body = $c->req->json;
+
+        # Check for duplicate
+        my $existing = RapidoILL::AgencyPatrons->new->search(
+            { pod => $body->{pod}, agency_id => $body->{agency_id} }
+        )->next;
+
+        return $c->render(
+            status  => 409,
+            openapi => { error => "Agency already exists" },
+        ) if $existing;
+
+        my $agency;
+        if ( $body->{patron_id} ) {
+            $agency = RapidoILL::AgencyPatron->new_from_api($body)->store;
+        } else {
+            my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
+            my $config = $plugin->pod_config( $body->{pod} );
+            $agency = RapidoILL::AgencyPatron->create_with_patron(
+                {
+                    %$body,
+                    library_id    => $config->{partners_library_id},
+                    category_code => $config->{partners_category},
+                }
+            );
+        }
 
         return $c->render(
             status  => 201,
@@ -472,6 +517,12 @@ sub add_agency {
             return $c->render(
                 status  => 409,
                 openapi => { error => "Agency already exists" },
+            );
+        }
+        if ( ref($_) =~ /Koha::Exceptions::Patron/ ) {
+            return $c->render(
+                status  => 500,
+                openapi => { error => "Failed to create patron: $_" },
             );
         }
         return $c->unhandled_exception($_);
