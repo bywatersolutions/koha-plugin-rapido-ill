@@ -499,7 +499,7 @@ sub add_agency {
         } else {
             my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
             my $config = $plugin->pod_config( $body->{pod} );
-            $agency = RapidoILL::AgencyPatron->create_with_patron(
+            $agency = RapidoILL::AgencyPatrons->new->create_with_patron(
                 {
                     %$body,
                     library_id    => $config->{partners_library_id},
