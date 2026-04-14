@@ -115,6 +115,13 @@ __PACKAGE__->set_primary_key("pod", "agency_id");
 # Created by DBIx::Class::Schema::Loader v0.07051 @ 2025-09-01 16:17:50
 # DO NOT MODIFY THIS OR ANYTHING ABOVE! md5sum:zoZL0+Uo2z0C5K86Rc8STg
 
+__PACKAGE__->belongs_to(
+    "patron",
+    "Koha::Schema::Result::Borrower",
+    { borrowernumber => "patron_id" },
+    { is_deferrable => 1, join_type => "LEFT", on_delete => "CASCADE", on_update => "CASCADE" },
+);
+
 {
     no warnings 'redefine';
 
