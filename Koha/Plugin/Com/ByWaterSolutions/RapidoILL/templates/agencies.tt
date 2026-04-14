@@ -33,7 +33,320 @@
             <main>
 
 <h1>Agencies</h1>
-<p>Agency management page — coming soon.</p>
+
+<div class="alert alert-info" id="agency_action_success" style="display:none"></div>
+<div class="alert alert-danger" id="agency_action_error" style="display:none"></div>
+
+<div class="page-section">
+    <div class="btn-toolbar" style="margin-bottom:1em">
+        <a href="#" class="btn btn-default" id="add_agency_btn"><i class="fa fa-plus"></i> Add agency</a>
+    </div>
+
+    <table id="agencies_table" class="table table-striped">
+        <thead>
+            <tr>
+                <th>Pod</th>
+                <th>Agency ID</th>
+                <th>Description</th>
+                <th>Patron ID</th>
+                <th>Local server</th>
+                <th class="no-sort">Actions</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+
+<!-- Add/Edit modal -->
+<div class="modal" id="agencyFormModal" tabindex="-1" role="dialog" aria-labelledby="agencyFormModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title" id="agencyFormModalLabel">Add agency</h1>
+            </div>
+            <div class="modal-body">
+                <form id="agency_form">
+                    <input type="hidden" id="form_mode" value="add">
+                    <input type="hidden" id="form_original_pod">
+                    <input type="hidden" id="form_original_agency_id">
+                    <fieldset class="rows">
+                        <ol>
+                            <li>
+                                <label for="form_pod" class="required">Pod:</label>
+                                <select id="form_pod" class="required" required>
+                                    <option value="">Select a pod</option>
+                                </select>
+                            </li>
+                            <li>
+                                <label for="form_agency_id" class="required">Agency ID:</label>
+                                <input type="text" id="form_agency_id" class="required" required>
+                            </li>
+                            <li>
+                                <label for="form_description" class="required">Description:</label>
+                                <input type="text" id="form_description" class="required" required>
+                            </li>
+                            <li>
+                                <label for="form_patron_id_manual">Specify patron manually:</label>
+                                <input type="checkbox" id="form_patron_id_manual">
+                                <div class="hint">Leave unchecked to auto-create a patron for this agency</div>
+                            </li>
+                            <li id="patron_id_row" style="display:none">
+                                <label for="form_patron_id">Patron ID:</label>
+                                <input type="number" id="form_patron_id">
+                            </li>
+                            <li>
+                                <label for="form_local_server">Local server:</label>
+                                <input type="text" id="form_local_server">
+                            </li>
+                            <li>
+                                <label for="form_requires_passcode">Requires passcode:</label>
+                                <select id="form_requires_passcode">
+                                    <option value="0">No</option>
+                                    <option value="1">Yes</option>
+                                </select>
+                            </li>
+                            <li>
+                                <label for="form_visiting_checkout">Visiting checkout allowed:</label>
+                                <select id="form_visiting_checkout">
+                                    <option value="0">No</option>
+                                    <option value="1">Yes</option>
+                                </select>
+                            </li>
+                        </ol>
+                    </fieldset>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="agency_form_submit">Save</button>
+                <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal" id="deleteConfirmModal" tabindex="-1" role="dialog" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title" id="deleteConfirmModalLabel">Confirm deletion</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="delete_confirm_msg"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="delete_confirm_btn">Delete</button>
+                <button type="button" class="btn btn-default" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+[% INCLUDE 'datatables.inc' %]
+<script>
+    var api_base = "/api/v1/contrib/rapidoill/agencies";
+
+    function showSuccess(msg) {
+        $("#agency_action_error").hide();
+        $("#agency_action_success").html(msg).show();
+    }
+    function showError(msg) {
+        $("#agency_action_success").hide();
+        $("#agency_action_error").html(msg).show();
+    }
+
+    $(document).ready(function() {
+        // Load configured pods
+        var pods = [];
+        $.ajax({
+            url: "/api/v1/contrib/rapidoill/config/pods",
+            dataType: "json",
+            async: false,
+            success: function(data) {
+                pods = data;
+                var $sel = $("#form_pod");
+                data.forEach(function(p) {
+                    $sel.append('<option value="' + p.escapeHtml() + '">' + p.escapeHtml() + '</option>');
+                });
+            }
+        });
+
+        var agencies_table = $("#agencies_table").kohaTable({
+            ajax: { url: api_base },
+            order: [[0, "asc"], [1, "asc"]],
+            columns: [
+                { data: "pod", searchable: true, orderable: true },
+                { data: "agency_id", searchable: true, orderable: true },
+                { data: "description", searchable: true, orderable: true },
+                { data: "patron_id", searchable: true, orderable: true },
+                { data: "local_server", searchable: true, orderable: true,
+                    render: function(data) { return data || ""; }
+                },
+                {
+                    data: function(row) {
+                        return '<a class="btn btn-default btn-xs edit_agency" href="#" ' +
+                            'data-pod="' + encodeURIComponent(row.pod) + '" ' +
+                            'data-agency-id="' + encodeURIComponent(row.agency_id) + '">' +
+                            '<i class="fa-solid fa-pencil" aria-hidden="true"></i> Edit</a> ' +
+                            '<a class="btn btn-default btn-xs delete_agency" href="#" ' +
+                            'data-pod="' + encodeURIComponent(row.pod) + '" ' +
+                            'data-agency-id="' + encodeURIComponent(row.agency_id) + '" ' +
+                            'data-description="' + encodeURIComponent(row.description) + '">' +
+                            '<i class="fa fa-trash-can" aria-hidden="true"></i> Delete</a>';
+                    },
+                    searchable: false,
+                    orderable: false
+                }
+            ]
+        }, null, 1);
+
+        // Toggle manual patron ID
+        $("#form_patron_id_manual").on("change", function() {
+            $("#patron_id_row").toggle(this.checked);
+            if (!this.checked) $("#form_patron_id").val("");
+        });
+
+        // Add button
+        $("#add_agency_btn").on("click", function(e) {
+            e.preventDefault();
+            $("#form_mode").val("add");
+            $("#agencyFormModalLabel").text("Add agency");
+            $("#agency_form")[0].reset();
+            $("#form_pod, #form_agency_id").prop("disabled", false);
+            $("#form_patron_id_manual").prop("checked", false).trigger("change");
+            $("#agencyFormModal").modal("show");
+        });
+
+        // Edit button
+        $("#agencies_table").on("click", ".edit_agency", function(e) {
+            e.preventDefault();
+            var pod = decodeURIComponent($(this).data("pod"));
+            var agency_id = decodeURIComponent($(this).data("agency-id"));
+
+            $.ajax({
+                url: api_base + "/" + encodeURIComponent(pod) + "/" + encodeURIComponent(agency_id),
+                dataType: "json",
+                success: function(data) {
+                    $("#form_mode").val("edit");
+                    $("#form_original_pod").val(data.pod);
+                    $("#form_original_agency_id").val(data.agency_id);
+                    $("#agencyFormModalLabel").text("Edit agency");
+                    $("#form_pod").val(data.pod).prop("disabled", true);
+                    $("#form_agency_id").val(data.agency_id).prop("disabled", true);
+                    $("#form_description").val(data.description);
+                    $("#form_patron_id").val(data.patron_id);
+                    $("#form_patron_id_manual").prop("checked", true).trigger("change");
+                    $("#form_local_server").val(data.local_server || "");
+                    $("#form_requires_passcode").val(data.requires_passcode ? "1" : "0");
+                    $("#form_visiting_checkout").val(data.visiting_checkout_allowed ? "1" : "0");
+                    $("#agencyFormModal").modal("show");
+                },
+                error: function() { showError("Failed to load agency details."); }
+            });
+        });
+
+        // Save (add or edit)
+        $("#agency_form_submit").on("click", function() {
+            var mode = $("#form_mode").val();
+            var body = {
+                pod: $("#form_pod").val(),
+                agency_id: $("#form_agency_id").val(),
+                description: $("#form_description").val(),
+                local_server: $("#form_local_server").val() || null,
+                requires_passcode: parseInt($("#form_requires_passcode").val(), 10),
+                visiting_checkout_allowed: parseInt($("#form_visiting_checkout").val(), 10)
+            };
+
+            if ($("#form_patron_id_manual").is(":checked")) {
+                body.patron_id = parseInt($("#form_patron_id").val(), 10);
+            }
+
+            if (!body.pod || !body.agency_id || !body.description) {
+                showError("Please fill in all required fields.");
+                return;
+            }
+
+            if ($("#form_patron_id_manual").is(":checked") && !body.patron_id) {
+                showError("Please enter a patron ID or uncheck manual patron selection.");
+                return;
+            }
+
+            if (mode === "add") {
+                $.ajax({
+                    method: "POST",
+                    url: api_base,
+                    contentType: "application/json",
+                    data: JSON.stringify(body),
+                    success: function() {
+                        $("#agencyFormModal").modal("hide");
+                        agencies_table.DataTable().ajax.reload();
+                        showSuccess("Agency added successfully.");
+                    },
+                    error: function(xhr) {
+                        var msg = "Failed to add agency.";
+                        if (xhr.status === 409) msg = "Agency already exists.";
+                        try { var err = JSON.parse(xhr.responseText); if (err.error) msg = err.error; } catch(e) {}
+                        $("#agencyFormModal").modal("hide");
+                        showError(msg);
+                    }
+                });
+            } else {
+                var pod = $("#form_original_pod").val();
+                var agency_id = $("#form_original_agency_id").val();
+                $.ajax({
+                    method: "PUT",
+                    url: api_base + "/" + encodeURIComponent(pod) + "/" + encodeURIComponent(agency_id),
+                    contentType: "application/json",
+                    data: JSON.stringify(body),
+                    success: function() {
+                        $("#agencyFormModal").modal("hide");
+                        agencies_table.DataTable().ajax.reload();
+                        showSuccess("Agency updated successfully.");
+                    },
+                    error: function(xhr) {
+                        var msg = "Failed to update agency.";
+                        try { var err = JSON.parse(xhr.responseText); if (err.error) msg = err.error; } catch(e) {}
+                        $("#agencyFormModal").modal("hide");
+                        showError(msg);
+                    }
+                });
+            }
+        });
+
+        // Delete button - show confirmation
+        $("#agencies_table").on("click", ".delete_agency", function(e) {
+            e.preventDefault();
+            var pod = decodeURIComponent($(this).data("pod"));
+            var agency_id = decodeURIComponent($(this).data("agency-id"));
+            var description = decodeURIComponent($(this).data("description"));
+
+            $("#delete_confirm_msg").html("Are you sure you want to delete agency <strong>" + description.escapeHtml() + "</strong> (" + agency_id.escapeHtml() + ")?");
+            $("#delete_confirm_btn").data("pod", pod).data("agency-id", agency_id).data("description", description);
+            $("#deleteConfirmModal").modal("show");
+        });
+
+        // Delete confirmed
+        $("#delete_confirm_btn").on("click", function() {
+            var pod = $(this).data("pod");
+            var agency_id = $(this).data("agency-id");
+            var description = $(this).data("description");
+
+            $.ajax({
+                method: "DELETE",
+                url: api_base + "/" + encodeURIComponent(pod) + "/" + encodeURIComponent(agency_id),
+                success: function() {
+                    $("#deleteConfirmModal").modal("hide");
+                    agencies_table.DataTable().ajax.reload();
+                    showSuccess("Agency '" + description + "' deleted successfully.");
+                },
+                error: function() {
+                    $("#deleteConfirmModal").modal("hide");
+                    showError("Failed to delete agency.");
+                }
+            });
+        });
+    });
+</script>
 
             </main>
         </div>
