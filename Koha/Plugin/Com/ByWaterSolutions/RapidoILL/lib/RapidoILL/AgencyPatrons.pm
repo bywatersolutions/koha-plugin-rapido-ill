@@ -89,6 +89,52 @@ sub create_with_patron {
     return $agency;
 }
 
+=head3 update_with_patron
+
+    $agency_patrons->update_with_patron( $agency, $params );
+
+Updates an existing agency mapping and its associated patron's cardnumber
+and surname. I<$params> should contain the agency fields to update.
+
+=cut
+
+sub update_with_patron {
+    my ( $self, $agency, $params ) = @_;
+
+    my $cardnumber = _gen_cardnumber(
+        { pod => $agency->pod, agency_id => $agency->agency_id, %$params }
+    );
+    my $surname = _gen_patron_description(
+        { agency_id => $agency->agency_id, %$params }
+    );
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            my $patron = $agency->patron;
+            if ($patron) {
+                $patron->set(
+                    {
+                        surname    => $surname,
+                        cardnumber => $cardnumber,
+                        userid     => $cardnumber,
+                    }
+                )->store;
+            }
+
+            $agency->set(
+                {
+                    description               => $params->{description}               // $agency->description,
+                    local_server              => $params->{local_server}              // $agency->local_server,
+                    requires_passcode         => $params->{requires_passcode}         // $agency->requires_passcode,
+                    visiting_checkout_allowed  => $params->{visiting_checkout_allowed} // $agency->visiting_checkout_allowed,
+                }
+            )->store;
+        }
+    );
+
+    return $agency;
+}
+
 =head2 Internal methods
 
 =head3 _gen_cardnumber
