@@ -631,7 +631,7 @@ subtest 'return_uncirculated() delegation tests' => sub {
 
 subtest 'receive_unshipped() tests' => sub {
 
-    plan tests => 2;
+    plan tests => 3;
 
     subtest 'Rapido API is called with correct circId' => sub {
         plan tests => 3;
@@ -799,6 +799,92 @@ subtest 'receive_unshipped() tests' => sub {
 
         ok( defined $received_data && keys %{$received_data}, 'API data param is not empty' );
         is( $received_data->{circId}, $test_circ_id, 'circId is present in API data' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Stores itemBarcode and callNumber attributes with correct keys' => sub {
+        plan tests => 4;
+
+        $schema->storage->txn_begin;
+
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
+            }
+        );
+
+        my $patron = $builder->build_object(
+            {
+                class => 'Koha::Patrons',
+                value => { branchcode => $library->branchcode }
+            }
+        );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    backend        => 'RapidoILL',
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => 'test_circ_barcode_attr',
+                    pod    => t::lib::Mocks::Rapido::POD,
+                }
+            }
+        );
+
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock( 'borrower_receive_unshipped', sub { return; } );
+
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $sample_item     = $builder->build_sample_item();
+        my $test_barcode    = $sample_item->barcode;
+        $sample_item->delete;
+        my $test_callnumber = 'QA 999';
+
+        $backend->receive_unshipped(
+            {
+                request => $illrequest,
+                other   => {
+                    stage           => 'confirm',
+                    item_callnumber => $test_callnumber,
+                    item_barcode    => $test_barcode,
+                }
+            }
+        );
+
+        # Regression: receive_unshipped was storing 'barcode' instead of 'itemBarcode'
+        my $item_barcode_attr = $illrequest->extended_attributes->find( { type => 'itemBarcode' } );
+        ok( $item_barcode_attr, 'itemBarcode attribute exists (not stored as barcode)' );
+        is( $item_barcode_attr->value, $test_barcode, 'itemBarcode attribute has correct value' )
+            if $item_barcode_attr;
+
+        # Regression: receive_unshipped was storing 'callnumber' instead of 'callNumber'
+        my $call_number_attr = $illrequest->extended_attributes->find( { type => 'callNumber' } );
+        ok( $call_number_attr, 'callNumber attribute exists (not stored as callnumber)' );
+        is( $call_number_attr->value, $test_callnumber, 'callNumber attribute has correct value' )
+            if $call_number_attr;
 
         $schema->storage->txn_rollback;
     };
