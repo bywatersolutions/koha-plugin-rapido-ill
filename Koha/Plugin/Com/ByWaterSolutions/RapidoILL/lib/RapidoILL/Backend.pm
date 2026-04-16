@@ -638,8 +638,8 @@ sub receive_unshipped {
                 {
                     circId     => $self->{plugin}->get_req_circ_id($request),
                     attributes => {
-                        callNumber => $params->{other}->{item_callnumber},
-                        barcode    => $params->{other}->{item_barcode}
+                        callNumber  => $params->{other}->{item_callnumber},
+                        itemBarcode => $params->{other}->{item_barcode}
                     },
                     barcode        => $params->{other}->{item_barcode},
                     client_options => { notify_rapido => 1 }
