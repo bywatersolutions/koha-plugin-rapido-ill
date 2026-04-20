@@ -92,6 +92,8 @@ subtest 'sync_circ_requests() duplicate handling' => sub {
         }
     );
 
+    my $now = time();
+
     # Pre-create a CircAction to test duplicate detection
     my $existing_action = RapidoILL::CircAction->new(
         {
@@ -99,12 +101,12 @@ subtest 'sync_circ_requests() duplicate handling' => sub {
             pod           => t::lib::Mocks::Rapido::POD,
             circStatus    => 'CREATED',
             lastCircState => 'PATRON_HOLD',
-            lastUpdated   => time(),
+            lastUpdated   => $now,
             borrowerCode  => 'TEST_AGENCY',
             lenderCode    => '12345',
             itemId        => '',
             patronId      => 'TEST_PATRON_456',
-            dateCreated   => time(),
+            dateCreated   => $now,
             callNumber    => 'TEST_CALL_123',
             title         => 'Test Book Title',
             author        => 'Test Author',
@@ -122,12 +124,12 @@ subtest 'sync_circ_requests() duplicate handling' => sub {
                     circId        => 'TEST002',
                     circStatus    => 'CREATED',
                     lastCircState => 'PATRON_HOLD',
-                    lastUpdated   => time() + 1,          # Different timestamp
+                    lastUpdated   => $now,                # Same timestamp = true duplicate
                     borrowerCode  => 'TEST_AGENCY',
                     lenderCode    => '12345',
                     itemId        => '',
                     patronId      => 'TEST_PATRON_456',
-                    dateCreated   => time(),
+                    dateCreated   => $now,
                     callNumber    => 'TEST_CALL_123',
                     title         => 'Test Book Title',
                     author        => 'Test Author',

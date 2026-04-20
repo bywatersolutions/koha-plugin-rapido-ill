@@ -74,7 +74,7 @@ BEGIN {
     Koha::Database->schema( { new => 1 } );
 }
 
-our $VERSION = "1.8.4";
+our $VERSION = "1.8.5";
 
 our $metadata = {
     name            => 'RapidoILL',
@@ -307,7 +307,7 @@ sub install {
                 `timestamp`            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (`circ_action_id`),
                 KEY `circId` (`circId`),
-                UNIQUE KEY `unique_circ_status_state` (`circId`, `pod`, `circStatus`, `lastCircState`)
+                UNIQUE KEY `unique_circ_status_state` (`circId`, `pod`, `circStatus`, `lastCircState`, `lastUpdated`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         }
         );
@@ -498,6 +498,21 @@ sub upgrade {
             }
             );
         }
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "1.8.5";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        # Include lastUpdated in unique constraint so repeated renewals
+        # (same circId/pod/circStatus/lastCircState, different lastUpdated)
+        # are not rejected as duplicates
+        $dbh->do("ALTER TABLE $circ_actions DROP INDEX `unique_circ_status_state`");
+        $dbh->do(
+            "ALTER TABLE $circ_actions
+            ADD UNIQUE KEY `unique_circ_status_state` (`circId`, `pod`, `circStatus`, `lastCircState`, `lastUpdated`)"
+        );
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
@@ -2758,7 +2773,7 @@ sub update_ill_request {
     if ( $self->is_exact_duplicate($action) ) { ... }
 
 Method that checks if an action is an exact duplicate based on the unique
-constraint fields (circId, pod, circStatus, lastCircState).
+constraint fields (circId, pod, circStatus, lastCircState, lastUpdated).
 
 =cut
 
@@ -2771,6 +2786,7 @@ sub is_exact_duplicate {
             pod           => $action->pod,
             circStatus    => $action->circStatus,
             lastCircState => $action->lastCircState,
+            lastUpdated   => $action->lastUpdated,
         }
     )->next;
 

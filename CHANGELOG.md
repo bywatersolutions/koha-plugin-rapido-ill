@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.5] - 2026-04-20
+
+### Fixed
+
+- [#198] `is_exact_duplicate` does not account for `lastUpdated`, causing repeated renewals to be skipped
+
 ## [1.8.4] - 2026-04-16
 
 ### Fixed
