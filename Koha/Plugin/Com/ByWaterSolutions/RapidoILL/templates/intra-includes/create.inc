@@ -1,1 +1,0 @@
-<span class="alert">The Rapido ILL backend doesn't allow manual ILL requests creation</span>
