@@ -270,9 +270,18 @@ sub get_print_slip {
 
         # / Koha::Illrequest->get_notice
 
+        unless ($slip) {
+            $plugin->logger->warn(
+                sprintf(
+                    "No print slip template found for letter_code='%s', branchcode='%s', illrequest_id=%s",
+                    $print_slip_id, $req->branchcode, $illrequest_id
+                )
+            );
+        }
+
         $template->param(
-            slip  => $slip->{content},
-            title => $slip->{title},
+            slip  => $slip ? $slip->{content} : undef,
+            title => $slip ? $slip->{title}   : undef,
         );
 
         return $c->render(
