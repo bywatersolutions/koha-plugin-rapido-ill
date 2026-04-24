@@ -103,7 +103,7 @@ subtest 'Template files exist for UI methods' => sub {
     my $template_dir = File::Spec->catdir(
         dirname(__FILE__), '..',
         'Koha',            'Plugin', 'Com', 'ByWaterSolutions', 'RapidoILL',
-        'templates',       'intra-includes'
+        'intra-includes'
     );
 
     ok( -d $template_dir, "Template directory exists" );
@@ -178,7 +178,7 @@ subtest 'Template references in Backend code match existing files' => sub {
     my $template_dir = File::Spec->catdir(
         dirname(__FILE__), '..',
         'Koha',            'Plugin', 'Com', 'ByWaterSolutions', 'RapidoILL',
-        'templates',       'intra-includes'
+        'intra-includes'
     );
 
     # Test that each referenced template file exists

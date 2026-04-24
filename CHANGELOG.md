@@ -5,11 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.8.6] - 2026-04-23
+## [1.8.7] - 2026-04-24
 
 ### Fixed
 
-- [#199] ILL backend templates (item_in_transit, item_received) in wrong directory causing template not found errors
+- [#199] Fix template path in `t/04-backend-templates.t` — test looked in `templates/intra-includes/` instead of `intra-includes/`
 
 ## [1.8.6] - 2026-04-23
 
