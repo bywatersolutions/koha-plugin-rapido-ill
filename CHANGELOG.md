@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- [#207] Biblio and item never created when first sync encounters a request already at ITEM_SHIPPED state
+
+### Added
+- [#208] Automate CHANGELOG stamping in release workflow (preversion/postversion scripts)
+
 ### Changed
 - [#201] Update GitHub Actions to Node.js 24 runtime
 
