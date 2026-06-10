@@ -2372,6 +2372,12 @@ sub sync_circ_requests {
                             my $req = $self->add_ill_request($action);
                             $action->illrequest_id( $req->id );
                             $action->store();
+
+                            # Process the action if we're out of sync (e.g., first
+                            # sync sees ITEM_SHIPPED directly). The handler's no-op
+                            # logic will skip states that don't need processing.
+                            $self->update_ill_request($action);
+
                             my $msg = sprintf(
                                 "New ILL request created: circId=%s, circStatus='%s', lastCircState='%s', ill_request_id=%s",
                                 $data->{circId},        $data->{circStatus},
