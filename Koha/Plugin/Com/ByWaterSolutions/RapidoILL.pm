@@ -1954,6 +1954,38 @@ sub get_agency_patrons {
     return RapidoILL::AgencyPatrons->new;
 }
 
+=head3 get_sync_logs
+
+    my $sync_logs = $plugin->get_sync_logs;
+
+Returns a new I<RapidoILL::SyncLogs> resultset.
+
+=cut
+
+sub get_sync_logs {
+    my ($self) = @_;
+
+    require RapidoILL::SyncLogs;
+
+    return RapidoILL::SyncLogs->new;
+}
+
+=head3 get_circ_actions
+
+    my $circ_actions = $plugin->get_circ_actions;
+
+Returns a new I<RapidoILL::CircActions> resultset.
+
+=cut
+
+sub get_circ_actions {
+    my ($self) = @_;
+
+    require RapidoILL::CircActions;
+
+    return RapidoILL::CircActions->new;
+}
+
 =head3 get_normalizer
 
 =cut
@@ -2377,8 +2409,7 @@ sub sync_circ_requests {
         messages  => [],
     };
 
-    require RapidoILL::SyncLog;
-    my $sync_log = RapidoILL::SyncLog->new(
+    my $sync_log = $self->get_sync_logs->object_class->new(
         {
             pod        => $params->{pod},
             started_at => \'NOW()',

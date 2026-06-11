@@ -663,11 +663,11 @@ sub list_circ_actions {
     my $c = shift->openapi->valid_input or return;
 
     return try {
-        require RapidoILL::CircActions;
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
 
         return $c->render(
             status  => 200,
-            openapi => $c->objects->search( RapidoILL::CircActions->new ),
+            openapi => $c->objects->search( $plugin->get_circ_actions ),
         );
     } catch {
         return $c->unhandled_exception($_);
@@ -685,11 +685,11 @@ sub list_sync_logs {
     my $c = shift->openapi->valid_input or return;
 
     return try {
-        require RapidoILL::SyncLogs;
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
 
         return $c->render(
             status  => 200,
-            openapi => $c->objects->search( RapidoILL::SyncLogs->new ),
+            openapi => $c->objects->search( $plugin->get_sync_logs ),
         );
     } catch {
         return $c->unhandled_exception($_);

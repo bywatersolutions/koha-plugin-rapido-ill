@@ -21,7 +21,7 @@ use Modern::Perl;
 
 no warnings 'redefine';
 
-use JSON qw(decode_json encode_json);
+use JSON qw(encode_json);
 
 use base qw(Koha::Object);
 
