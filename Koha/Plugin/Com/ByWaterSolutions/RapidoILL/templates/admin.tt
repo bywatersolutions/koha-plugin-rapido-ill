@@ -18,6 +18,9 @@
 
             <dt><a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=tool&page=tasks">Task queue</a></dt>
             <dd>Browse and filter queued, active, and completed tasks</dd>
+
+            <dt><a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=tool&page=circ_actions">Circulation actions</a></dt>
+            <dd>Browse circulation requests synced from Rapido</dd>
         </dl>
     </div>
 

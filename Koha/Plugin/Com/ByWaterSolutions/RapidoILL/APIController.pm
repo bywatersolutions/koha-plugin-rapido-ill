@@ -652,4 +652,26 @@ sub delete_agency {
     };
 }
 
+=head3 list_circ_actions
+
+Lists circulation action records with server-side pagination, filtering, and sorting
+via Koha's REST framework.
+
+=cut
+
+sub list_circ_actions {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::CircActions;
+
+        return $c->render(
+            status  => 200,
+            openapi => $c->objects->search( RapidoILL::CircActions->new ),
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
 1;

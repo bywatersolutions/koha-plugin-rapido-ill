@@ -1067,9 +1067,10 @@ sub tool {
     my $page = $cgi->param('page') // 'status';
 
     my %pages = (
-        status   => 'templates/status.tt',
-        tasks    => 'templates/tasks.tt',
-        agencies => 'templates/agencies.tt',
+        status       => 'templates/status.tt',
+        tasks        => 'templates/tasks.tt',
+        agencies     => 'templates/agencies.tt',
+        circ_actions => 'templates/circ_actions.tt',
     );
 
     my $template_file = $pages{$page};

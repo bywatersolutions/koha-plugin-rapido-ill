@@ -504,5 +504,39 @@
         "permissions": { "ill": "1" }
       }
     }
+  },
+  "/circ_actions": {
+    "get": {
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#list_circ_actions",
+      "operationId": "rapidoILLListCircActions",
+      "description": "List circulation action records with pagination",
+      "tags": ["circ_actions"],
+      "produces": ["application/json"],
+      "parameters": [
+        { "name": "_page", "in": "query", "type": "integer", "description": "Page number" },
+        { "name": "_per_page", "in": "query", "type": "integer", "description": "Items per page" },
+        { "name": "_match", "in": "query", "type": "string", "description": "Match type" },
+        { "name": "_order_by", "in": "query", "type": "string", "description": "Order by column" },
+        { "name": "circ_action_id", "in": "query", "type": "integer", "description": "Filter by ID" },
+        { "name": "pod", "in": "query", "type": "string", "description": "Filter by pod" },
+        { "name": "circId", "in": "query", "type": "string", "description": "Filter by circulation ID" },
+        { "name": "circStatus", "in": "query", "type": "string", "description": "Filter by circulation status" },
+        { "name": "lastCircState", "in": "query", "type": "string", "description": "Filter by last circulation state" },
+        { "name": "patronId", "in": "query", "type": "string", "description": "Filter by patron ID" },
+        { "name": "itemBarcode", "in": "query", "type": "string", "description": "Filter by item barcode" },
+        { "name": "illrequest_id", "in": "query", "type": "integer", "description": "Filter by ILL request ID" },
+        { "name": "q", "in": "query", "type": "string", "description": "JSON query filter" }
+      ],
+      "responses": {
+        "200": { "description": "A list of circulation actions" },
+        "400": { "description": "Bad request" },
+        "403": { "description": "Forbidden" },
+        "500": { "description": "Internal server error" },
+        "503": { "description": "Service unavailable" }
+      },
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    }
   }
 }
