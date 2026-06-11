@@ -44,6 +44,8 @@ subtest 'GET /agencies (list)' => sub {
     my ( $plugin, $librarian, $unauth_patron ) = t::lib::Mocks::Rapido->new();
     my $base = "/api/v1/contrib/" . $plugin->api_namespace;
 
+    $plugin->get_agency_patrons->delete;
+
     $t->get_ok("$base/agencies")->status_is(401);
 
     $t->get_ok( "//" . $unauth_patron->userid . ":$password\@$base/agencies" )->status_is(403);
