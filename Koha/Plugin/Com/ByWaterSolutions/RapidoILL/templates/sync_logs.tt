@@ -62,7 +62,7 @@
             </div>
             <div class="modal-body">
                 <table class="table table-bordered table-sm">
-                    <thead><tr><th>circId</th><th>Type</th><th>Message</th></tr></thead>
+                    <thead><tr><th>circId</th><th>Type</th><th>ILL request</th><th>Message</th></tr></thead>
                     <tbody id="syncErrorDetails"></tbody>
                 </table>
             </div>
@@ -115,9 +115,11 @@
             var html = "";
             messages.forEach(function(msg) {
                 var badge = '<span class="badge" style="background:' + (colors[msg.type] || "#999") + ';color:#fff">' + (msg.type || "") + '</span>';
-                html += "<tr><td>" + (msg.circId || "") + "</td><td>" + badge + "</td><td>" + (msg.message || "") + "</td></tr>";
+                var illLink = msg.ill_request_id ? '<a href="/cgi-bin/koha/ill/ill-requests.pl?op=illview&illrequest_id=' + msg.ill_request_id + '">' + msg.ill_request_id + '</a>' : '';
+                var circLink = msg.circId ? '<a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=tool&page=circ_actions&circId=' + encodeURIComponent(msg.circId) + '">' + msg.circId + '</a>' : '';
+                html += "<tr><td>" + circLink + "</td><td>" + badge + "</td><td>" + illLink + "</td><td>" + (msg.message || "") + "</td></tr>";
             });
-            $("#syncErrorDetails").html(html || '<tr><td colspan="3">No details</td></tr>');
+            $("#syncErrorDetails").html(html || '<tr><td colspan="4">No details</td></tr>');
             $("#syncErrorModal").modal("show");
         });
     });

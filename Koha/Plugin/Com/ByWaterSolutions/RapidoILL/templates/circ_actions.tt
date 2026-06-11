@@ -22,7 +22,7 @@
             <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=admin">Rapido ILL</a>
         [% END %]
         [% WRAPPER breadcrumb_item bc_active=1 %]
-            Circulation actions
+            <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=tool&page=circ_actions" id="bc-circ-actions">Circulation actions</a>
         [% END %]
     [% END %]
 [% END %]
@@ -33,6 +33,10 @@
             <main>
 
 <h1>Circulation actions</h1>
+<div id="circ-actions-scope" class="alert alert-info" style="display:none">
+    <i class="fa fa-filter"></i> Filtered by circId: <strong id="scope-circId"></strong>
+    &mdash; <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=tool&page=circ_actions">Show all</a>
+</div>
 
 <div class="page-section">
     <table id="circ_actions_table" class="table table-striped">
@@ -76,6 +80,15 @@
 [% INCLUDE 'js-date-format.inc' %]
 <script>
     $(document).ready(function() {
+        var params = new URLSearchParams(window.location.search);
+        var circIdFilter = params.get("circId") || "";
+
+        if (circIdFilter) {
+            $("#scope-circId").text(circIdFilter);
+            $("#circ-actions-scope").show();
+            $("#bc-circ-actions").parent().removeClass("active").after('<li class="breadcrumb-item active">' + circIdFilter + '</li>');
+        }
+
         var circ_actions_table = $("#circ_actions_table").kohaTable({
             ajax: { url: "/api/v1/contrib/rapidoill/circ_actions" },
             order: [[0, "desc"]],
@@ -114,7 +127,7 @@
                     }
                 }
             ]
-        }, null, 1, null, {
+        }, null, 1, circIdFilter ? { "circId": circIdFilter } : null, {
             circStatuses: function() {
                 return ["ACTIVE","COMPLETED","CANCELED","CREATED"].map(function(v) { return { _id: v, _str: v }; });
             },
