@@ -3,6 +3,7 @@
 [% INCLUDE 'doc-head-open.inc' %]
 <title>Rapido ILL - Status &rsaquo; Plugins &rsaquo; Tools &rsaquo; Koha</title>
 [% INCLUDE 'doc-head-close.inc' %]
+<link rel="stylesheet" href="/intranet-tmpl/lib/d3c3/c3.min.css">
 </head>
 
 <body id="plugins_run_tool" class="plugins">
@@ -38,6 +39,30 @@
     <h2>Current status</h2>
     <div id="status-loading" class="alert alert-info">
         <i class="fa fa-spinner fa-spin"></i> Checking status...
+    </div>
+</div>
+
+<div class="page-section">
+    <h2>Activity</h2>
+    <div class="row">
+        <div class="col-md-8">
+            <h3>Sync activity (last 24 hours)</h3>
+            <div id="chart-hourly"></div>
+        </div>
+        <div class="col-md-4">
+            <h3>Actions by state</h3>
+            <div id="chart-by-state"></div>
+        </div>
+    </div>
+    <div class="row" style="margin-top:1em">
+        <div class="col-md-8">
+            <h3>Daily summary (last 7 days)</h3>
+            <div id="chart-daily"></div>
+        </div>
+        <div class="col-md-4">
+            <h3>Actions by status</h3>
+            <div id="chart-by-status"></div>
+        </div>
     </div>
 </div>
 
@@ -84,6 +109,8 @@
     </div>
 </div>
 
+<script src="/intranet-tmpl/lib/d3c3/d3.min.js"></script>
+<script src="/intranet-tmpl/lib/d3c3/c3.min.js"></script>
 [% INCLUDE 'datatables.inc' %]
 [% INCLUDE 'js-date-format.inc' %]
 <script>
@@ -113,8 +140,70 @@
         });
     }
 
+    function loadCharts() {
+        $.ajax({
+            url: "/api/v1/contrib/rapidoill/status/stats",
+            dataType: "json",
+            success: function(data) {
+                // Hourly bar chart
+                if (data.hourly && data.hourly.length) {
+                    var hours = ['x'].concat(data.hourly.map(function(r) { return r.hour; }));
+                    var created = ['Created'].concat(data.hourly.map(function(r) { return r.created || 0; }));
+                    var updated = ['Updated'].concat(data.hourly.map(function(r) { return r.updated || 0; }));
+                    var errors = ['Errors'].concat(data.hourly.map(function(r) { return r.errors || 0; }));
+                    c3.generate({
+                        bindto: '#chart-hourly',
+                        data: { x: 'x', columns: [hours, created, updated, errors], type: 'bar', colors: { Created: '#2ecc40', Updated: '#3498db', Errors: '#e74c3c' } },
+                        axis: { x: { type: 'category', tick: { rotate: 45, multiline: false } }, y: { label: 'Count' } },
+                        bar: { width: { ratio: 0.7 } }
+                    });
+                } else {
+                    $('#chart-hourly').html('<p class="text-muted">No data in the last 24 hours</p>');
+                }
+
+                // Daily stacked bar
+                if (data.daily && data.daily.length) {
+                    var days = ['x'].concat(data.daily.map(function(r) { return r.day; }));
+                    var dc = ['Created'].concat(data.daily.map(function(r) { return r.created || 0; }));
+                    var du = ['Updated'].concat(data.daily.map(function(r) { return r.updated || 0; }));
+                    var ds = ['Skipped'].concat(data.daily.map(function(r) { return r.skipped || 0; }));
+                    var de = ['Errors'].concat(data.daily.map(function(r) { return r.errors || 0; }));
+                    c3.generate({
+                        bindto: '#chart-daily',
+                        data: { x: 'x', columns: [days, dc, du, ds, de], type: 'bar', groups: [['Created','Updated','Skipped','Errors']], colors: { Created: '#2ecc40', Updated: '#3498db', Skipped: '#999', Errors: '#e74c3c' } },
+                        axis: { x: { type: 'category' }, y: { label: 'Count' } },
+                        bar: { width: { ratio: 0.6 } }
+                    });
+                } else {
+                    $('#chart-daily').html('<p class="text-muted">No data in the last 7 days</p>');
+                }
+
+                // Pie: by state
+                if (data.by_state && data.by_state.length) {
+                    c3.generate({
+                        bindto: '#chart-by-state',
+                        data: { columns: data.by_state.map(function(r) { return [r.state, r.count]; }), type: 'pie' }
+                    });
+                } else {
+                    $('#chart-by-state').html('<p class="text-muted">No data</p>');
+                }
+
+                // Pie: by status
+                if (data.by_status && data.by_status.length) {
+                    c3.generate({
+                        bindto: '#chart-by-status',
+                        data: { columns: data.by_status.map(function(r) { return [r.status, r.count]; }), type: 'pie' }
+                    });
+                } else {
+                    $('#chart-by-status').html('<p class="text-muted">No data</p>');
+                }
+            }
+        });
+    }
+
     $(document).ready(function() {
         loadStatus();
+        loadCharts();
 
         $("#incidents_table").kohaTable({
             ajax: { url: "/api/v1/contrib/rapidoill/status/incidents" },

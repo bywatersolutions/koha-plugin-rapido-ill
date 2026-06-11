@@ -696,4 +696,73 @@ sub list_sync_logs {
     };
 }
 
+=head3 stats
+
+Returns aggregated statistics for dashboard charts.
+
+=cut
+
+sub stats {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        my $dbh = C4::Context->dbh;
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new;
+
+        my $sync_logs_table = $plugin->get_qualified_table_name('sync_logs');
+        my $circ_actions_table = $plugin->get_qualified_table_name('circ_actions');
+
+        # Sync activity by hour (last 24h)
+        my $hourly = $dbh->selectall_arrayref(
+            qq{SELECT DATE_FORMAT(started_at, '%Y-%m-%d %H:00') as hour,
+                      SUM(processed) as processed, SUM(created) as created,
+                      SUM(updated) as updated, SUM(errors) as errors
+               FROM $sync_logs_table
+               WHERE started_at >= NOW() - INTERVAL 24 HOUR
+               GROUP BY hour ORDER BY hour},
+            { Slice => {} }
+        );
+
+        # Daily sync summary (last 7 days)
+        my $daily = $dbh->selectall_arrayref(
+            qq{SELECT DATE(started_at) as day,
+                      SUM(processed) as processed, SUM(created) as created,
+                      SUM(updated) as updated, SUM(skipped) as skipped,
+                      SUM(errors) as errors
+               FROM $sync_logs_table
+               WHERE started_at >= NOW() - INTERVAL 7 DAY
+               GROUP BY day ORDER BY day},
+            { Slice => {} }
+        );
+
+        # Circ actions by state
+        my $by_state = $dbh->selectall_arrayref(
+            qq{SELECT lastCircState as state, COUNT(*) as count
+               FROM $circ_actions_table
+               GROUP BY lastCircState ORDER BY count DESC},
+            { Slice => {} }
+        );
+
+        # Circ actions by status
+        my $by_status = $dbh->selectall_arrayref(
+            qq{SELECT circStatus as status, COUNT(*) as count
+               FROM $circ_actions_table
+               GROUP BY circStatus ORDER BY count DESC},
+            { Slice => {} }
+        );
+
+        return $c->render(
+            status => 200,
+            json   => {
+                hourly    => $hourly,
+                daily     => $daily,
+                by_state  => $by_state,
+                by_status => $by_status,
+            },
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
 1;

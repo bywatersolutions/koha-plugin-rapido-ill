@@ -539,6 +539,25 @@
       }
     }
   },
+  "/status/stats": {
+    "get": {
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#stats",
+      "operationId": "rapidoILLStats",
+      "description": "Returns aggregated statistics for dashboard charts",
+      "tags": ["status"],
+      "produces": ["application/json"],
+      "responses": {
+        "200": { "description": "Aggregated statistics" },
+        "400": { "description": "Bad request" },
+        "403": { "description": "Forbidden" },
+        "500": { "description": "Internal server error" },
+        "503": { "description": "Service unavailable" }
+      },
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    }
+  },
   "/sync_logs": {
     "get": {
       "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#list_sync_logs",
