@@ -674,4 +674,26 @@ sub list_circ_actions {
     };
 }
 
+=head3 list_sync_logs
+
+Lists sync log entries with server-side pagination, filtering, and sorting
+via Koha's REST framework.
+
+=cut
+
+sub list_sync_logs {
+    my $c = shift->openapi->valid_input or return;
+
+    return try {
+        require RapidoILL::SyncLogs;
+
+        return $c->render(
+            status  => 200,
+            openapi => $c->objects->search( RapidoILL::SyncLogs->new ),
+        );
+    } catch {
+        return $c->unhandled_exception($_);
+    };
+}
+
 1;

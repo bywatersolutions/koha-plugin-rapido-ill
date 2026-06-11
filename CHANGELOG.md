@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- [#209] Circulation actions browsing page with column filtering and detail modal
+- [#210] Sync logs table for persistent sync run observability with error details
+
 ## [1.8.8] - 2026-06-10
 
 ### Fixed

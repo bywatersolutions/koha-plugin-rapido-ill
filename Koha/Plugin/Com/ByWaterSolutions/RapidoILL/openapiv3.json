@@ -538,5 +538,31 @@
         "permissions": { "ill": "1" }
       }
     }
+  },
+  "/sync_logs": {
+    "get": {
+      "operationId": "rapidoILLListSyncLogs",
+      "description": "List sync log entries with pagination",
+      "tags": ["status"],
+      "parameters": [
+        { "name": "_page", "in": "query", "schema": { "type": "integer" }, "description": "Page number" },
+        { "name": "_per_page", "in": "query", "schema": { "type": "integer" }, "description": "Items per page" },
+        { "name": "_match", "in": "query", "schema": { "type": "string" }, "description": "Match type" },
+        { "name": "_order_by", "in": "query", "schema": { "type": "string" }, "description": "Order by column" },
+        { "name": "pod", "in": "query", "schema": { "type": "string" }, "description": "Filter by pod" },
+        { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "JSON query filter" }
+      ],
+      "responses": {
+        "200": { "description": "A list of sync logs" },
+        "400": { "description": "Bad request" },
+        "403": { "description": "Forbidden" },
+        "500": { "description": "Internal server error" },
+        "503": { "description": "Service unavailable" }
+      },
+      "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#list_sync_logs",
+      "x-koha-authorization": {
+        "permissions": { "ill": "1" }
+      }
+    }
   }
 }

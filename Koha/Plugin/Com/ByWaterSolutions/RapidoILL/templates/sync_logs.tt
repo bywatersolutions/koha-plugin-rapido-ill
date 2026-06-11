@@ -1,0 +1,136 @@
+[% USE raw %]
+[% PROCESS 'i18n.inc' %]
+[% INCLUDE 'doc-head-open.inc' %]
+<title>Rapido ILL - Sync logs &rsaquo; Plugins &rsaquo; Tools &rsaquo; Koha</title>
+[% INCLUDE 'doc-head-close.inc' %]
+</head>
+
+<body id="plugins_run_tool" class="plugins">
+[% WRAPPER 'header.inc' %]
+    [% INCLUDE 'prefs-admin-search.inc' %]
+[% END %]
+
+[% WRAPPER 'sub-header.inc' %]
+    [% WRAPPER breadcrumbs %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/tools/tools-home.pl">Tools</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item %]
+            <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AByWaterSolutions%3A%3ARapidoILL&method=admin">Rapido ILL</a>
+        [% END %]
+        [% WRAPPER breadcrumb_item bc_active=1 %]
+            Sync logs
+        [% END %]
+    [% END %]
+[% END %]
+
+<div class="main container-fluid">
+    <div class="row">
+        <div class="col-md-10 order-md-2 order-sm-1">
+            <main>
+
+<h1>Sync logs</h1>
+
+<div class="page-section">
+    <table id="sync_logs_table" class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Pod</th>
+                <th>Started</th>
+                <th>Finished</th>
+                <th>Processed</th>
+                <th>Created</th>
+                <th>Updated</th>
+                <th>Skipped</th>
+                <th>Errors</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+
+<!-- Details modal -->
+<div class="modal" id="syncErrorModal" tabindex="-1" role="dialog" aria-labelledby="syncErrorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title" id="syncErrorModalLabel">Sync run details</h1>
+            </div>
+            <div class="modal-body">
+                <table class="table table-bordered table-sm">
+                    <thead><tr><th>circId</th><th>Type</th><th>Message</th></tr></thead>
+                    <tbody id="syncErrorDetails"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+[% INCLUDE 'datatables.inc' %]
+[% INCLUDE 'js-date-format.inc' %]
+<script>
+    $(document).ready(function() {
+        $("#sync_logs_table").kohaTable({
+            ajax: { url: "/api/v1/contrib/rapidoill/sync_logs" },
+            order: [[0, "desc"]],
+            columns: [
+                { data: "id", searchable: true, orderable: true },
+                { data: "pod", searchable: true, orderable: true },
+                { data: "started_at", searchable: false, orderable: true, render: function(data) { return data ? $datetime(data) : ""; } },
+                { data: "finished_at", searchable: false, orderable: true, render: function(data) { return data ? $datetime(data) : '<span class="badge" style="background:#f0ad4e;color:#000">Running</span>'; } },
+                { data: "processed", searchable: false, orderable: true },
+                { data: "created", searchable: false, orderable: true },
+                { data: "updated", searchable: false, orderable: true },
+                { data: "skipped", searchable: false, orderable: true },
+                {
+                    data: "errors", searchable: false, orderable: true,
+                    render: function(data) {
+                        if (!data || data === 0) return "0";
+                        return '<span class="badge" style="background:#e74c3c;color:#fff">' + data + '</span>';
+                    }
+                },
+                {
+                    data: "error_details", searchable: false, orderable: false,
+                    render: function(data, type, row) {
+                        if (!data) return "";
+                        return '<button class="btn btn-xs btn-default view-sync-details" data-details="' + encodeURIComponent(JSON.stringify(data)) + '">View</button>';
+                    }
+                }
+            ]
+        });
+
+        $(document).on("click", ".view-sync-details", function(e) {
+            e.preventDefault();
+            var raw = decodeURIComponent($(this).attr("data-details"));
+            var messages = raw;
+            while (typeof messages === "string") { messages = JSON.parse(messages); }
+            var colors = { created: "#2ecc40", updated: "#3498db", skipped: "#999", error: "#e74c3c", warning: "#f0ad4e" };
+            var html = "";
+            messages.forEach(function(msg) {
+                var badge = '<span class="badge" style="background:' + (colors[msg.type] || "#999") + ';color:#fff">' + (msg.type || "") + '</span>';
+                html += "<tr><td>" + (msg.circId || "") + "</td><td>" + badge + "</td><td>" + (msg.message || "") + "</td></tr>";
+            });
+            $("#syncErrorDetails").html(html || '<tr><td colspan="3">No details</td></tr>');
+            $("#syncErrorModal").modal("show");
+        });
+    });
+</script>
+
+            </main>
+        </div>
+        <div class="col-md-2 order-sm-2 order-md-1">
+            <aside>
+                [% INCLUDE 'tools-menu.inc' %]
+            </aside>
+        </div>
+    </div>
+
+    [% INCLUDE 'intranet-bottom.inc' %]
+</div>

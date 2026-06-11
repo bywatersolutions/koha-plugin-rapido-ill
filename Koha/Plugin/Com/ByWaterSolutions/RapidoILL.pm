@@ -59,6 +59,7 @@ BEGIN {
     require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillCircAction;
     require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue;
     require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillServerStatusLog;
+    require Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillSyncLog;
 
     # register the additional schema classes
     Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillAgencyToPatron =>
@@ -69,6 +70,8 @@ BEGIN {
             'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillTaskQueue' );
     Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillServerStatusLog =>
             'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillServerStatusLog' );
+    Koha::Schema->register_class( KohaPluginComBywatersolutionsRapidoillSyncLog =>
+            'Koha::Schema::Result::KohaPluginComBywatersolutionsRapidoillSyncLog' );
 
     # force a refresh of the database handle so that it includes the new classes
     Koha::Database->schema( { new => 1 } );
@@ -336,6 +339,30 @@ sub install {
         );
     }
 
+    my $sync_logs = $self->get_qualified_table_name('sync_logs');
+
+    unless ( $self->_table_exists($sync_logs) ) {
+        $dbh->do(
+            qq{
+            CREATE TABLE $sync_logs (
+                `id`            INT(11) NOT NULL AUTO_INCREMENT,
+                `pod`           VARCHAR(191) NOT NULL,
+                `started_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `finished_at`   TIMESTAMP NULL DEFAULT NULL,
+                `processed`     INT(11) NOT NULL DEFAULT 0,
+                `created`       INT(11) NOT NULL DEFAULT 0,
+                `updated`       INT(11) NOT NULL DEFAULT 0,
+                `skipped`       INT(11) NOT NULL DEFAULT 0,
+                `errors`        INT(11) NOT NULL DEFAULT 0,
+                `error_details` JSON DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                KEY `pod` (`pod`),
+                KEY `started_at` (`started_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        }
+        );
+    }
+
     return 1;
 }
 
@@ -513,6 +540,36 @@ sub upgrade {
             "ALTER TABLE $circ_actions
             ADD UNIQUE KEY `unique_circ_status_state` (`circId`, `pod`, `circStatus`, `lastCircState`, `lastUpdated`)"
         );
+
+        $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
+    }
+
+    $new_version = "1.9.0";
+    if ( Koha::Plugins::Base::_version_compare( $self->retrieve_data('__INSTALLED_VERSION__'), $new_version ) == -1 ) {
+
+        my $sync_logs = $self->get_qualified_table_name('sync_logs');
+
+        unless ( $self->_table_exists($sync_logs) ) {
+            $dbh->do(
+                qq{
+                CREATE TABLE $sync_logs (
+                    `id`            INT(11) NOT NULL AUTO_INCREMENT,
+                    `pod`           VARCHAR(191) NOT NULL,
+                    `started_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `finished_at`   TIMESTAMP NULL DEFAULT NULL,
+                    `processed`     INT(11) NOT NULL DEFAULT 0,
+                    `created`       INT(11) NOT NULL DEFAULT 0,
+                    `updated`       INT(11) NOT NULL DEFAULT 0,
+                    `skipped`       INT(11) NOT NULL DEFAULT 0,
+                    `errors`        INT(11) NOT NULL DEFAULT 0,
+                    `error_details` JSON DEFAULT NULL,
+                    PRIMARY KEY (`id`),
+                    KEY `pod` (`pod`),
+                    KEY `started_at` (`started_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            }
+            );
+        }
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
@@ -1071,6 +1128,7 @@ sub tool {
         tasks        => 'templates/tasks.tt',
         agencies     => 'templates/agencies.tt',
         circ_actions => 'templates/circ_actions.tt',
+        sync_logs    => 'templates/sync_logs.tt',
     );
 
     my $template_file = $pages{$page};
@@ -2319,6 +2377,14 @@ sub sync_circ_requests {
         messages  => [],
     };
 
+    require RapidoILL::SyncLog;
+    my $sync_log = RapidoILL::SyncLog->new(
+        {
+            pod        => $params->{pod},
+            started_at => \'NOW()',
+        }
+    )->store();
+
     my $reqs = $self->get_client( $params->{pod} )->circulation_requests(
         {
             startTime => $startTime,
@@ -2457,6 +2523,18 @@ sub sync_circ_requests {
             }
         };
     }
+
+    $sync_log->set(
+        {
+            finished_at   => \'NOW()',
+            processed     => $results->{processed},
+            created       => $results->{created},
+            updated       => $results->{updated},
+            skipped       => $results->{skipped},
+            errors        => $results->{errors},
+            error_details => ( @{ $results->{messages} } ? $results->{messages} : undef ),
+        }
+    )->store();
 
     return $results;
 }
