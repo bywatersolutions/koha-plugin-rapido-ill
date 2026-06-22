@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#211] ILL request link in sync logs detail modal
 - [#212] Activity charts on status page (sync trends, action distribution)
 
+### Fixed
+- [#200] Print slip 500 error with null biblio_id or deleted patron
+
 ## [1.9.0] - 2026-06-11
 
 ### Added

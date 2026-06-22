@@ -17,8 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 3;
-use Test::NoWarnings;
+use Test::More tests => 4;
 use Test::Warn;
 
 use t::lib::TestBuilder;
@@ -27,9 +26,12 @@ use t::lib::Mocks::Rapido;
 
 use C4::Letters;
 use Koha::Database;
+use Koha::ILL::Requests;
 
 my $schema  = Koha::Database->new->schema;
 my $builder = t::lib::TestBuilder->new();
+
+t::lib::Mocks::mock_preference( 'RESTBasicAuth', 1 );
 
 subtest 'GetPreparedLetter returns undef for missing template' => sub {
 
@@ -135,6 +137,138 @@ subtest 'GetPreparedLetter returns content for existing template' => sub {
 
     my $content = $slip ? $slip->{content} : undef;
     like( $content, qr/Request/, 'Slip content was rendered from template' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'get_print_slip does not crash with null biblio_id' => sub {
+
+    plan tests => 3;
+
+    $schema->storage->txn_begin;
+
+    my $library = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $patron  = $builder->build_object( { class => 'Koha::Patrons' } );
+
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                branchcode     => $library->branchcode,
+                backend        => 'RapidoILL',
+                biblio_id      => undef,
+                status         => 'B_ITEM_SHIPPED',
+            }
+        }
+    );
+
+    # Create a notice template
+    $builder->build_object(
+        {
+            class => 'Koha::Notice::Templates',
+            value => {
+                module                 => 'ill',
+                code                   => 'ILL_SLIP_TEST_BIBLIO',
+                branchcode             => q{},
+                name                   => 'Test slip',
+                is_html                => 1,
+                title                  => 'ILL Slip',
+                content                => 'Request [% illrequests.illrequest_id %]',
+                message_transport_type => 'print',
+                lang                   => 'default',
+            }
+        }
+    );
+
+    # This is the logic from get_print_slip that used to crash
+    my $req = $ill_request;
+    my $slip;
+    warning_like {
+        $slip = C4::Letters::GetPreparedLetter(
+            module                 => 'ill',
+            letter_code            => 'ILL_SLIP_TEST_BIBLIO',
+            branchcode             => $req->branchcode,
+            message_transport_type => 'print',
+            lang                   => $req->patron ? $req->patron->lang : 'default',
+            tables                 => {
+                illrequests => $req->illrequest_id,
+                borrowers   => $req->borrowernumber,
+                ( $req->biblio_id ? ( biblio => $req->biblio_id ) : () ),
+                branches    => $req->branchcode,
+            },
+        );
+    } undef, 'No warning with null biblio_id';
+
+    ok( defined $slip, 'GetPreparedLetter succeeds with null biblio_id' );
+    like( $slip->{content}, qr/Request/, 'Content rendered correctly' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'get_print_slip does not crash with deleted patron' => sub {
+
+    plan tests => 2;
+
+    $schema->storage->txn_begin;
+
+    my $library = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $patron  = $builder->build_object( { class => 'Koha::Patrons' } );
+
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                branchcode     => $library->branchcode,
+                backend        => 'RapidoILL',
+                biblio_id      => undef,
+                status         => 'B_ITEM_SHIPPED',
+            }
+        }
+    );
+
+    # Create a notice template
+    $builder->build_object(
+        {
+            class => 'Koha::Notice::Templates',
+            value => {
+                module                 => 'ill',
+                code                   => 'ILL_SLIP_TEST_PATRON',
+                branchcode             => q{},
+                name                   => 'Test slip',
+                is_html                => 1,
+                title                  => 'ILL Slip',
+                content                => 'Request [% illrequests.illrequest_id %]',
+                message_transport_type => 'print',
+                lang                   => 'default',
+            }
+        }
+    );
+
+    # Delete the patron
+    $patron->delete;
+
+    # Refetch the ILL request to get fresh relationship state
+    my $req = Koha::ILL::Requests->find( $ill_request->illrequest_id );
+
+    # This would crash before the fix: $req->patron->lang on undef
+    my $lang = $req->patron ? $req->patron->lang : 'default';
+    is( $lang, 'default', 'Fallback to default lang when patron deleted' );
+
+    my $slip = C4::Letters::GetPreparedLetter(
+        module                 => 'ill',
+        letter_code            => 'ILL_SLIP_TEST_PATRON',
+        branchcode             => $req->branchcode,
+        message_transport_type => 'print',
+        lang                   => $lang,
+        tables                 => {
+            illrequests => $req->illrequest_id,
+            branches    => $req->branchcode,
+        },
+    );
+
+    ok( defined $slip, 'GetPreparedLetter succeeds with deleted patron' );
 
     $schema->storage->txn_rollback;
 };

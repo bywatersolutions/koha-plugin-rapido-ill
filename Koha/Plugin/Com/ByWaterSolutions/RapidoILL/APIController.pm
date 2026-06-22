@@ -251,13 +251,13 @@ sub get_print_slip {
             letter_code            => $print_slip_id,
             branchcode             => $req->branchcode,
             message_transport_type => 'print',
-            lang                   => $req->patron->lang,
+            lang                   => $req->patron ? $req->patron->lang : 'default',
             tables                 => {
 
                 illrequests => $req->illrequest_id,
                 borrowers   => $req->borrowernumber,
-                biblio      => $req->biblio_id,
-                item        => $item_id,
+                ( $req->biblio_id ? ( biblio => $req->biblio_id ) : () ),
+                ( $item_id        ? ( item   => $item_id )        : () ),
                 branches    => $req->branchcode,
             },
             substitute => {
