@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- [#204] Wire missing status transitions with try-then-force-local pattern
+
 ## [1.10.0] - 2026-06-23
 
 ### Added

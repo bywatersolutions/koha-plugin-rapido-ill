@@ -208,7 +208,7 @@ sub status_graph {
             name           => 'Item received by borrowing library',
             ui_method_name => q{},
             method         => q{},
-            next_actions   => [ 'O_ITEM_RECALLED', 'O_ITEM_CHECKED_IN' ],
+            next_actions   => [ 'O_ITEM_RECALLED', 'O_ITEM_CHECKED_IN', 'O_FORCE_COMPLETE' ],
             ui_method_icon => q{},
         },
         O_RENEWAL_REQUESTED => {
@@ -328,16 +328,16 @@ sub status_graph {
             name           => 'Item received',
             ui_method_name => 'Receive item',
             method         => 'item_received',
-            next_actions   => [ 'B_ITEM_IN_TRANSIT', 'B_ITEM_RETURN_UNCIRCULATED' ],
+            next_actions   => [ 'B_ITEM_IN_TRANSIT', 'B_ITEM_RETURN_UNCIRCULATED', 'B_ITEM_RENEWAL_REQUESTED' ],
             ui_method_icon => 'fa-inbox',
         },
         B_ITEM_RENEWAL_REQUESTED => {
             prev_actions   => ['B_ITEM_RECEIVED'],
             id             => 'B_ITEM_RENEWAL_REQUESTED',
             name           => 'Renewal requested to owning library',
-            ui_method_name => q{},
-            method         => q{},
-            next_actions   => ['B_ITEM_IN_TRANSIT'],
+            ui_method_name => 'Request renewal',
+            method         => 'renewal_request',
+            next_actions   => [ 'B_ITEM_IN_TRANSIT', 'B_FORCE_COMPLETE' ],
             ui_method_icon => 'fa-arrow-rotate-right',
         },
         B_ITEM_RENEWAL_ACCEPTED => {
@@ -705,9 +705,40 @@ sent back to them and is in transit.
 sub item_in_transit {
     my ( $self, $params ) = @_;
 
+    my $request = $params->{request};
+    my $other   = $params->{other} // {};
+
+    # Handle force (local only, skip Rapido API)
+    if ( $other->{force_local} ) {
+        return try {
+            my $pod = $self->{plugin}->get_req_pod($request);
+            $self->{plugin}->get_borrower_actions($pod)->item_in_transit(
+                $request, { client_options => { notify_rapido => 0 } }
+            );
+            return {
+                error   => 0,
+                status  => q{},
+                message => q{},
+                method  => 'item_in_transit',
+                stage   => 'commit',
+                next    => 'illview',
+                value   => q{},
+            };
+        } catch {
+            return {
+                status   => 'error',
+                error    => 1,
+                message  => "$_",
+                stage    => 'init',
+                method   => 'item_in_transit',
+                template => 'item_in_transit',
+            };
+        };
+    }
+
     return try {
-        my $pod = $self->{plugin}->get_req_pod( $params->{request} );
-        $self->{plugin}->get_borrower_actions($pod)->item_in_transit( $params->{request} );
+        my $pod = $self->{plugin}->get_req_pod($request);
+        $self->{plugin}->get_borrower_actions($pod)->item_in_transit($request);
 
         return {
             error   => 0,
