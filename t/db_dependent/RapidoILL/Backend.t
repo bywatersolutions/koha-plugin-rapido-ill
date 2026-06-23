@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 8;
+use Test::More tests => 9;
 use Test::NoWarnings;
 use Test::MockModule;
 use Test::MockObject;
@@ -713,8 +713,8 @@ subtest 'receive_unshipped() tests' => sub {
             }
         );
 
-        is( $result->{error}, 0, 'receive_unshipped completed successfully' );
-        is( scalar @client_calls, 1, 'Rapido /receiveunshipped API was called' );
+        is( $result->{error},                   0,             'receive_unshipped completed successfully' );
+        is( scalar @client_calls,               1,             'Rapido /receiveunshipped API was called' );
         is( $client_calls[0]->{data}->{circId}, $test_circ_id, 'circId passed correctly to API' );
 
         $schema->storage->txn_rollback;
@@ -858,8 +858,8 @@ subtest 'receive_unshipped() tests' => sub {
 
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
 
-        my $sample_item     = $builder->build_sample_item();
-        my $test_barcode    = $sample_item->barcode;
+        my $sample_item  = $builder->build_sample_item();
+        my $test_barcode = $sample_item->barcode;
         $sample_item->delete;
         my $test_callnumber = 'QA 999';
 
@@ -899,7 +899,7 @@ subtest 'borrower_cancel() force cancel tests' => sub {
 
         $schema->storage->txn_begin;
 
-        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $patron     = $builder->build_object( { class => 'Koha::Patrons' } );
         my $illrequest = $builder->build_object(
             {
                 class => 'Koha::ILL::Requests',
@@ -945,7 +945,7 @@ subtest 'borrower_cancel() force cancel tests' => sub {
 
         $schema->storage->txn_begin;
 
-        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $patron     = $builder->build_object( { class => 'Koha::Patrons' } );
         my $illrequest = $builder->build_object(
             {
                 class => 'Koha::ILL::Requests',
@@ -980,10 +980,10 @@ subtest 'borrower_cancel() force cancel tests' => sub {
             'borrower_cancel',
             sub {
                 RapidoILL::Exception::RequestFailed->throw(
-                    method        => 'borrower_cancel',
-                    status_code   => 400,
+                    method         => 'borrower_cancel',
+                    status_code    => 400,
                     status_message => 'Bad Request',
-                    response_body => encode_json( { error => "No circulation request processable request was found" } )
+                    response_body  => encode_json( { error => "No circulation request processable request was found" } )
                 );
             }
         );
@@ -992,9 +992,9 @@ subtest 'borrower_cancel() force cancel tests' => sub {
         $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
 
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
-        my $result = $backend->borrower_cancel( { request => $illrequest } );
+        my $result  = $backend->borrower_cancel( { request => $illrequest } );
 
-        is( $result->{stage},              'form', 'Returns form stage' );
+        is( $result->{stage},                'form', 'Returns form stage' );
         is( $result->{value}->{allow_force}, 1,      'Returns allow_force flag in value' );
         like( $result->{message}, qr/may have already been cancelled/, 'Message indicates possible cancellation' );
 
@@ -1006,7 +1006,7 @@ subtest 'borrower_cancel() force cancel tests' => sub {
 
         $schema->storage->txn_begin;
 
-        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $patron     = $builder->build_object( { class => 'Koha::Patrons' } );
         my $illrequest = $builder->build_object(
             {
                 class => 'Koha::ILL::Requests',
@@ -1041,10 +1041,10 @@ subtest 'borrower_cancel() force cancel tests' => sub {
             'borrower_cancel',
             sub {
                 RapidoILL::Exception::RequestFailed->throw(
-                    method        => 'borrower_cancel',
-                    status_code   => 500,
+                    method         => 'borrower_cancel',
+                    status_code    => 500,
                     status_message => 'Internal Server Error',
-                    response_body => 'Server error'
+                    response_body  => 'Server error'
                 );
             }
         );
@@ -1053,11 +1053,111 @@ subtest 'borrower_cancel() force cancel tests' => sub {
         $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
 
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
-        my $result = $backend->borrower_cancel( { request => $illrequest } );
+        my $result  = $backend->borrower_cancel( { request => $illrequest } );
 
-        is( $result->{stage},              'form', 'Returns form stage for other errors too' );
-        is( $result->{value}->{allow_force}, 0, 'Does not return allow_force flag for other errors' );
+        is( $result->{stage},                'form', 'Returns form stage for other errors too' );
+        is( $result->{value}->{allow_force}, 0,      'Does not return allow_force flag for other errors' );
         ok( $result->{value}->{error_message}, 'Returns error_message in value' );
+
+        $schema->storage->txn_rollback;
+    };
+};
+
+subtest 'force_complete() tests' => sub {
+
+    plan tests => 2;
+
+    subtest 'Confirmation stage' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin =
+            t::lib::Mocks::Rapido->new( { library => $library, category => $category, itemtype => $itemtype } );
+
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    biblio_id      => undef,
+                    status         => 'B_ITEM_SHIPPED',
+                    backend        => 'RapidoILL',
+                }
+            }
+        );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $result = $backend->force_complete( { request => $illrequest, other => {} } );
+
+        is( $result->{stage},    'init',           'Returns init stage without confirmation' );
+        is( $result->{template}, 'force_complete', 'Returns force_complete template' );
+        is( $result->{error},    0,                'No error' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Confirmed: completes request and cleans up biblio' => sub {
+        plan tests => 4;
+
+        $schema->storage->txn_begin;
+
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin =
+            t::lib::Mocks::Rapido->new( { library => $library, category => $category, itemtype => $itemtype } );
+
+        my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio = $builder->build_object( { class => 'Koha::Biblios' } );
+        my $item   = $builder->build_object(
+            {
+                class => 'Koha::Items',
+                value => {
+                    biblionumber  => $biblio->biblionumber,
+                    homebranch    => $library->branchcode,
+                    holdingbranch => $library->branchcode,
+                    itype         => $itemtype->itemtype,
+                }
+            }
+        );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'B_ITEM_SHIPPED',
+                    backend        => 'RapidoILL',
+                }
+            }
+        );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $result = $backend->force_complete( { request => $illrequest, other => { confirmed => 1 } } );
+
+        is( $result->{error}, 0,        'No error on confirmed force_complete' );
+        is( $result->{stage}, 'commit', 'Returns commit stage' );
+
+        # Verify request is completed
+        $illrequest->discard_changes;
+        is( $illrequest->status, 'COMP', 'Request status set to COMP' );
+
+        # Verify biblio was deleted
+        my $deleted_biblio = Koha::Biblios->find( $biblio->biblionumber );
+        is( $deleted_biblio, undef, 'Biblio was deleted' );
 
         $schema->storage->txn_rollback;
     };

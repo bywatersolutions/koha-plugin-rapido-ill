@@ -199,7 +199,7 @@ sub status_graph {
             name           => 'Item shipped to borrowing library',
             ui_method_name => 'Ship item',
             method         => 'item_shipped',
-            next_actions   => [],
+            next_actions   => ['O_FORCE_COMPLETE'],
             ui_method_icon => 'fa-solid fa-paper-plane',
         },
         O_ITEM_RECEIVED_DESTINATION => {
@@ -236,7 +236,7 @@ sub status_graph {
             name           => 'Item recalled to borrowing library',
             ui_method_name => 'Recall item',
             method         => 'item_recalled',
-            next_actions   => [],
+            next_actions   => ['O_FORCE_COMPLETE'],
             ui_method_icon => 'fa-exclamation-circle',
         },
         O_ITEM_IN_TRANSIT => {
@@ -310,7 +310,7 @@ sub status_graph {
             name           => 'Item shipped by owning library',
             ui_method_name => q{},
             method         => q{},
-            next_actions   => ['B_ITEM_RECEIVED'],
+            next_actions   => [ 'B_ITEM_RECEIVED', 'B_FORCE_COMPLETE' ],
             ui_method_icon => q{},
         },
         B_RECEIVE_UNSHIPPED => {    # will never be set. Only used to present a form
@@ -355,7 +355,7 @@ sub status_graph {
             name           => 'Item recalled by owning library',
             ui_method_name => q{},
             method         => q{},
-            next_actions   => ['B_ITEM_IN_TRANSIT'],
+            next_actions   => [ 'B_ITEM_IN_TRANSIT', 'B_FORCE_COMPLETE' ],
             ui_method_icon => q{},
         },
         B_ITEM_IN_TRANSIT => {
@@ -364,7 +364,7 @@ sub status_graph {
             name           => 'Item in transit to owning library',
             ui_method_name => 'Item in transit',
             method         => 'item_in_transit',
-            next_actions   => [],
+            next_actions   => ['B_FORCE_COMPLETE'],
             ui_method_icon => 'fa-send-o',
         },
         B_ITEM_RETURN_UNCIRCULATED => {
@@ -384,6 +384,24 @@ sub status_graph {
             method         => q{},
             next_actions   => ['COMP'],
             ui_method_icon => q{},
+        },
+        B_FORCE_COMPLETE => {
+            prev_actions   => [ 'B_ITEM_SHIPPED', 'B_ITEM_IN_TRANSIT', 'B_ITEM_RECALLED' ],
+            id             => 'B_FORCE_COMPLETE',
+            name           => 'Force complete (local only)',
+            ui_method_name => 'Force complete (local only)',
+            method         => 'force_complete',
+            next_actions   => ['COMP'],
+            ui_method_icon => 'fa-exclamation-triangle',
+        },
+        O_FORCE_COMPLETE => {
+            prev_actions   => [ 'O_ITEM_SHIPPED', 'O_ITEM_RECALLED' ],
+            id             => 'O_FORCE_COMPLETE',
+            name           => 'Force complete (local only)',
+            ui_method_name => 'Force complete (local only)',
+            method         => 'force_complete',
+            next_actions   => ['COMP'],
+            ui_method_icon => 'fa-exclamation-triangle',
         }
     };
 }
@@ -552,7 +570,7 @@ sub cancel_request {
         $self->{plugin}->logger->warn("[cancel_request] $_");
         my $message = "$_";
         if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
-            $message .= " | " . $_->method if $_->can('method');
+            $message .= " | " . $_->method        if $_->can('method');
             $message .= " - " . $_->response_body if $_->can('response_body');
         }
         return {
@@ -661,7 +679,7 @@ sub receive_unshipped {
 
             my $message = "$_";
             if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
-                $message .= " | " . $_->method if $_->can('method');
+                $message .= " | " . $_->method        if $_->can('method');
                 $message .= " - " . $_->response_body if $_->can('response_body');
             }
 
@@ -705,7 +723,7 @@ sub item_in_transit {
 
         my $message = "$_";
         if ( ref($_) eq 'RapidoILL::Exception::RequestFailed' ) {
-            $message .= " | " . $_->method if $_->can('method');
+            $message .= " | " . $_->method        if $_->can('method');
             $message .= " - " . $_->response_body if $_->can('response_body');
         }
 
@@ -758,6 +776,78 @@ sub return_uncirculated {
     };
 }
 
+=head3 force_complete
+
+Method triggered by the UI, to force-complete a stuck request without
+notifying Rapido. Performs local cleanup (return item, delete biblio)
+and marks the request as COMP.
+
+=cut
+
+sub force_complete {
+    my ( $self, $params ) = @_;
+
+    my $request = $params->{request};
+    my $other   = $params->{other};
+
+    # Require confirmation
+    if ( !$other->{confirmed} ) {
+        return {
+            error    => 0,
+            status   => q{},
+            message  => q{},
+            method   => 'force_complete',
+            stage    => 'init',
+            template => 'force_complete',
+            value    => {},
+        };
+    }
+
+    return try {
+        my $schema = Koha::Database->new->schema;
+        $schema->txn_do(
+            sub {
+                # Return item if checked out
+                if ( $request->biblio_id ) {
+                    my $biblio = Koha::Biblios->find( $request->biblio_id );
+                    if ($biblio) {
+                        my $items = $biblio->items;
+                        while ( my $item = $items->next ) {
+                            my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
+                            if ($checkout) {
+                                $self->{plugin}->add_return( { barcode => $item->barcode } );
+                            }
+                        }
+                        $self->{plugin}->delete_virtual_biblio( { biblio => $biblio, context => 'force_complete' } );
+                    }
+                }
+
+                $request->status('COMP')->store;
+            }
+        );
+
+        return {
+            error   => 0,
+            status  => q{},
+            message => q{},
+            method  => 'force_complete',
+            stage   => 'commit',
+            next    => 'illview',
+            value   => q{},
+        };
+    } catch {
+        $self->{plugin}->logger->error("[force_complete] $_");
+        return {
+            error   => 1,
+            message => "$_",
+            method  => 'force_complete',
+            stage   => 'commit',
+            status  => 'error',
+            value   => q{},
+        };
+    };
+}
+
 =head3 borrower_cancel
 
 Method triggered by the UI, to cancel the request. Can only happen when the request
@@ -774,7 +864,7 @@ sub borrower_cancel {
     if ( $params->{other}->{force_cancel} ) {
         return try {
             $req->status('B_ITEM_CANCELLED_BY_US')->store;
-            $self->{plugin}->logger->info("[borrower_cancel] Force cancelled locally [ill_req=" . $req->id . "]");
+            $self->{plugin}->logger->info( "[borrower_cancel] Force cancelled locally [ill_req=" . $req->id . "]" );
             return {
                 status  => q{},
                 message => 'Request cancelled locally (Rapido not notified)',
@@ -806,12 +896,13 @@ sub borrower_cancel {
         # HTTP client already logged detailed HTTP info with [context: borrower_cancel]
         $self->{plugin}->logger->warn("[borrower_cancel] Operation failed");
 
-        my $message = "Borrower cancellation failed";
+        my $message     = "Borrower cancellation failed";
         my $allow_force = 0;
-        my $exception = $_;
+        my $exception   = $_;
 
         # Unwrap if it's a wrapped exception
         if ( ref($exception) eq 'RapidoILL::Exception' && $exception =~ /RequestFailed/ ) {
+
             # Extract status code and response body from the stringified exception
             if ( $exception =~ /status_code => (\d+)/ ) {
                 my $status_code = $1;
@@ -819,7 +910,8 @@ sub borrower_cancel {
                     my $response_body = $1;
                     if ( $status_code == 400 && $response_body =~ /No circulation request processable/i ) {
                         $allow_force = 1;
-                        $message = "Borrower cancellation failed: HTTP $status_code. The request may have already been cancelled on Rapido's side.";
+                        $message =
+                            "Borrower cancellation failed: HTTP $status_code. The request may have already been cancelled on Rapido's side.";
                     } else {
                         $message = "Borrower cancellation failed: HTTP $status_code";
                     }
@@ -827,11 +919,12 @@ sub borrower_cancel {
             }
         } elsif ( ref($exception) eq 'RapidoILL::Exception::RequestFailed' ) {
             my $status_info = '';
-            $status_info .= $exception->status_code if $exception->can('status_code');
+            $status_info .= $exception->status_code          if $exception->can('status_code');
             $status_info .= ' ' . $exception->status_message if $exception->can('status_message');
             $message = "Borrower cancellation failed: HTTP " . ( $status_info || 'Unknown error' );
 
-            if ( $exception->status_code == 400 && $exception->response_body =~ /No circulation request processable/i ) {
+            if ( $exception->status_code == 400 && $exception->response_body =~ /No circulation request processable/i )
+            {
                 $allow_force = 1;
                 $message .= ". The request may have already been cancelled on Rapido's side.";
             }
@@ -841,12 +934,12 @@ sub borrower_cancel {
 
         # Return form stage for all errors (no error => 1)
         return {
-            status       => '',
-            stage        => 'form',
-            method       => 'borrower_cancel',
-            template     => 'borrower_cancel',
-            message      => $message,
-            value        => {
+            status   => '',
+            stage    => 'form',
+            method   => 'borrower_cancel',
+            template => 'borrower_cancel',
+            message  => $message,
+            value    => {
                 allow_force   => $allow_force,
                 error_message => $message,
             },

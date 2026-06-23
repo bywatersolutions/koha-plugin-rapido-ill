@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - [#211] ILL request link in sync logs detail modal
 - [#212] Activity charts on status page (sync trends, action distribution)
+- [#213] Force complete action for stuck requests (local only, no Rapido notification)
 
 ### Fixed
 - [#200] Print slip 500 error with null biblio_id or deleted patron
