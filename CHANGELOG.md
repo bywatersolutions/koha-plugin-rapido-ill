@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- [#216] Dedicated `force_complete_lender` method for lending-side force complete with proper check-in, hold cancellation, status guards, and lender-specific confirmation template
 - [#204] Wire missing status transitions with try-then-force-local pattern
 
 ## [1.10.0] - 2026-06-23

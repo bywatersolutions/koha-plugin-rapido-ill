@@ -399,7 +399,7 @@ sub status_graph {
             id             => 'O_FORCE_COMPLETE',
             name           => 'Force complete (local only)',
             ui_method_name => 'Force complete (local only)',
-            method         => 'force_complete',
+            method         => 'force_complete_lender',
             next_actions   => ['COMP'],
             ui_method_icon => 'fa-exclamation-triangle',
         }
@@ -712,9 +712,8 @@ sub item_in_transit {
     if ( $other->{force_local} ) {
         return try {
             my $pod = $self->{plugin}->get_req_pod($request);
-            $self->{plugin}->get_borrower_actions($pod)->item_in_transit(
-                $request, { client_options => { notify_rapido => 0 } }
-            );
+            $self->{plugin}->get_borrower_actions($pod)
+                ->item_in_transit( $request, { client_options => { notify_rapido => 0 } } );
             return {
                 error   => 0,
                 status  => q{},
@@ -872,6 +871,83 @@ sub force_complete {
             error   => 1,
             message => "$_",
             method  => 'force_complete',
+            stage   => 'commit',
+            status  => 'error',
+            value   => q{},
+        };
+    };
+}
+
+=head3 force_complete_lender
+
+Method triggered by the UI, to force-complete a stuck request without
+notifying Rapido. Marks the request as COMP.
+
+=cut
+
+sub force_complete_lender {
+    my ( $self, $params ) = @_;
+
+    my $request = $params->{request};
+    my $other   = $params->{other};
+
+    # Require confirmation
+    if ( !$other->{confirmed} ) {
+        return {
+            error    => 0,
+            status   => q{},
+            message  => q{},
+            method   => 'force_complete_lender',
+            stage    => 'init',
+            template => 'force_complete_lender',
+            value    => {},
+        };
+    }
+
+    return try {
+        my $schema = Koha::Database->new->schema;
+        $schema->txn_do(
+            sub {
+                my $attrs = $request->extended_attributes;
+
+                # Check in the item if it is checked out
+                my $itemId_attr = $attrs->find( { type => 'itemId' } );
+                if ($itemId_attr) {
+                    my $item = Koha::Items->find( $itemId_attr->value );
+                    if ($item) {
+                        my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
+                        if ($checkout) {
+                            $self->{plugin}->add_return( { barcode => $item->barcode } );
+                        }
+                    }
+                }
+
+                # Cancel any associated hold
+                my $hold_id_attr = $attrs->find( { type => 'hold_id' } );
+                if ($hold_id_attr) {
+                    my $hold = Koha::Holds->find( $hold_id_attr->value );
+                    $hold->cancel if $hold;
+                }
+
+                $request->status('COMP')->store;
+            }
+        );
+
+        return {
+            error   => 0,
+            status  => q{},
+            message => q{},
+            method  => 'force_complete_lender',
+            stage   => 'commit',
+            next    => 'illview',
+            value   => q{},
+        };
+    } catch {
+        $self->{plugin}->logger->error("[force_complete_lender] $_");
+        return {
+            error   => 1,
+            message => "$_",
+            method  => 'force_complete_lender',
             stage   => 'commit',
             status  => 'error',
             value   => q{},

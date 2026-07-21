@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 9;
+use Test::More tests => 10;
 use Test::NoWarnings;
 use Test::MockModule;
 use Test::MockObject;
@@ -31,6 +31,8 @@ use t::lib::Mocks;
 use t::lib::Mocks::Rapido;
 
 use Koha::Database;
+
+use C4::Circulation qw( AddIssue );
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
@@ -1158,6 +1160,184 @@ subtest 'force_complete() tests' => sub {
         # Verify biblio was deleted
         my $deleted_biblio = Koha::Biblios->find( $biblio->biblionumber );
         is( $deleted_biblio, undef, 'Biblio was deleted' );
+
+        $schema->storage->txn_rollback;
+    };
+};
+
+subtest 'force_complete_lender() tests' => sub {
+
+    plan tests => 3;
+
+    subtest 'Confirmation stage' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin =
+            t::lib::Mocks::Rapido->new( { library => $library, category => $category, itemtype => $itemtype } );
+
+        my $patron     = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    status         => 'O_ITEM_SHIPPED',
+                    backend        => 'RapidoILL',
+                }
+            }
+        );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $result = $backend->force_complete_lender( { request => $illrequest, other => {} } );
+
+        is( $result->{stage},    'init',                  'Returns init stage without confirmation' );
+        is( $result->{template}, 'force_complete_lender', 'Returns force_complete_lender template' );
+        is( $result->{error},    0,                       'No error' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Confirmed: checks in item, cancels hold, completes request' => sub {
+        plan tests => 5;
+
+        $schema->storage->txn_begin;
+
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin =
+            t::lib::Mocks::Rapido->new( { library => $library, category => $category, itemtype => $itemtype } );
+
+        my $patron = $builder->build_object(
+            {
+                class => 'Koha::Patrons',
+                value => { branchcode => $library->branchcode }
+            }
+        );
+
+        my $item = $builder->build_sample_item(
+            {
+                library => $library->branchcode,
+                itype   => $itemtype->itemtype,
+            }
+        );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    status         => 'O_ITEM_SHIPPED',
+                    backend        => 'RapidoILL',
+                }
+            }
+        );
+
+        # Create a proper checkout via AddIssue
+        t::lib::Mocks::mock_userenv( { branchcode => $library->branchcode } );
+        my $checkout = C4::Circulation::AddIssue( $patron, $item->barcode );
+
+        # Create a hold
+        my $hold = $builder->build_object(
+            {
+                class => 'Koha::Holds',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    biblionumber   => $item->biblionumber,
+                    branchcode     => $library->branchcode,
+                }
+            }
+        );
+
+        # Add attributes linking item and hold to the request
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId  => 'test_force_lender_circ',
+                    pod     => t::lib::Mocks::Rapido::POD,
+                    itemId  => $item->itemnumber,
+                    hold_id => $hold->id,
+                }
+            }
+        );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $result = $backend->force_complete_lender( { request => $illrequest, other => { confirmed => 1 } } );
+
+        is( $result->{error}, 0,        'No error on confirmed force_complete_lender' );
+        is( $result->{stage}, 'commit', 'Returns commit stage' );
+
+        # Verify request is completed
+        $illrequest->discard_changes;
+        is( $illrequest->status, 'COMP', 'Request status set to COMP' );
+
+        # Verify item was checked in
+        my $still_checked_out = Koha::Checkouts->find( { itemnumber => $item->itemnumber } );
+        is( $still_checked_out, undef, 'Item was checked in' );
+
+        # Verify hold was cancelled
+        my $still_held = Koha::Holds->find( $hold->id );
+        is( $still_held, undef, 'Hold was cancelled' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Confirmed: handles missing attributes gracefully' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin =
+            t::lib::Mocks::Rapido->new( { library => $library, category => $category, itemtype => $itemtype } );
+
+        my $patron     = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    status         => 'O_ITEM_RECALLED',
+                    backend        => 'RapidoILL',
+                }
+            }
+        );
+
+        # Add minimal attributes (no itemId, no hold_id)
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => 'test_force_lender_minimal',
+                    pod    => t::lib::Mocks::Rapido::POD,
+                }
+            }
+        );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $result = $backend->force_complete_lender( { request => $illrequest, other => { confirmed => 1 } } );
+
+        is( $result->{error}, 0,        'No error even without itemId/hold_id attributes' );
+        is( $result->{stage}, 'commit', 'Returns commit stage' );
+
+        $illrequest->discard_changes;
+        is( $illrequest->status, 'COMP', 'Request status set to COMP' );
 
         $schema->storage->txn_rollback;
     };
