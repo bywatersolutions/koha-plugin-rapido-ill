@@ -9,13 +9,13 @@
   [% base_url = "/cgi-bin/koha/ill/ill-requests.pl" %]
   [% proceed_url = base_url _ "?method=item_recalled&stage=confirm" _
                    "&illrequest_id=" _ request.illrequest_id %]
-    <form id="rapido_recall_form" method="POST" action=[% proceed_url %]>
+    <form id="rapido_recall_form" method="POST" action=[% proceed_url | url %]>
         [% INCLUDE 'csrf-token.inc' %]
         <input type="hidden" name="op"     value="cud-item_recalled" />
         <input type="hidden" name="method" value="item_recalled" />
         <input type="hidden" name="stage" value="confirm" />
         <input type="hidden" name="backend" value="RapidoILL" />
-        <input type="hidden" name="illrequest_id" value="[% request.illrequest_id %]" />
+        <input type="hidden" name="illrequest_id" value="[% request.illrequest_id | html %]" />
         <fieldset class="rows">
             <ol>
                 <li>
@@ -27,7 +27,7 @@
         </fieldset>
         <fieldset class="action">
             <input type="submit" value="Submit" />
-            <a class="cancel" href="[% base_url %]">Cancel</a>
+            <a class="cancel" href="[% base_url | url %]">Cancel</a>
         </fieldset>
     </form>
 </p>

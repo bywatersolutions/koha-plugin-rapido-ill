@@ -59,7 +59,7 @@
     <br/>
 
       <form method="post">
-        <input type="hidden" name="class"  value="[% CLASS %]"/>
+        <input type="hidden" name="class"  value="[% CLASS | html %]"/>
         <input type="hidden" name="method" value="configure"/>
         <input type="hidden" name="step"   value="configure"/>
         <input type="hidden" name="save"   value="1"/>
@@ -72,7 +72,7 @@
                     class="form-control"
                     aria-describedby="configuration_label"
                     name="configuration"
-                    id="configuration">[%- configuration -%]</textarea>
+                    id="configuration">[%- configuration | html -%]</textarea>
         </div>
         <br/>
         <button type="submit" value="Save" class="btn btn-default" type="button">Save</button>
