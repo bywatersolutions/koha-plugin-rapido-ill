@@ -235,7 +235,7 @@ subtest 'item_shipped method (lender-generated - no-op without dueDateTime)' => 
     # Create a mock action for ITEM_SHIPPED without dueDateTime
     my $mock_action = Test::MockObject->new();
     $mock_action->mock( 'lastCircState', sub { return 'ITEM_SHIPPED'; } );
-    $mock_action->mock( 'dueDateTime',   sub { return undef; } );
+    $mock_action->mock( 'dueDateTime',   sub { return; } );
     $mock_action->mock( 'ill_request',   sub { return $ill_request; } );
 
     # Without dueDateTime, item_shipped is effectively a no-op

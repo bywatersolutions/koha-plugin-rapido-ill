@@ -201,7 +201,6 @@ sub item_shipped {
 
     Koha::Database->new->schema->txn_do(
         sub {
-            my ( $biblio_id, $item_id, $biblioitemnumber );
 
             # check if already catalogued. INN-Reach requires no barcode collision
             my $existing_item = Koha::Items->find( { barcode => $barcode } );

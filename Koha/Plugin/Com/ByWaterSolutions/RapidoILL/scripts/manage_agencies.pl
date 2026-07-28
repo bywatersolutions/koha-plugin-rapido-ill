@@ -132,8 +132,6 @@ if ($list_pods) {
         print STDERR "No pods to sync.\n";
     }
 
-    my @rows;
-
     foreach my $pod_code ( @{$pods} ) {
         $plugin->sync_agencies($pod_code);
     }

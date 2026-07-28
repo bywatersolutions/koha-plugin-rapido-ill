@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#217] Add cpanfile declaring external dependencies
 - [#217] Fix missing template filters (XSS prevention)
 - [#217] Add CSP nonce to all script and style tags
+- [#217] Fix Perl::Critic violations (unused variables, return undef)
 
 ## [1.10.1] - 2026-07-21
 

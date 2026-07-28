@@ -117,8 +117,6 @@ my $total_updated   = 0;
 my $total_errors    = 0;
 my $total_skipped   = 0;
 
-my @rows;
-
 $start_time //= $plugin->retrieve_data('last_circulation_sync_time');
 $start_time //= 1742713250;
 
