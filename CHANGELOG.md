@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - [#217] Add missing executable flag on test files
 - [#217] Add Test::NoWarnings to test files
+- [#217] Fix spelling errors in prose and CHANGELOG
 
 ## [1.10.1] - 2026-07-21
 
@@ -243,7 +244,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.4.2] - 2026-02-05
 
 ### Added
-- [#163] Add in transit buttons to requets in with a renewal status
+- [#163] Add in transit buttons to requests in with a renewal status
 
 ## [1.4.1] - 2026-02-05
 

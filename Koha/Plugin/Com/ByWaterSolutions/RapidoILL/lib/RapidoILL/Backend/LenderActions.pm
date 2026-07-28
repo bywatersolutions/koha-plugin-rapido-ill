@@ -277,7 +277,7 @@ sub item_shipped {
 
     $actions->final_checkin( $ill_request, $params );
 
-Perform final checkin for an ILL request from the lender side.
+Perform final check-in for an ILL request from the lender side.
 
 Parameters:
 - $ill_request: The ILL request object

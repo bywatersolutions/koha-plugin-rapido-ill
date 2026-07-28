@@ -21,3 +21,5 @@ config
 configs
 plugin
 plugins
+checkin
+checkin

@@ -72,7 +72,7 @@ The actual data returned for each step:
 - `POST /auth/token` - Authentication (returns mock token)
 - `GET /locals` - Library information
 - `GET /circulation_requests` - Main data sync endpoint
-- `POST /lender/:action` - Lender actions (checkout, checkin, etc.)
+- `POST /lender/:action` - Lender actions (checkout, check-in, etc.)
 - `POST /borrower/:action` - Borrower actions (received, returned, etc.)
 
 ### Control Endpoints

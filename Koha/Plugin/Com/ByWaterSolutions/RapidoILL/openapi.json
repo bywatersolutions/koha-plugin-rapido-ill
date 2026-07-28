@@ -218,7 +218,7 @@
     "post": {
       "x-mojo-to": "Com::ByWaterSolutions::RapidoILL::APIController#local_checkin",
       "operationId": "rapidoILLKohaCheckin",
-      "description": "Endpoint used by the plugin to trigger actions related to the checkin of the item",
+      "description": "Endpoint used by the plugin to trigger actions related to the check-in of the item",
       "tags": [
         "circulation"
       ],
