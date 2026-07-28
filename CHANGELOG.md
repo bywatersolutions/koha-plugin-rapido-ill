@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#217] Add missing executable flag on test files
 - [#217] Add Test::NoWarnings to test files
 - [#217] Fix spelling errors in prose and CHANGELOG
+- [#217] Add cpanfile declaring external dependencies
 
 ## [1.10.1] - 2026-07-21
 
