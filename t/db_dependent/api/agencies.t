@@ -19,8 +19,9 @@
 
 use Modern::Perl;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 use Test::Mojo;
+use Test::NoWarnings;
 use t::lib::TestBuilder;
 use t::lib::Mocks;
 use t::lib::Mocks::Rapido;
