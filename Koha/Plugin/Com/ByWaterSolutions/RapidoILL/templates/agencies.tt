@@ -186,7 +186,7 @@
 </div>
 
 [% INCLUDE 'datatables.inc' %]
-<script>
+<script nonce="[% csp_nonce | html %]">
     var api_base = "/api/v1/contrib/rapidoill/agencies";
 
     function showSuccess(msg) {

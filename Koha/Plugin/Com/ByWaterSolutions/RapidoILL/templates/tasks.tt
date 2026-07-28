@@ -71,7 +71,7 @@
 
 [% INCLUDE 'datatables.inc' %]
 [% INCLUDE 'js-date-format.inc' %]
-<script>
+<script nonce="[% csp_nonce | html %]">
     $(document).ready(function() {
         var task_filters = { actions: [], statuses: [] };
         $.ajax({

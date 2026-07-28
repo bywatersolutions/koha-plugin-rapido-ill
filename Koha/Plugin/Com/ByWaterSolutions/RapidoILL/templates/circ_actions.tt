@@ -78,7 +78,7 @@
 
 [% INCLUDE 'datatables.inc' %]
 [% INCLUDE 'js-date-format.inc' %]
-<script>
+<script nonce="[% csp_nonce | html %]">
     $(document).ready(function() {
         var params = new URLSearchParams(window.location.search);
         var circIdFilter = params.get("circId") || "";

@@ -59,7 +59,7 @@
         </fieldset>
     </form>
 
-    <script>
+    <script nonce="[% csp_nonce | html %]">
     // Use DOMContentLoaded instead of $(document).ready() because jQuery may not be loaded
     // when this template is inserted into the main Koha ILL request template
     document.addEventListener('DOMContentLoaded', function() {

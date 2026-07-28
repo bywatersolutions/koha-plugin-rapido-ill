@@ -75,7 +75,7 @@
 
 [% INCLUDE 'datatables.inc' %]
 [% INCLUDE 'js-date-format.inc' %]
-<script>
+<script nonce="[% csp_nonce | html %]">
     $(document).ready(function() {
         $("#sync_logs_table").kohaTable({
             ajax: { url: "/api/v1/contrib/rapidoill/sync_logs" },

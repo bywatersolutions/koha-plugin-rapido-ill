@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [#217] Fix spelling errors in prose and CHANGELOG
 - [#217] Add cpanfile declaring external dependencies
 - [#217] Fix missing template filters (XSS prevention)
+- [#217] Add CSP nonce to all script and style tags
 
 ## [1.10.1] - 2026-07-21
 

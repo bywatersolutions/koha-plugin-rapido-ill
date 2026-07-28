@@ -109,11 +109,11 @@
     </div>
 </div>
 
-<script src="/intranet-tmpl/lib/d3c3/d3.min.js"></script>
-<script src="/intranet-tmpl/lib/d3c3/c3.min.js"></script>
+<script nonce="[% csp_nonce | html %]" src="/intranet-tmpl/lib/d3c3/d3.min.js"></script>
+<script nonce="[% csp_nonce | html %]" src="/intranet-tmpl/lib/d3c3/c3.min.js"></script>
 [% INCLUDE 'datatables.inc' %]
 [% INCLUDE 'js-date-format.inc' %]
-<script>
+<script nonce="[% csp_nonce | html %]">
     function loadStatus() {
         $.ajax({
             url: "/api/v1/contrib/rapidoill/status/api",

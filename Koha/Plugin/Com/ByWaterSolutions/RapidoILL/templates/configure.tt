@@ -4,13 +4,13 @@
 [% PROCESS 'intra_html_helpers.inc' %]
 [% PROCESS rapido_docs_header %]
 
-  <style>
+  <style nonce="[% csp_nonce | html %]">
     .CodeMirror {
       border: 2px solid #eee;
       height: auto;
     }
   </style>
-  <script type="text/javascript">
+  <script nonce="[% csp_nonce | html %]" type="text/javascript">
 
       $(document).ready(function(){
         $("#refresh").on("click",function(e){
@@ -87,7 +87,7 @@
     [% Asset.js( "lib/linters/js-yaml.min.js" ) | $raw %]
     [% Asset.js( "lib/codemirror/yaml-lint.min.js" ) | $raw %]
 
-    <script>
+    <script nonce="[% csp_nonce | html %]">
         $( document ).ready( function () {
             var editor = CodeMirror.fromTextArea( document.getElementById( "configuration" ), {
                 lineNumbers: true,
