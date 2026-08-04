@@ -247,7 +247,7 @@ sub get_print_slip {
         }
 
         my $slip = C4::Letters::GetPreparedLetter(
-            module                 => 'ill',
+            module                 => 'circulation',
             letter_code            => $print_slip_id,
             branchcode             => $req->branchcode,
             message_transport_type => 'print',

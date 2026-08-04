@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- [#215] Hold slip lookup now uses `circulation` module, matching where HOLD_SLIP is defined in Koha
 - [#217] Add missing executable flag on test files
 - [#217] Add Test::NoWarnings to test files
 - [#217] Fix spelling errors in prose and CHANGELOG

@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 use Test::Warn;
 use Test::NoWarnings;
 
@@ -103,12 +103,12 @@ subtest 'GetPreparedLetter returns content for existing template' => sub {
         }
     );
 
-    # Create a notice template
+    # Create a notice template in the circulation module (Bug #215)
     $builder->build_object(
         {
             class => 'Koha::Notice::Templates',
             value => {
-                module                 => 'ill',
+                module                 => 'circulation',
                 code                   => 'ILL_TEST_SLIP',
                 branchcode             => q{},
                 name                   => 'Test ILL slip',
@@ -122,7 +122,7 @@ subtest 'GetPreparedLetter returns content for existing template' => sub {
     );
 
     my $slip = C4::Letters::GetPreparedLetter(
-        module                 => 'ill',
+        module                 => 'circulation',
         letter_code            => 'ILL_TEST_SLIP',
         branchcode             => $library->branchcode,
         message_transport_type => 'print',
@@ -164,12 +164,12 @@ subtest 'get_print_slip does not crash with null biblio_id' => sub {
         }
     );
 
-    # Create a notice template
+    # Create a notice template in the circulation module (Bug #215)
     $builder->build_object(
         {
             class => 'Koha::Notice::Templates',
             value => {
-                module                 => 'ill',
+                module                 => 'circulation',
                 code                   => 'ILL_SLIP_TEST_BIBLIO',
                 branchcode             => q{},
                 name                   => 'Test slip',
@@ -187,7 +187,7 @@ subtest 'get_print_slip does not crash with null biblio_id' => sub {
     my $slip;
     warning_like {
         $slip = C4::Letters::GetPreparedLetter(
-            module                 => 'ill',
+            module                 => 'circulation',
             letter_code            => 'ILL_SLIP_TEST_BIBLIO',
             branchcode             => $req->branchcode,
             message_transport_type => 'print',
@@ -229,12 +229,12 @@ subtest 'get_print_slip does not crash with deleted patron' => sub {
         }
     );
 
-    # Create a notice template
+    # Create a notice template in the circulation module (Bug #215)
     $builder->build_object(
         {
             class => 'Koha::Notice::Templates',
             value => {
-                module                 => 'ill',
+                module                 => 'circulation',
                 code                   => 'ILL_SLIP_TEST_PATRON',
                 branchcode             => q{},
                 name                   => 'Test slip',
@@ -258,7 +258,7 @@ subtest 'get_print_slip does not crash with deleted patron' => sub {
     is( $lang, 'default', 'Fallback to default lang when patron deleted' );
 
     my $slip = C4::Letters::GetPreparedLetter(
-        module                 => 'ill',
+        module                 => 'circulation',
         letter_code            => 'ILL_SLIP_TEST_PATRON',
         branchcode             => $req->branchcode,
         message_transport_type => 'print',
@@ -270,6 +270,69 @@ subtest 'get_print_slip does not crash with deleted patron' => sub {
     );
 
     ok( defined $slip, 'GetPreparedLetter succeeds with deleted patron' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'get_print_slip falls back to All Libraries notice (Bug #215)' => sub {
+
+    plan tests => 3;
+
+    $schema->storage->txn_begin;
+
+    my $library = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $patron  = $builder->build_object( { class => 'Koha::Patrons' } );
+
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                branchcode     => $library->branchcode,
+                backend        => 'RapidoILL',
+                status         => 'O_ITEM_REQUESTED',
+            }
+        }
+    );
+
+    # Create an All Libraries (branchcode='') notice in circulation module.
+    # No branch-specific notice exists for $library->branchcode.
+    # This is the exact scenario from Bug #215.
+    $builder->build_object(
+        {
+            class => 'Koha::Notice::Templates',
+            value => {
+                module                 => 'circulation',
+                code                   => 'HOLD_SLIP',
+                branchcode             => q{},
+                name                   => 'Hold slip',
+                is_html                => 1,
+                title                  => 'Hold slip for [% branches.branchname %]',
+                content                => 'Hold for [% borrowers.firstname %] - [% illrequests.illrequest_id %]',
+                message_transport_type => 'print',
+                lang                   => 'default',
+            }
+        }
+    );
+
+    # Simulate get_print_slip logic: lookup with branchcode that has no
+    # branch-specific notice. Should fall back to All Libraries.
+    my $slip = C4::Letters::GetPreparedLetter(
+        module                 => 'circulation',
+        letter_code            => 'HOLD_SLIP',
+        branchcode             => $library->branchcode,
+        message_transport_type => 'print',
+        lang                   => $patron->lang,
+        tables                 => {
+            illrequests => $ill_request->illrequest_id,
+            borrowers   => $patron->borrowernumber,
+            branches    => $library->branchcode,
+        },
+    );
+
+    ok( defined $slip, 'All Libraries HOLD_SLIP found when no branch-specific notice exists' );
+    like( $slip->{content}, qr/Hold for/, 'Slip content was rendered from All Libraries template' );
+    like( $slip->{title}, qr/Hold slip for/, 'Slip title was rendered from All Libraries template' );
 
     $schema->storage->txn_rollback;
 };
