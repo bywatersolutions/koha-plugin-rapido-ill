@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 9;
+use Test::More tests => 10;
 use Test::NoWarnings;
 use Test::MockModule;
 use Test::MockObject;
@@ -31,6 +31,12 @@ use t::lib::Mocks::Rapido;
 
 use Koha::Database;
 use Koha::DateUtils qw( dt_from_string );
+
+use C4::Circulation qw( AddIssue );
+use Koha::Checkouts;
+use Koha::Hold;
+use Koha::Holds;
+use Koha::Items;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
@@ -990,6 +996,166 @@ subtest 'return_uncirculated() tests' => sub {
         # Verify transaction rollback
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_IN_TRANSIT', 'Status unchanged after transaction rollback' );
+
+        $schema->storage->txn_rollback;
+    };
+};
+
+subtest 'return_uncirculated() cleans up holds and checkouts' => sub {
+
+    plan tests => 2;
+
+    subtest 'Cleans up item with active hold' => sub {
+        plan tests => 5;
+
+        $schema->storage->txn_begin;
+
+        my $library = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $patron  = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio  = $builder->build_sample_biblio();
+        my $item    = $builder->build_sample_item(
+            {
+                biblionumber => $biblio->biblionumber,
+                library      => $library->branchcode,
+            }
+        );
+
+        # Place a hold on the item (simulates what item_shipped does)
+        my $hold = Koha::Hold->new(
+            {
+                biblionumber   => $biblio->biblionumber,
+                itemnumber     => $item->id,
+                branchcode     => $library->branchcode,
+                borrowernumber => $patron->borrowernumber,
+                reservedate    => \'NOW()',
+                priority       => 1,
+            }
+        )->store;
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'B_ITEM_RECEIVED',
+                }
+            }
+        );
+
+        # Store the hold_id and circId as extended attributes
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId  => 'test_circ_hold_cleanup',
+                    hold_id => $hold->id,
+                }
+            }
+        );
+
+        # Mock client to avoid external calls
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock( 'borrower_return_uncirculated', sub { return; } );
+
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
+
+        lives_ok {
+            $plugin->get_borrower_actions('test_pod')->return_uncirculated($illrequest);
+        }
+        'return_uncirculated executes without error when item has hold';
+
+        $illrequest->discard_changes();
+        is( $illrequest->status, 'B_ITEM_RETURN_UNCIRCULATED', 'Status updated correctly' );
+
+        # Verify hold was cancelled
+        my $hold_still_exists = Koha::Holds->find( $hold->id );
+        is( $hold_still_exists, undef, 'Hold was cancelled during cleanup' );
+
+        # Verify item was deleted
+        my $item_still_exists = Koha::Items->find( $item->id );
+        is( $item_still_exists, undef, 'Item was deleted during cleanup' );
+
+        # Verify biblio was deleted
+        my $biblio_still_exists = Koha::Biblios->find( $biblio->biblionumber );
+        is( $biblio_still_exists, undef, 'Biblio was deleted during cleanup' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Cleans up item with active checkout' => sub {
+        plan tests => 5;
+
+        $schema->storage->txn_begin;
+
+        my $library = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $patron  = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $biblio  = $builder->build_sample_biblio();
+        my $item    = $builder->build_sample_item(
+            {
+                biblionumber => $biblio->biblionumber,
+                library      => $library->branchcode,
+            }
+        );
+
+        # Issue the item to the patron (simulates item was checked out)
+        t::lib::Mocks::mock_userenv( { branchcode => $library->branchcode } );
+        C4::Circulation::AddIssue( $patron, $item->barcode );
+
+        # Verify it's checked out
+        my $checkout = Koha::Checkouts->find( { itemnumber => $item->id } );
+        ok( $checkout, 'Sanity: item is checked out' );
+
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    biblio_id      => $biblio->biblionumber,
+                    status         => 'B_ITEM_RECEIVED',
+                }
+            }
+        );
+
+        # Store attributes
+        my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => {
+                    circId => 'test_circ_checkout_cleanup',
+                }
+            }
+        );
+
+        # Mock client to avoid external calls
+        my $mock_client = Test::MockObject->new();
+        $mock_client->mock( 'borrower_return_uncirculated', sub { return; } );
+
+        my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'validate_pod', sub { return 1; } );
+
+        lives_ok {
+            $plugin->get_borrower_actions('test_pod')->return_uncirculated($illrequest);
+        }
+        'return_uncirculated executes without error when item is checked out';
+
+        $illrequest->discard_changes();
+        is( $illrequest->status, 'B_ITEM_RETURN_UNCIRCULATED', 'Status updated correctly' );
+
+        # Verify checkout was returned
+        my $checkout_still_exists = Koha::Checkouts->find( { itemnumber => $item->id } );
+        is( $checkout_still_exists, undef, 'Checkout was returned during cleanup' );
+
+        # Verify item and biblio were deleted
+        my $item_still_exists = Koha::Items->find( $item->id );
+        is( $item_still_exists, undef, 'Item was deleted after checkout return' );
 
         $schema->storage->txn_rollback;
     };

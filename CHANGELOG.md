@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- [#218] `delete_virtual_biblio` now cancels holds and returns checkouts before deleting items, fixing `return_uncirculated` (and `force_complete`) leaving orphan records behind
+
 ## [1.10.2] - 2026-08-06
 
 ### Fixed

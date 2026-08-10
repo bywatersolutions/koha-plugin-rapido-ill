@@ -1338,8 +1338,36 @@ sub delete_virtual_biblio {
         my $item_count = 0;
 
         while ( my $item = $items->next ) {
-            $item->safe_delete( { skip_record_index => 1 } );
-            $item_count++;
+
+            # Return the item if checked out
+            my $checkout = $item->checkout;
+            if ($checkout) {
+                $self->add_return( { barcode => $item->barcode } );
+                $self->logger->debug("[$context] Returned checked-out item " . $item->barcode . " for biblio $biblionumber");
+            }
+
+            # Cancel any holds on this item
+            my $holds = $item->holds;
+            while ( my $hold = $holds->next ) {
+                $hold->cancel;
+            }
+
+            # Also cancel biblio-level holds that could block deletion
+            if ( $item_count == 0 ) {
+                my $biblio_holds = $biblio->holds;
+                while ( my $hold = $biblio_holds->next ) {
+                    $hold->cancel;
+                }
+            }
+
+            my $result = $item->discard_changes->safe_delete( { skip_record_index => 1 } );
+            if ( !$result ) {
+                my @messages = map { $_->message } @{ $result->messages };
+                $self->logger->error(
+                    "[$context] Failed to delete item " . $item->id . " for biblio $biblionumber: " . join( ', ', @messages ) );
+            } else {
+                $item_count++;
+            }
         }
 
         if ( $item_count > 0 ) {
