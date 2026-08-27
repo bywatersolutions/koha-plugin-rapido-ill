@@ -671,9 +671,15 @@ sub after_circ_action {
         );
     }
 
-    # skip if checkout for another patron.
+    # Skip if the checkout belongs to another patron. On checkin, Koha hands us a
+    # Koha::Old::Checkout it has already anonymized when the patron's privacy is
+    # set to 'never', so borrowernumber points at the anonymous patron and can no
+    # longer be matched against the request. Accept that case rather than bailing.
+    my $anonymous_patron = C4::Context->preference('AnonymousPatron');
+
     return
-        if $req->borrowernumber != $checkout->borrowernumber;
+        if $req->borrowernumber != $checkout->borrowernumber
+        && !( $anonymous_patron && $checkout->borrowernumber == $anonymous_patron );
 
     if ( $config->{debug_after_circ_action} ) {
         $self->logger->debug(

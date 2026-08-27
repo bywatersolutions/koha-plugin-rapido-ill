@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- [#222] `after_circ_action` no longer skips checkins for patrons whose privacy is set to 'never', where Koha hands the hook an already anonymized checkout
+
 ## [1.10.3] - 2026-08-10
 
 - [#218] `delete_virtual_biblio` now cancels holds and returns checkouts before deleting items, fixing `return_uncirculated` (and `force_complete`) leaving orphan records behind
