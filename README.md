@@ -42,6 +42,9 @@ dev03-na:
   partners_library_id: CPL
   partners_category: ILL
   default_item_type: ILL
+  central_item_type_mapping:
+    200: BK
+    208: BK_SHORT
   default_patron_agency: code1
   default_location:
   default_checkin_note: Additional processing required (ILL)
@@ -82,6 +85,14 @@ dev03-na:
 - `partners_library` (default): Use the configured `partners_library_id`
 - `homebranch`: Use the item's home branch
 - `holdingbranch`: Use the item's holding branch
+
+**central_item_type_mapping**: Optional map of Rapido `centralItemType` values (integers) to local Koha item type codes. On the borrowing side, when a virtual item is created for an incoming request, the item type is resolved through this map so that Koha's circulation and fine rules apply per item type. Any `centralItemType` that is absent from the map (or a request with no `centralItemType`) falls back to `default_item_type`. All mapped item types must be defined in Koha; the configuration page reports any mapping that points to an undefined item type. Example:
+
+```yaml
+central_item_type_mapping:
+  200: BK
+  208: BK_SHORT
+```
 
 **debug_after_circ_action**: Enable detailed debug logging for the `after_circ_action` hook, including action types, request lookups, status checks, and task enqueueing. Useful for troubleshooting circulation-triggered ILL workflows. Default: false.
 

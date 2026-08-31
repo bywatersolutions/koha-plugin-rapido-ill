@@ -2260,6 +2260,21 @@ sub check_configuration {
                 unless Koha::ItemTypes->find( $configuration->{$pod}->{default_item_type} );
         }
 
+        # central_item_type_mapping: each mapped target must be a defined Koha item type
+        if ( exists $configuration->{$pod}->{central_item_type_mapping} ) {
+            my $mapping = $configuration->{$pod}->{central_item_type_mapping} // {};
+            foreach my $central_item_type ( sort keys %{$mapping} ) {
+                my $target = $mapping->{$central_item_type};
+                push @errors,
+                    {
+                    code  => 'undefined_central_item_type_mapping',
+                    value => $target,
+                    pod   => $pod,
+                    }
+                    unless Koha::ItemTypes->find($target);
+            }
+        }
+
         # partners_category
         if ( !exists $configuration->{$pod}->{partners_category} ) {
             push @errors,

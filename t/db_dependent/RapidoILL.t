@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use Test::NoWarnings;
 use Test::Exception;
 use Test::Warn;
@@ -680,6 +680,60 @@ subtest 'get_item_type_from_central() tests' => sub {
         'DVD',
         'Returns mapped item type for centralItemType 500'
     );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'check_configuration() validates central_item_type_mapping' => sub {
+    plan tests => 4;
+
+    $schema->storage->txn_begin;
+
+    # A real, existing item type to use as a valid mapping target
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+
+    my $bogus_itemtype = 'NO_SUCH_ITYPE';
+
+    # Make sure the bogus itemtype really does not exist
+    Koha::ItemTypes->find($bogus_itemtype)->delete
+        if Koha::ItemTypes->find($bogus_itemtype);
+
+    my $config_yaml = <<"EOF";
+---
+test-pod:
+  base_url: https://test-pod.example.com
+  client_id: test_client
+  client_secret: test_secret
+  server_code: 12345
+  partners_library_id: @{[ $library->branchcode ]}
+  partners_category: @{[ $category->categorycode ]}
+  default_item_type: @{[ $itemtype->itemtype ]}
+  central_item_type_mapping:
+    200: @{[ $itemtype->itemtype ]}
+    208: $bogus_itemtype
+  dev_mode: true
+EOF
+
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    $plugin->store_data( { configuration => $config_yaml } );
+
+    t::lib::Mocks::mock_preference( 'ILLModule',    1 );
+    t::lib::Mocks::mock_preference( 'CirculateILL', 0 );
+
+    my $errors = $plugin->check_configuration;
+
+    my @mapping_errors = grep { $_->{code} eq 'undefined_central_item_type_mapping' } @{$errors};
+
+    is( scalar @mapping_errors,      1, 'One error reported for the invalid central_item_type_mapping target' );
+    is( $mapping_errors[0]->{value}, $bogus_itemtype, 'Error carries the offending item type value' );
+    is( $mapping_errors[0]->{pod},   'test-pod',      'Error carries the pod name' );
+
+    # The valid mapping target (200 => existing itemtype) must NOT be reported
+    my @valid_type_errors =
+        grep { $_->{code} eq 'undefined_central_item_type_mapping' && $_->{value} eq $itemtype->itemtype } @{$errors};
+    is( scalar @valid_type_errors, 0, 'Valid mapping target is not reported as an error' );
 
     $schema->storage->txn_rollback;
 };

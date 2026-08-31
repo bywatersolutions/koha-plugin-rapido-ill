@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- [#219] Validate `central_item_type_mapping` targets in the configuration check: a mapping entry pointing to an item type that is not defined in Koha is now reported on the configuration page (previously it silently fell back to `default_item_type`)
+- [#219] Document the `central_item_type_mapping` option, which maps Rapido `centralItemType` values to local Koha item types so circulation and fine rules apply per item type on the borrowing side
+
 ## [2.0.0] - 2026-08-31
 
 ### Changed
