@@ -685,12 +685,13 @@ subtest 'borrower_renew() tests' => sub {
         ok( $captured_params, 'Parameters captured from client call' );
         is( $captured_params->{circId}, 'TEST_CIRC_ID', 'Correct circId passed' );
 
-        # Verify dueDateTime includes renewal_buffer_days (7 days)
-        my $expected_due = dt_from_string($due_date)->add( days => 7 );
+        # Due dates are ILS-defined: no buffer is added. The plain ILS due date
+        # is sent to Rapido as-is.
+        my $expected_due = dt_from_string($due_date);
         is(
             $captured_params->{dueDateTime}->ymd,
             $expected_due->ymd,
-            'dueDateTime passed with renewal_buffer_days added'
+            'dueDateTime passed as the ILS due date, without any buffer added'
         );
 
         # Verify status was updated
@@ -740,7 +741,7 @@ subtest 'borrower_renew() tests' => sub {
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_RECEIVED', 'Status unchanged after transaction rollback' );
 
-        # Past due date (even with buffer) should be rejected without hitting the API
+        # A due date in the past should be rejected without hitting the API
         throws_ok {
             $actions->borrower_renew( $illrequest, { due_date => dt_from_string()->subtract( days => 30 )->ymd } );
         }
@@ -802,7 +803,7 @@ subtest 'item_received() tests' => sub {
 
         # Mock plugin get_client and validate_pod methods
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
         $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         my $result;
@@ -858,7 +859,7 @@ subtest 'item_received() tests' => sub {
 
         # Mock plugin get_client and validate_pod methods
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
         $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         throws_ok {
@@ -925,7 +926,7 @@ subtest 'return_uncirculated() tests' => sub {
 
         # Mock plugin get_client and validate_pod methods
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
         $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         my $result;
@@ -985,7 +986,7 @@ subtest 'return_uncirculated() tests' => sub {
 
         # Mock plugin get_client and validate_pod methods
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
         $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         throws_ok {
@@ -1061,7 +1062,7 @@ subtest 'return_uncirculated() cleans up holds and checkouts' => sub {
         $mock_client->mock( 'borrower_return_uncirculated', sub { return; } );
 
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
         $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         lives_ok {
@@ -1138,7 +1139,7 @@ subtest 'return_uncirculated() cleans up holds and checkouts' => sub {
         $mock_client->mock( 'borrower_return_uncirculated', sub { return; } );
 
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
         $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         lives_ok {

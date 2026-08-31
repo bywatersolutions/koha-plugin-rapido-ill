@@ -246,7 +246,7 @@ subtest 'final_checkin method with paper trail and real CircAction' => sub {
 };
 
 subtest 'item_shipped() tests' => sub {
-    plan tests => 9;
+    plan tests => 8;
 
     $schema->storage->txn_begin;
 
@@ -260,7 +260,8 @@ subtest 'item_shipped() tests' => sub {
                 borrowernumber => $patron->borrowernumber,
                 branchcode     => $library->branchcode,
                 backend        => 'RapidoILL',
-                status         => 'B_ITEM_REQUESTED'
+                status         => 'B_ITEM_REQUESTED',
+                due_date       => undef,
             }
         }
     );
@@ -309,10 +310,10 @@ subtest 'item_shipped() tests' => sub {
 
     # Mock action with all required attributes
     my $mock_action = Test::MockObject->new();
-    $mock_action->set_always( 'itemBarcode', 'TEST_BARCODE_456' );
-    $mock_action->set_always( 'ill_request', $ill_request );
-    $mock_action->set_always( 'pod',         'test_pod' );
-    $mock_action->set_always( 'callNumber',  'TEST CALL NUMBER' );
+    $mock_action->set_always( 'itemBarcode',     'TEST_BARCODE_456' );
+    $mock_action->set_always( 'ill_request',     $ill_request );
+    $mock_action->set_always( 'pod',             'test_pod' );
+    $mock_action->set_always( 'callNumber',      'TEST CALL NUMBER' );
     $mock_action->set_always( 'centralItemType', 200 );
 
     # Set all the required action attributes
@@ -342,12 +343,8 @@ subtest 'item_shipped() tests' => sub {
     is( $ill_request->status,    'B_ITEM_SHIPPED', 'ILL request status updated correctly' );
     is( $ill_request->biblio_id, 123,              'Biblio ID was set correctly' );
 
-    # Verify due_date was set from dueDateTime epoch (with buffer days subtracted)
-    ok( $ill_request->due_date, 'due_date was set from dueDateTime' );
-    like(
-        $ill_request->due_date, qr/2024-12-25/,
-        'due_date contains expected date from epoch (7 days before 2025-01-01)'
-    );
+    # Due dates are ILS-defined: dueDateTime must NOT set the request due_date
+    is( $ill_request->due_date, undef, 'due_date not set from dueDateTime (ILS-defined due dates)' );
 
     # Test without dueDateTime (should not set due_date)
     my $ill_request2 = $builder->build_object(
@@ -367,11 +364,11 @@ subtest 'item_shipped() tests' => sub {
     my $initial_due_date = $ill_request2->due_date;
 
     my $mock_action2 = Test::MockObject->new();
-    $mock_action2->set_always( 'itemBarcode', 'TEST_BARCODE_789' );
-    $mock_action2->set_always( 'ill_request', $ill_request2 );
-    $mock_action2->set_always( 'pod',         'test_pod' );
-    $mock_action2->set_always( 'callNumber',  'TEST CALL NUMBER 2' );
-    $mock_action2->set_always( 'dueDateTime', undef );                  # No due date
+    $mock_action2->set_always( 'itemBarcode',     'TEST_BARCODE_789' );
+    $mock_action2->set_always( 'ill_request',     $ill_request2 );
+    $mock_action2->set_always( 'pod',             'test_pod' );
+    $mock_action2->set_always( 'callNumber',      'TEST CALL NUMBER 2' );
+    $mock_action2->set_always( 'dueDateTime',     undef );                  # No due date
     $mock_action2->set_always( 'centralItemType', 200 );
 
     foreach my $attr (@action_attributes) {
@@ -413,7 +410,7 @@ subtest 'item_shipped() tests' => sub {
 
 subtest 'owner_renew() tests' => sub {
 
-    plan tests => 11;
+    plan tests => 10;
 
     $schema->storage->txn_begin;
 
@@ -485,6 +482,12 @@ subtest 'owner_renew() tests' => sub {
 
     my $handler = $plugin->get_borrower_action_handler($pod);
 
+    # Capture due dates before the renewal is processed so we can assert the
+    # Rapido dueDateTime is not applied (due dates are ILS-defined).
+    $ill_request->discard_changes;
+    my $due_date_before          = $ill_request->due_date;
+    my $checkout_due_date_before = $checkout->date_due;
+
     # Test owner_renew with dueDateTime
     lives_ok {
         $handler->owner_renew($circ_action)
@@ -499,26 +502,16 @@ subtest 'owner_renew() tests' => sub {
     isnt( $checkout->notedate, undef, 'Checkout note stored on renewal' );
     ok( !$checkout->noteseen, 'The note is not marked as seen by default' );
 
-    # Verify status and due_date were updated
+    # Verify status was updated
     $ill_request->discard_changes;
     is( $ill_request->status, 'B_ITEM_RENEWAL_ACCEPTED', 'Status updated to B_ITEM_RENEWAL_ACCEPTED' );
-    ok( $ill_request->due_date, 'due_date was set from dueDateTime' );
 
-    # Verify the due_date contains the expected date (7 days earlier due to buffer)
-    my $expected_date_with_buffer = DateTime->from_epoch( epoch => $due_epoch );
-    my $expected_date             = $expected_date_with_buffer->clone->subtract( days => 7 );
-    my $expected_date_str         = $expected_date->ymd . ' ' . $expected_date->hms;
-    like(
-        $ill_request->due_date, qr/\Q$expected_date_str\E/,
-        'due_date contains expected date from epoch (with buffer subtracted)'
-    );
+    # Due dates are ILS-defined: the Rapido dueDateTime must not be applied to
+    # either the ILL request or the checkout.
+    is( $ill_request->due_date, $due_date_before, 'ILL request due_date not changed from Rapido dueDateTime' );
 
-    # [#61] Verify checkout due date was also updated (with buffer subtracted)
     $checkout->discard_changes;
-    like(
-        $checkout->date_due, qr/\Q$expected_date_str\E/,
-        'checkout due_date updated to match renewal date (with buffer subtracted)'
-    );
+    is( $checkout->date_due, $checkout_due_date_before, 'Checkout due date not changed from Rapido dueDateTime' );
 
     # Test owner_renew without dueDateTime
     my $circ_action2 = $builder->build_object(

@@ -101,6 +101,7 @@ subtest 'cancel_request() tests' => sub {
                     borrowernumber => $patron->borrowernumber,
                     biblio_id      => $biblio->biblionumber,
                     status         => 'NEW',
+                    due_date       => undef,
                 }
             }
         );
@@ -210,6 +211,7 @@ subtest 'cancel_request() tests' => sub {
                     borrowernumber => $patron->borrowernumber,
                     biblio_id      => $biblio->biblionumber,
                     status         => 'NEW',
+                    due_date       => undef,
                 }
             }
         );
@@ -232,7 +234,7 @@ subtest 'cancel_request() tests' => sub {
         $mock_client->mock( 'lender_cancel', sub { return; } );
 
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
         $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         # DESIRED BEHAVIOR: Should succeed with warning instead of throwing exception
@@ -265,6 +267,7 @@ subtest 'cancel_request() tests' => sub {
                     borrowernumber => $patron->borrowernumber,
                     biblio_id      => $biblio->biblionumber,
                     status         => 'NEW',
+                    due_date       => undef,
                 }
             }
         );
@@ -288,7 +291,7 @@ subtest 'cancel_request() tests' => sub {
         $mock_client->mock( 'lender_cancel', sub { return; } );
 
         my $plugin_module = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
-        $plugin_module->mock( 'get_client', sub { return $mock_client; } );
+        $plugin_module->mock( 'get_client',   sub { return $mock_client; } );
         $plugin_module->mock( 'validate_pod', sub { return 1; } );
 
         # DESIRED BEHAVIOR: Should succeed with warning instead of throwing exception
@@ -393,6 +396,7 @@ subtest 'item_shipped() tests' => sub {
                     borrowernumber => $patron->borrowernumber,
                     biblio_id      => $biblio->biblionumber,
                     status         => 'NEW',
+                    due_date       => undef,
                 }
             }
         );
@@ -453,8 +457,8 @@ subtest 'item_shipped() tests' => sub {
         $schema->storage->txn_rollback;
     };
 
-    subtest 'Due date handling from Rapido response' => sub {
-        plan tests => 5;
+    subtest 'Due date from Rapido response is ignored (ILS-defined due dates)' => sub {
+        plan tests => 3;
 
         $schema->storage->txn_begin;
 
@@ -481,6 +485,7 @@ subtest 'item_shipped() tests' => sub {
                     borrowernumber => $patron->borrowernumber,
                     biblio_id      => $biblio->biblionumber,
                     status         => 'NEW',
+                    due_date       => undef,
                 }
             }
         );
@@ -514,6 +519,7 @@ subtest 'item_shipped() tests' => sub {
                         value => {
                             borrowernumber => $patron->borrowernumber,
                             itemnumber     => $item->id,
+                            date_due       => '2026-01-15 23:59:00',     # circ-rule due date
                         }
                     }
                 );
@@ -546,28 +552,27 @@ subtest 'item_shipped() tests' => sub {
 
         my $actions = $plugin->get_lender_actions($pod);
 
+        # The circ-rule due date set by add_issue (mocked above)
+        my $circ_rule_due_date = '2026-01-15 23:59:00';
+
         lives_ok {
             $actions->item_shipped($illrequest);
         }
         'item_shipped with dueDate response executes without error';
 
-        # Verify due dates were updated
+        # Due dates are now ILS-defined: the Rapido response dueDate must be
+        # ignored. The checkout keeps its circulation-rule due date and the
+        # ILL request due_date is not populated from the response.
         $illrequest->discard_changes();
         $checkout->discard_changes();
 
-        ok( $illrequest->due_date, 'ILL request due_date was set' );
-        ok( $checkout->date_due,   'Checkout date_due was set' );
+        is(
+            dt_from_string( $checkout->date_due )->epoch,
+            dt_from_string($circ_rule_due_date)->epoch,
+            'Checkout due date unchanged (circulation-rule value preserved, Rapido dueDate ignored)'
+        );
 
-        # Verify the dates are approximately correct (within 1 minute to account for test execution time)
-        my $expected_actual_due = DateTime->now()->add( days => 7 );
-        my $ill_due             = dt_from_string( $illrequest->due_date );
-        my $co_due              = dt_from_string( $checkout->date_due );
-
-        my $diff_ill = abs( $ill_due->epoch - $expected_actual_due->epoch );
-        my $diff_co  = abs( $co_due->epoch - $expected_actual_due->epoch );
-
-        ok( $diff_ill < 60, 'ILL request due date is correct (within 1 minute)' );
-        ok( $diff_co < 60,  'Checkout due date is correct (within 1 minute)' );
+        is( $illrequest->due_date, undef, 'ILL request due_date not set from Rapido response' );
 
         $schema->storage->txn_rollback;
     };

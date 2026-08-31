@@ -159,8 +159,10 @@ sub final_checkin {
     $handler->item_shipped( $action );
 
 Handle incoming I<ITEM_SHIPPED> action. Creates a virtual record and item,
-places a hold for the patron, and updates the ILL request status. If the
-action contains a dueDateTime (epoch), sets the due_date on the ILL request.
+places a hold for the patron, and updates the ILL request status. The Rapido
+dueDateTime is captured on the sync record but not applied: the checkout due
+date is ILS-defined (calculated by Koha's circulation rules when the hold is
+filled).
 
 =cut
 
@@ -264,25 +266,12 @@ sub item_shipped {
             # We need to store the hold_id
             $attributes->{hold_id} = $hold_id;
 
-            my $due_date;
+            # Due dates are ILS-defined: the checkout due date is calculated by
+            # Koha's circulation rules when the hold is filled. The Rapido
+            # dueDateTime is captured on the sync record (see attributes above)
+            # but is not applied to the ILL request.
 
-            # Set due_date from dueDateTime epoch if available
-            if ( $action->dueDateTime ) {
-                my ( $actual_due_date, $original_due_date ) = $self->{plugin}->process_due_date_with_buffer(
-                    {
-                        epoch       => $action->dueDateTime,
-                        pod         => $action->pod,
-                        buffer_type => 'due_date'
-                    }
-                );
-
-                # Store the original due date (with buffer) as an attribute
-                $attributes->{dueDateWithBuffer} = $original_due_date->datetime();
-
-                $due_date = $actual_due_date;
-            }
-
-            # Update attributes (including DateDueWithBuffer if set)
+            # Update attributes
             $self->{plugin}->add_or_update_attributes(
                 {
                     attributes => $attributes,
@@ -293,7 +282,6 @@ sub item_shipped {
             $req->set(
                 {
                     biblio_id => $item->biblionumber,
-                    ( $due_date ? ( due_date => $due_date->datetime() ) : () ),
                 }
             );
 
@@ -309,7 +297,9 @@ sub item_shipped {
     $handler->owner_renew( $action );
 
 Handle incoming I<OWNER_RENEW> action. From borrower perspective - the
-owner has accepted our renewal request and a new due date needs to be set.
+owner has accepted our renewal request. Due dates are ILS-defined, so the
+Rapido dueDateTime is not applied to the checkout or the ILL request; the
+renewal due date is calculated by Koha's circulation rules.
 
 =cut
 
@@ -321,52 +311,7 @@ sub owner_renew {
     Koha::Database->new->schema->txn_do(
         sub {
 
-            my $due_date;
-
-            # Set due_date from dueDateTime epoch if available
-            if ( $action->dueDateTime ) {
-                my ( $actual_due_date, $original_due_date ) = $self->{plugin}->process_due_date_with_buffer(
-                    {
-                        epoch       => $action->dueDateTime,
-                        pod         => $action->pod,
-                        buffer_type => 'renewal'
-                    }
-                );
-
-                # Store the original due date (with buffer) as an attribute
-                $self->{plugin}->add_or_update_attributes(
-                    {
-                        attributes => { dueDateWithBuffer => $original_due_date->datetime() },
-                        request    => $req,
-                    }
-                );
-
-                $due_date = $actual_due_date;
-            }
-
-            $req->set(
-                {
-                    ( $due_date ? ( due_date => $due_date->datetime() ) : () ),
-                }
-            );
-
             $req->status('B_ITEM_RENEWAL_ACCEPTED')->store();
-
-            # [#61] Update checkout due date if we have a new dueDateTime
-            if ($due_date) {
-                my $checkout = $self->{plugin}->get_checkout($req);
-                if ($checkout) {
-                    $checkout->date_due( $due_date->datetime() );
-                    $checkout->store();
-                } else {
-                    $self->{plugin}->logger->warn(
-                        sprintf(
-                            "No checkout found for ILL request %d during renewal approval - could not update checkout due date",
-                            $req->id
-                        )
-                    );
-                }
-            }
 
             # Set checkout note for renewal acceptance if configured
             my $config = $self->{plugin}->pod_config( $self->{pod} );

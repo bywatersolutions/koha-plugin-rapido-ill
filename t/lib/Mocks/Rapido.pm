@@ -84,8 +84,6 @@ test-pod:
   default_patron_agency: TEST_AGENCY
   renewal_accepted_note: Renewal accepted
   renewal_request_note: Renewal requested
-  due_date_buffer_days: 7
-  renewal_buffer_days: 7
   central_item_type_mapping:
     200: BOOK
     500: DVD
@@ -113,14 +111,11 @@ EOF
     return $plugin unless wantarray;
 
     # List context: also return auth patrons for API tests
-    my $librarian = $builder->build_object(
-        { class => 'Koha::Patrons', value => { flags => $params->{flags} // 2**22 } }
-    );
+    my $librarian =
+        $builder->build_object( { class => 'Koha::Patrons', value => { flags => $params->{flags} // 2**22 } } );
     $librarian->set_password( { password => PASSWORD, skip_validation => 1 } );
 
-    my $unauth_patron = $builder->build_object(
-        { class => 'Koha::Patrons', value => { flags => 0 } }
-    );
+    my $unauth_patron = $builder->build_object( { class => 'Koha::Patrons', value => { flags => 0 } } );
     $unauth_patron->set_password( { password => PASSWORD, skip_validation => 1 } );
 
     return ( $plugin, $librarian, $unauth_patron );

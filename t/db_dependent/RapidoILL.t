@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 12;
+use Test::More tests => 10;
 use Test::NoWarnings;
 use Test::Exception;
 use Test::Warn;
@@ -608,111 +608,6 @@ EOF
 
         is( $result, 1, 'validate_pod returns 1 for valid pods' );
     };
-
-    $schema->storage->txn_rollback;
-};
-
-subtest 'process_due_date_with_buffer() tests' => sub {
-    plan tests => 6;
-
-    $schema->storage->txn_begin;
-
-    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
-    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
-    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
-
-    my $plugin = t::lib::Mocks::Rapido->new(
-        {
-            library  => $library,
-            category => $category,
-            itemtype => $itemtype
-        }
-    );
-
-    # Test with due_date buffer type
-    my $epoch = 1735732800;    # January 1, 2025 12:00:00 UTC
-    my ( $actual_due_date, $original_due_date ) = $plugin->process_due_date_with_buffer(
-        {
-            epoch       => $epoch,
-            pod         => t::lib::Mocks::Rapido::POD,
-            buffer_type => 'due_date'
-        }
-    );
-
-    isa_ok( $actual_due_date,   'DateTime', 'Returns DateTime object for actual due date' );
-    isa_ok( $original_due_date, 'DateTime', 'Returns DateTime object for original due date' );
-    is( $original_due_date->ymd, '2025-01-01', 'Original due date is correct' );
-    is( $actual_due_date->ymd,   '2024-12-25', 'Actual due date has 7 days subtracted' );
-
-    # Test with renewal buffer type
-    my ( $actual_renewal, $original_renewal ) = $plugin->process_due_date_with_buffer(
-        {
-            epoch       => $epoch,
-            pod         => t::lib::Mocks::Rapido::POD,
-            buffer_type => 'renewal'
-        }
-    );
-
-    is( $actual_renewal->ymd, '2024-12-25', 'Renewal buffer also subtracts 7 days' );
-
-    # Test missing parameters
-    throws_ok {
-        $plugin->process_due_date_with_buffer( { epoch => $epoch } );
-    }
-    'RapidoILL::Exception::MissingParameter', 'Throws exception for missing parameters';
-
-    $schema->storage->txn_rollback;
-};
-
-subtest 'add_buffer_to_due_date() tests' => sub {
-    plan tests => 5;
-
-    $schema->storage->txn_begin;
-
-    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
-    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
-    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
-
-    my $plugin = t::lib::Mocks::Rapido->new(
-        {
-            library  => $library,
-            category => $category,
-            itemtype => $itemtype
-        }
-    );
-
-    # Test with due_date buffer type
-    my $due_date      = DateTime->new( year => 2024, month => 12, day => 25 );
-    my $buffered_date = $plugin->add_buffer_to_due_date(
-        {
-            due_date    => $due_date,
-            pod         => t::lib::Mocks::Rapido::POD,
-            buffer_type => 'due_date'
-        }
-    );
-
-    isa_ok( $buffered_date, 'DateTime', 'Returns DateTime object' );
-    is( $buffered_date->ymd, '2025-01-01', 'Adds 7 days to due date' );
-
-    # Test with renewal buffer type
-    my $renewal_buffered = $plugin->add_buffer_to_due_date(
-        {
-            due_date    => $due_date,
-            pod         => t::lib::Mocks::Rapido::POD,
-            buffer_type => 'renewal'
-        }
-    );
-
-    is( $renewal_buffered->ymd, '2025-01-01', 'Renewal buffer also adds 7 days' );
-
-    # Test that original date is not modified
-    is( $due_date->ymd, '2024-12-25', 'Original date is not modified' );
-
-    # Test missing parameters
-    throws_ok {
-        $plugin->add_buffer_to_due_date( { due_date => $due_date } );
-    }
-    'RapidoILL::Exception::MissingParameter', 'Throws exception for missing parameters';
 
     $schema->storage->txn_rollback;
 };

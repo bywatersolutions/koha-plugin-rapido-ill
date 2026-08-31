@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- [#220] Due dates are now ILS-defined: the checkout due date calculated by Koha's circulation rules is authoritative on both the borrowing and lending sides. The Rapido `dueDateTime`/`dueDate` is still captured on the sync (circ_action) records but is no longer applied to checkouts or ILL requests
+- [#220] Borrower renewal requests now send the plain ILS due date to Rapido, without adding a buffer period
+
+### Removed
+- [#220] **Breaking:** removed the due-date buffer machinery: the `process_due_date_with_buffer()` and `add_buffer_to_due_date()` plugin methods and the `due_date_buffer_days` / `renewal_buffer_days` configuration options. These are no longer used now that due dates are ILS-defined; remove them from your plugin configuration
+
+### Migration notes
+- Existing loans are left untouched: their current due dates (as previously set from Rapido) are preserved. Only new checkouts and renewals after the upgrade use ILS-calculated due dates
+
 ## [1.10.4] - 2026-08-27
 
 ### Fixed

@@ -249,6 +249,7 @@ sub item_in_transit {
                 my $biblio = Koha::Biblios->find( $req->biblio_id );
 
                 if ($biblio) {
+
                     # Delete the biblio record, its items, and holds
                     my $error = $self->{plugin}->delete_virtual_biblio(
                         {
@@ -258,28 +259,25 @@ sub item_in_transit {
                     );
 
                     if ($error) {
-                        $self->{plugin}->logger->error(
-                            "[item_in_transit] Failed to delete biblio "
+                        $self->{plugin}->logger->error( "[item_in_transit] Failed to delete biblio "
                                 . $req->biblio_id
                                 . " for ILL request "
                                 . $req->id
-                                . ": $error"
-                        );
+                                . ": $error" );
                     }
                 } else {
-                    $self->{plugin}->logger->warn(
-                        "[item_in_transit] Biblio "
+                    $self->{plugin}->logger->warn( "[item_in_transit] Biblio "
                             . $req->biblio_id
                             . " not found for ILL request "
                             . $req->id
-                            . " - biblio should have been created during item_shipped"
-                    );
+                            . " - biblio should have been created during item_shipped" );
                 }
 
                 $req->status('B_ITEM_IN_TRANSIT')->store;
 
                 if ( !exists $options->{notify_rapido} || $options->{notify_rapido} ) {
-                    $self->{plugin}->get_client( $self->{pod} )->borrower_item_returned( { circId => $circId }, $options );
+                    $self->{plugin}->get_client( $self->{pod} )
+                        ->borrower_item_returned( { circId => $circId }, $options );
                 }
             }
         );
@@ -383,23 +381,22 @@ sub borrower_renew {
                     }
                 }
 
-                my $due_date_with_buffer;
+                # Due dates are ILS-defined: send the ILS-calculated due date
+                # as-is, without adding any buffer.
+                my $due_date;
                 if ( $params->{due_date} ) {
-                    my $renewal_buffer = $config->{renewal_buffer_days} // 7;
-                    $due_date_with_buffer =
-                        dt_from_string( $params->{due_date} )->add( days => $renewal_buffer );
+                    $due_date = dt_from_string( $params->{due_date} );
 
-                    if ( $due_date_with_buffer < dt_from_string() ) {
+                    if ( $due_date < dt_from_string() ) {
                         RapidoILL::Exception::ExternalRequestRejected->throw(
-                            "Renewal due date with buffer ($due_date_with_buffer) is in the past"
-                        );
+                            "Renewal due date ($due_date) is in the past");
                     }
                 }
 
                 $self->{plugin}->get_client( $self->{pod} )->borrower_renew(
                     {
-                        circId      => $circId,
-                        ( $due_date_with_buffer ? ( dueDateTime => $due_date_with_buffer ) : () ),
+                        circId => $circId,
+                        ( $due_date ? ( dueDateTime => $due_date ) : () ),
                     },
                     $options
                 );
