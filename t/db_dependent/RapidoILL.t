@@ -617,19 +617,21 @@ subtest 'get_item_type_from_central() tests' => sub {
 
     $schema->storage->txn_begin;
 
-    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
-    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
-    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+    my $library         = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category        = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype        = $builder->build_object( { class => 'Koha::ItemTypes' } );
+    my $mapped_itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
 
     my $plugin = t::lib::Mocks::Rapido->new(
         {
-            library  => $library,
-            category => $category,
-            itemtype => $itemtype
+            library         => $library,
+            category        => $category,
+            itemtype        => $itemtype,
+            mapped_itemtype => $mapped_itemtype,
         }
     );
 
-    # Test with mapping present
+    # Test with mapping present (centralItemType 200 => the distinct mapped itemtype)
     is(
         $plugin->get_item_type_from_central(
             {
@@ -638,7 +640,7 @@ subtest 'get_item_type_from_central() tests' => sub {
                 fallback          => 'ILL',
             }
         ),
-        'BOOK',
+        $mapped_itemtype->itemtype,
         'Returns mapped item type for centralItemType 200'
     );
 
@@ -668,7 +670,7 @@ subtest 'get_item_type_from_central() tests' => sub {
         'Returns fallback when centralItemType is undefined'
     );
 
-    # Test with different mapping
+    # Test with a second mapping entry (centralItemType 500 => the default itemtype)
     is(
         $plugin->get_item_type_from_central(
             {
@@ -677,7 +679,7 @@ subtest 'get_item_type_from_central() tests' => sub {
                 fallback          => 'ILL',
             }
         ),
-        'DVD',
+        $itemtype->itemtype,
         'Returns mapped item type for centralItemType 500'
     );
 

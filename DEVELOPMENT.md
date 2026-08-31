@@ -837,7 +837,7 @@ curl -s -X POST http://localhost:3001/view/broker/circ/CIRC001/lendercancel | jq
 - **[CURL_TESTING_GUIDE.md](CURL_TESTING_GUIDE.md)** - Complete step-by-step testing guide
 - **`scripts/test_all_endpoints.sh`** - Automated test script
 - **`scripts/bootstrap_rapido_testing.pl`** - Environment setup
-- **`scripts/run_sync.sh`** - Integration testing with sync_requests.pl
+- **`scripts/run_sync.sh`** - Integration testing with sync_requests.pl (uses the production `/usr/share/koha/lib` path; under KTD call `sync_requests.pl` directly with `PERL5LIB=/kohadevbox/koha:...` instead)
 
 #### Mock API Configuration
 
@@ -856,16 +856,28 @@ rm scripts/mock_config.json
 
 ### Testing with Real Plugin Integration
 
-```bash
-# Test sync script with mock API
-cd /kohadevbox/plugins/rapido-ill/scripts
-./mock_rapido_api.pl --port=3001 --scenario=borrowing &
+Run the sync script directly (not via `scripts/run_sync.sh`) so you control
+`PERL5LIB`. In a koha-testing-docker (KTD) environment the Koha code lives at
+`/kohadevbox/koha`, so `PERL5LIB` must point there. Do **not** use
+`/usr/share/koha/lib` under KTD: that is a separate, package-installed Koha
+that may be a different version than the branch you are testing, which leads to
+confusing schema errors (e.g. `Unknown column 'me.managedby'`).
 
-# Run actual sync script against mock API
+```bash
+# Start the mock API (run from scripts/ so mock_config.json resolves)
+cd /kohadevbox/plugins/rapido-ill/scripts
+./mock_rapido_api.pl --port=3000 --scenario=borrowing &
+
+# Run the actual sync script against the mock API
 cd /kohadevbox/plugins/rapido-ill
-export PERL5LIB=/usr/share/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:.
+export PERL5LIB=/kohadevbox/koha:/kohadevbox/koha/lib:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:.
 perl Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/sync_requests.pl --pod mock-pod
 ```
+
+> Note: `scripts/run_sync.sh` hardcodes `PERL5LIB=/usr/share/koha/lib:...`,
+> which is correct for a production package install but wrong under KTD. Prefer
+> calling `sync_requests.pl` directly with the `PERL5LIB` above when testing.
+
 
 ## Standard Testing
 

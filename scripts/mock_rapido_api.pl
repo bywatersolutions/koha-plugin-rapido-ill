@@ -281,6 +281,11 @@ get '/view/broker/circ/circrequests' => sub ($c) {
                 : 'ffyh:Facultad de Filosofía y Humanidades';
             $rapido_item->{title}  = $item->{title};
             $rapido_item->{author} = $item->{author};
+
+            # Item type sent by the central server, used by the plugin to map to
+            # a local Koha item type (central_item_type_mapping)
+            $rapido_item->{centralItemType} = $item->{centralItemType}
+                if defined $item->{centralItemType};
         }
 
         push @rapido_format, $rapido_item;

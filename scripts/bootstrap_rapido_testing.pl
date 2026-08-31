@@ -123,13 +123,16 @@ $dbh_branches->disconnect();
 
 my $plugin_config = {
     'mock-pod' => {
-        base_url                    => "http://localhost:$mock_port",
-        client_id                   => 'mock_client',
-        client_secret               => 'mock_secret',
-        server_code                 => '11747',
-        partners_library_id         => 'RAPIDO',                              # Use RAPIDO branch for agency patrons
-        partners_category           => 'ILL',
-        default_item_type           => 'ILL',
+        base_url                  => "http://localhost:$mock_port",
+        client_id                 => 'mock_client',
+        client_secret             => 'mock_secret',
+        server_code               => '11747',
+        partners_library_id       => 'RAPIDO',                        # Use RAPIDO branch for agency patrons
+        partners_category         => 'ILL',
+        default_item_type         => 'ILL',
+        central_item_type_mapping => {
+            200 => 'RAPIDO_BK',                                       # matches the borrowing scenario's centralItemType
+        },
         default_patron_agency       => 'ffyh',                                # This is the agency code, not branch code
         default_location            => '',
         default_checkin_note        => 'Additional processing required (ILL)',
@@ -240,6 +243,15 @@ eval {
     );
     $itemtype_sth->execute();
     print "   ✓ ILL item type created\n";
+
+    # Create an additional item type used to exercise central_item_type_mapping
+    # (so an incoming centralItemType maps to a distinct itemtype, not the fallback)
+    my $mapped_itemtype_sth = $dbh->prepare(
+        "INSERT IGNORE INTO itemtypes (itemtype, description, rentalcharge, notforloan, imageurl, summary, checkinmsg, checkinmsgtype, sip_media_type, hideinopac, searchcategory) 
+         VALUES ('RAPIDO_BK', 'Rapido Book (mapped)', 0.00, 0, '', '', '', 'message', '001', 0, '')"
+    );
+    $mapped_itemtype_sth->execute();
+    print "   ✓ RAPIDO_BK item type created (central_item_type_mapping target)\n";
 
     # Create ILL patron category
     my $category_sth = $dbh->prepare(

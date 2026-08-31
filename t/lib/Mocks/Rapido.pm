@@ -70,6 +70,12 @@ sub new {
     my $pickup_strategy = $params->{pickup_location_strategy} || 'partners_library';
     my $dev_mode        = $params->{dev_mode} // 1;    # Default to true for testing
 
+    # A second, distinct item type used as a central_item_type_mapping target so
+    # tests can tell a mapped item type apart from the default_item_type fallback.
+    # Both mapping targets are real, existing item types so that code paths which
+    # create items from the mapping resolve to a valid itemtype.
+    my $mapped_itemtype = $params->{mapped_itemtype} || $builder->build_object( { class => 'Koha::ItemTypes' } );
+
     # Sample configuration template
     my $sample_config_yaml = <<'EOF';
 ---
@@ -85,8 +91,8 @@ test-pod:
   renewal_accepted_note: Renewal accepted
   renewal_request_note: Renewal requested
   central_item_type_mapping:
-    200: BOOK
-    500: DVD
+    200: %s
+    500: %s
   lending:
     automatic_final_checkin: false
     automatic_item_shipped: false
@@ -100,6 +106,8 @@ EOF
         $library->branchcode,
         $category->categorycode,
         $itemtype->itemtype,
+        $mapped_itemtype->itemtype,    # centralItemType 200 -> distinct mapped itemtype
+        $itemtype->itemtype,           # centralItemType 500 -> default itemtype (also real)
         $pickup_strategy,
         $dev_mode ? 'true' : 'false'
     );
