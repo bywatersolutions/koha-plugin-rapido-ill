@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0] - 2026-09-01
 
 ### Added
 - [#219] Validate `central_item_type_mapping` targets in the configuration check: a mapping entry pointing to an item type that is not defined in Koha is now reported on the configuration page (previously it silently fell back to `default_item_type`)
