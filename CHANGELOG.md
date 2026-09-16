@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - [#223] Borrowing requests no longer create duplicate virtual bib/item records (one with the original barcode and one with a `-N` suffix) when a creation action is replayed. `item_shipped` and `borrower_receive_unshipped` now skip creation when the request already has a virtual record
 
+### Added
+- [#223] `scripts/cleanup_duplicate_virtual_records.pl` to remove the orphan duplicate virtual records left behind by the bug above. Defaults to a dry run; use `--confirm` to delete. Only removes orphan records whose duplicate pair is entirely plugin-generated; legitimate collisions with real owned items are left untouched
+
 ## [2.1.0] - 2026-09-01
 
 ### Added
