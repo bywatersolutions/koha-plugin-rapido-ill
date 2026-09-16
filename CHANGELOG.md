@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- [#202] Handle a lending library un-shipping an item that was already shipped. On an incoming `PATRON_HOLD` for a request at `B_ITEM_REQUESTED` or `B_ITEM_SHIPPED`, the plugin now tears down the virtual bib/item/hold, removes the item-specific attributes, and reverts the request to `B_ITEM_REQUESTED`. `OWNING_SITE_CANCEL` also clears the item-specific attributes now
+- [#202] Record a paper trail for each unship: an `unshipped` timestamp, an `unship_count` running counter, and `last_unship_state` attributes on the ILL request (the status change is also captured in Koha's ILL request status log)
+
 ## [1.10.6] - 2026-09-16
 
 ### Changed

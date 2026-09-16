@@ -736,28 +736,121 @@ subtest 'item_received method (borrower-generated - no-op)' => sub {
     $schema->storage->txn_rollback;
 };
 
-subtest 'patron_hold method (borrower-generated - no-op)' => sub {
-    plan tests => 1;
+subtest 'patron_hold method (unship handling)' => sub {
+    plan tests => 14;
 
     $schema->storage->txn_begin;
 
-    my $mock_plugin = Test::MockObject->new();
-    my $handler     = RapidoILL::ActionHandler::Borrower->new(
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+    my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+
+    my $plugin = t::lib::Mocks::Rapido->new(
+        { library => $library, category => $category, itemtype => $itemtype } );
+    my $backend = $plugin->ill_backend();
+
+    my $handler = RapidoILL::ActionHandler::Borrower->new(
+        { pod => 'test_pod', plugin => $plugin } );
+
+    my $make_action = sub {
+        my ($req) = @_;
+        my $action = Test::MockObject->new();
+        $action->set_always( 'lastCircState', 'PATRON_HOLD' );
+        $action->set_always( 'ill_request',   $req );
+        $action->set_always( 'circId',        'circ_' . $req->id );
+        return $action;
+    };
+
+    # --- Case 1: unship from B_ITEM_SHIPPED (virtual record + attrs exist) ----
+    my $biblio = $builder->build_sample_biblio();
+    $builder->build_sample_item( { biblionumber => $biblio->biblionumber } );
+    my $shipped = $builder->build_object(
         {
-            pod    => 'test_pod',
-            plugin => $mock_plugin
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                backend        => $backend,
+                biblio_id      => $biblio->biblionumber,
+                status         => 'B_ITEM_SHIPPED',
+            }
+        }
+    );
+    $plugin->add_or_update_attributes(
+        {
+            request    => $shipped,
+            attributes => { itemBarcode => 'BC1', itemId => 'I1', hold_id => '42', barcode_collision => 1 },
         }
     );
 
-    # Create a mock action for PATRON_HOLD
-    my $mock_action = Test::MockObject->new();
-    $mock_action->mock( 'lastCircState', sub { return 'PATRON_HOLD'; } );
+    $handler->handle_from_action( $make_action->($shipped) );
+    $shipped->discard_changes;
+    is( $shipped->status,    'B_ITEM_REQUESTED', 'Unship from B_ITEM_SHIPPED reverts status to B_ITEM_REQUESTED' );
+    is( $shipped->biblio_id, undef,              'biblio_id cleared on unship' );
+    is( Koha::Biblios->find( $biblio->biblionumber ), undef, 'Virtual biblio deleted on unship' );
+    is(
+        $shipped->extended_attributes->search( { type => { -in => [qw(itemBarcode itemId hold_id barcode_collision)] } } )->count,
+        0, 'Item-specific attributes removed on unship'
+    );
 
-    # Test that PATRON_HOLD is handled as no-op (no exception thrown)
+    # Paper trail
+    ok( $shipped->extended_attributes->find( { type => 'unshipped' } ), 'unshipped timestamp recorded' );
+    is(
+        $shipped->extended_attributes->find( { type => 'unship_count' } )->value,
+        1, 'unship_count is 1 after first unship'
+    );
+    is(
+        $shipped->extended_attributes->find( { type => 'last_unship_state' } )->value,
+        'B_ITEM_SHIPPED', 'last_unship_state records the pre-unship status'
+    );
+
+    # A second ship/unship cycle increments the counter.
+    $shipped->status('B_ITEM_SHIPPED')->store;
+    $handler->handle_from_action( $make_action->($shipped) );
+    $shipped->discard_changes;
+    is(
+        $shipped->extended_attributes->find( { type => 'unship_count' } )->value,
+        2, 'unship_count increments on a second unship'
+    );
+
+    # --- Case 2: unship from B_ITEM_REQUESTED with no virtual record yet ------
+    my $requested = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                backend        => $backend,
+                biblio_id      => undef,
+                status         => 'B_ITEM_REQUESTED',
+            }
+        }
+    );
     lives_ok {
-        $handler->handle_from_action($mock_action)
+        $handler->handle_from_action( $make_action->($requested) )
     }
-    'PATRON_HOLD handled as no-op without exception';
+    'PATRON_HOLD from B_ITEM_REQUESTED (no virtual record) handled without error';
+    $requested->discard_changes;
+    is( $requested->status,    'B_ITEM_REQUESTED', 'Status stays B_ITEM_REQUESTED' );
+    is( $requested->biblio_id, undef,              'No biblio_id created' );
+
+    # --- Case 3: PATRON_HOLD in an unrelated status is a no-op ----------------
+    my $received = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                backend        => $backend,
+                status         => 'B_ITEM_RECEIVED',
+            }
+        }
+    );
+    my $received_biblio_id = $received->biblio_id;
+    $handler->handle_from_action( $make_action->($received) );
+    $received->discard_changes;
+    is( $received->status,    'B_ITEM_RECEIVED',    'PATRON_HOLD is a no-op when not in an unship-eligible status' );
+    is( $received->biblio_id, $received_biblio_id, 'biblio_id untouched on no-op' );
+
+    ok( 1, 'patron_hold handling completed' );
 
     $schema->storage->txn_rollback;
 };
@@ -1045,7 +1138,7 @@ subtest 'owner_cancel() tests' => sub {
     };
 
     subtest 'with virtual item cleanup' => sub {
-        plan tests => 4;
+        plan tests => 5;
 
         $schema->storage->txn_begin;
 
@@ -1096,6 +1189,14 @@ subtest 'owner_cancel() tests' => sub {
             }
         );
 
+        # Item-specific attributes that should be cleaned up on cancel
+        $plugin->add_or_update_attributes(
+            {
+                request    => $ill_request,
+                attributes => { itemBarcode => 'BCX', itemId => 'IX', hold_id => '7', barcode_collision => 1 },
+            }
+        );
+
         lives_ok {
             $handler->handle_from_action($circ_action);
         }
@@ -1104,6 +1205,12 @@ subtest 'owner_cancel() tests' => sub {
         # Verify status was updated
         $ill_request->discard_changes;
         is( $ill_request->status, 'B_CANCELLED_BY_OWNER', 'ILL request status updated to B_CANCELLED_BY_OWNER' );
+
+        # Item-specific attributes removed
+        is(
+            $ill_request->extended_attributes->search( { type => { -in => [qw(itemBarcode itemId hold_id barcode_collision)] } } )->count,
+            0, 'Item-specific attributes removed on owner_cancel'
+        );
 
         # Verify logging includes cancellation info
         $logger->info_like(
