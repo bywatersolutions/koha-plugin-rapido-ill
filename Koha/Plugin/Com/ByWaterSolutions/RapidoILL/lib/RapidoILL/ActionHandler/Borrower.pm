@@ -89,6 +89,7 @@ sub handle_from_action {
         'ITEM_SHIPPED'       => \&item_shipped,
         'OWNER_RENEW'        => \&owner_renew,
         'OWNING_SITE_CANCEL' => \&owner_cancel,
+        'PATRON_HOLD'        => \&patron_hold,
         'RECALL'             => \&recall,
     };
 
@@ -97,7 +98,6 @@ sub handle_from_action {
         BORROWER_RENEW
         BORROWING_SITE_CANCEL
         ITEM_IN_TRANSIT
-        PATRON_HOLD
     );
 
     # Check if this is a no-op status first
@@ -481,33 +481,9 @@ sub owner_cancel {
                 }
             );
 
-            # Clean up virtual record if it exists
-            if ( $req->biblio_id ) {
-                my $biblio = Koha::Biblios->find( $req->biblio_id );
-
-                if ($biblio) {
-                    my $error = $self->{plugin}->delete_virtual_biblio(
-                        {
-                            biblio  => $biblio,
-                            context => 'owner_cancel'
-                        }
-                    );
-
-                    if ($error) {
-                        $self->{plugin}->logger->warn( "[owner_cancel] Failed to delete biblio "
-                                . $req->biblio_id
-                                . " for ILL request "
-                                . $req->id
-                                . ": $error" );
-                    }
-                } else {
-                    $self->{plugin}->logger->warn( "[owner_cancel] Biblio "
-                            . $req->biblio_id
-                            . " not found for ILL request "
-                            . $req->id
-                            . " - biblio should have been created during item_shipped" );
-                }
-            }
+            # Clean up the virtual record (biblio/item/hold) and item-specific
+            # attributes created during item_shipped, if any.
+            $self->_cleanup_virtual_record( { request => $req, context => 'owner_cancel' } );
 
             $self->{plugin}->logger->info(
                 sprintf(
@@ -518,6 +494,142 @@ sub owner_cancel {
             );
         }
     );
+
+    return;
+}
+
+=head3 patron_hold
+
+    $handler->patron_hold( $action );
+
+Handle incoming I<PATRON_HOLD> action.
+
+In the normal forward flow this is the initial state and requires no action.
+However, Rapido also sends I<PATRON_HOLD> when the lending library B<unships>
+an item that had already been shipped, but another copy is still available
+(the request goes back to waiting for a shipment). In that case we must undo
+whatever was created for the previous shipment: delete the virtual
+bib/item/hold, remove the item-specific attributes, and revert the request to
+B_ITEM_REQUESTED so a later ITEM_SHIPPED is processed cleanly.
+
+The unship cleanup runs when the request is at B_ITEM_REQUESTED or
+B_ITEM_SHIPPED; any other status is treated as a no-op.
+
+A paper trail is recorded for each unship: an C<unshipped> timestamp, an
+C<unship_count> running counter (so repeated ship/unship cycles are
+visible), and C<last_unship_state>. The B_ITEM_SHIPPED -> B_ITEM_REQUESTED
+status change is additionally logged in Koha's ILL request status log.
+
+=cut
+
+sub patron_hold {
+    my ( $self, $action ) = @_;
+
+    my $req = $action->ill_request;
+
+    my %unship_from = map { $_ => 1 } qw( B_ITEM_REQUESTED B_ITEM_SHIPPED );
+    return unless $unship_from{ $req->status };
+
+    Koha::Database->new->schema->txn_do(
+        sub {
+            my $was_shipped = $req->status eq 'B_ITEM_SHIPPED';
+
+            # Undo any shipment artifacts (virtual record + item-specific attrs).
+            $self->_cleanup_virtual_record( { request => $req, context => 'patron_hold' } );
+
+            # Back to waiting for a shipment.
+            $req->status('B_ITEM_REQUESTED')->store();
+
+            # Paper trail: record the unship. Keep a running count so repeated
+            # ship/unship cycles are visible (a single timestamp attribute would
+            # otherwise be overwritten each time). The status change itself
+            # (B_ITEM_SHIPPED -> B_ITEM_REQUESTED) is also recorded in Koha's
+            # ILL request status log.
+            my $count_attr = $req->extended_attributes->find( { type => 'unship_count' } );
+            my $count = ( $count_attr && $count_attr->value ) ? $count_attr->value : 0;
+            $self->{plugin}->add_or_update_attributes(
+                {
+                    attributes => {
+                        unshipped         => \'NOW()',
+                        unship_count      => $count + 1,
+                        last_unship_state => ( $was_shipped ? 'B_ITEM_SHIPPED' : 'B_ITEM_REQUESTED' ),
+                    },
+                    request => $req,
+                }
+            );
+
+            $self->{plugin}->logger->info(
+                sprintf(
+                    "Item unshipped for ILL request %d (circId: %s) - status reverted to B_ITEM_REQUESTED (unship #%d)",
+                    $req->id,
+                    $action->circId,
+                    $count + 1,
+                )
+            );
+        }
+    );
+
+    return;
+}
+
+=head3 _cleanup_virtual_record
+
+    $handler->_cleanup_virtual_record( { request => $req, context => 'patron_hold' } );
+
+Internal helper. Deletes the virtual biblio (and its items/holds, via
+C<delete_virtual_biblio>) linked to the request, clears the request's
+C<biblio_id>, and removes the item-specific attributes created during
+C<item_shipped>. Safe to call when no virtual record exists.
+
+=cut
+
+sub _cleanup_virtual_record {
+    my ( $self, $params ) = @_;
+
+    my $req     = $params->{request};
+    my $context = $params->{context} || 'cleanup_virtual_record';
+
+    if ( $req->biblio_id ) {
+        my $biblio = Koha::Biblios->find( $req->biblio_id );
+
+        if ($biblio) {
+            my $error = $self->{plugin}->delete_virtual_biblio(
+                {
+                    biblio  => $biblio,
+                    context => $context,
+                }
+            );
+
+            if ($error) {
+                $self->{plugin}->logger->warn( "[$context] Failed to delete biblio "
+                        . $req->biblio_id
+                        . " for ILL request "
+                        . $req->id
+                        . ": $error" );
+            }
+        } else {
+            $self->{plugin}->logger->warn( "[$context] Biblio "
+                    . $req->biblio_id
+                    . " not found for ILL request "
+                    . $req->id
+                    . " - biblio should have been created during item_shipped" );
+        }
+
+        $req->set( { biblio_id => undef } )->store();
+    }
+
+    # Remove item-specific attributes tied to the (now removed) shipment.
+    my @item_specific = qw(
+        barcode_collision
+        callNumber
+        centralItemType
+        dueDateTime
+        hold_id
+        itemBarcode
+        itemId
+    );
+
+    $req->extended_attributes->search( { type => { -in => \@item_specific } } )->delete;
 
     return;
 }
