@@ -117,6 +117,54 @@
                 }
             ]
         },
+        "borrowing_unshipped_patron_hold": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC001",
+                    "circStatus": "ACTIVE",
+                    "lastCircState": "PATRON_HOLD",
+                    "centralItemType": 200,
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "itemBarcode": "3999900000001",
+                    "itemId": "3999900000001",
+                    "lastUpdated": "2025-08-15T11:43:56Z",
+                    "lenderCode": "famaf",
+                    "needBefore": "2025-09-14T23:59:59Z",
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "23529000445172",
+                    "patronName": "Tanya Daniels",
+                    "pickupLocation": "MPL",
+                    "requestId": "REQ001",
+                    "title": "E Street shuffle"
+                }
+            ]
+        },
+        "borrowing_unshipped_cancel": {
+            "data": [
+                {
+                    "author": "Heylin, Clinton",
+                    "circId": "CIRC001",
+                    "circStatus": "COMPLETED",
+                    "lastCircState": "OWNING_SITE_CANCEL",
+                    "centralItemType": 200,
+                    "dateCreated": "2025-08-15T09:43:56Z",
+                    "itemBarcode": "3999900000001",
+                    "itemId": "3999900000001",
+                    "lastUpdated": "2025-08-15T11:43:56Z",
+                    "lenderCode": "famaf",
+                    "needBefore": "2025-09-14T23:59:59Z",
+                    "patronAgencyCode": "11747",
+                    "borrowerCode": "11747",
+                    "patronId": "23529000445172",
+                    "patronName": "Tanya Daniels",
+                    "pickupLocation": "MPL",
+                    "requestId": "REQ001",
+                    "title": "E Street shuffle"
+                }
+            ]
+        },
         "lending_received": {
             "data": [
                 {
@@ -558,6 +606,52 @@
                 {
                     "endpoint": "circulation_requests",
                     "response": "borrowing_final_checkin"
+                }
+            ]
+        },
+        "borrowing_unship_reship": {
+            "description": "Borrowing where the lender unships a shipped item (another copy available -> PATRON_HOLD), then re-ships and completes",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_initial"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_shipped"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_unshipped_patron_hold"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_shipped"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_received"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_final_checkin"
+                }
+            ]
+        },
+        "borrowing_unship_cancel": {
+            "description": "Borrowing where the lender unships a shipped item and no copy is available (OWNING_SITE_CANCEL)",
+            "sequence": [
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_initial"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_shipped"
+                },
+                {
+                    "endpoint": "circulation_requests",
+                    "response": "borrowing_unshipped_cancel"
                 }
             ]
         },

@@ -235,6 +235,15 @@ get '/view/broker/circ/circrequests' => sub ($c) {
 
     # Transform data to match Rapido spec format
     my @rapido_format = ();
+
+    # Monotonic offset so that successive states for the same circId get a
+    # strictly increasing lastUpdated. The plugin only treats an action as an
+    # update when its lastUpdated is greater than the stored one, so without
+    # this, multi-step flows (e.g. unship: ITEM_SHIPPED -> PATRON_HOLD) would be
+    # seen as duplicates and skipped. scenario_step has already been advanced by
+    # get_scenario_response() for the current step.
+    my $step_offset = $api_state->{scenario_step} || 0;
+
     for my $item ( @{ $response->{data} } ) {
         my $rapido_item = {};
 
@@ -258,7 +267,9 @@ get '/view/broker/circ/circrequests' => sub ($c) {
             $rapido_item->{dateCreated} = $dt->epoch;
         }
         if ( $item->{lastUpdated} ) {
-            my $dt = DateTime->now->subtract( hours => 1 );
+
+            # now - 1h + (step * 1min): strictly increasing per scenario step.
+            my $dt = DateTime->now->subtract( hours => 1 )->add( minutes => $step_offset );
             $rapido_item->{lastUpdated} = $dt->epoch;
         }
         if ( $item->{dueDateTime} ) {
