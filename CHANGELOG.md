@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.10.7] - 2026-09-16
 
 ### Added
 - [#202] Handle a lending library un-shipping an item that was already shipped. On an incoming `PATRON_HOLD` for a request at `B_ITEM_REQUESTED` or `B_ITEM_SHIPPED`, the plugin now tears down the virtual bib/item/hold, removes the item-specific attributes, and reverts the request to `B_ITEM_REQUESTED`. `OWNING_SITE_CANCEL` also clears the item-specific attributes now
