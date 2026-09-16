@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- [#223] Borrowing requests no longer create duplicate virtual bib/item records (one with the original barcode and one with a `-N` suffix) when a creation action is replayed. `item_shipped` and `borrower_receive_unshipped` now skip creation when the request already has a virtual record
+
 ## [2.1.0] - 2026-09-01
 
 ### Added

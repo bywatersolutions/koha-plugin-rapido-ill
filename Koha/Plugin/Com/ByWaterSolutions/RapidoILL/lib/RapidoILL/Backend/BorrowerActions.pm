@@ -115,6 +115,20 @@ sub borrower_receive_unshipped {
     RapidoILL::Exception->throw("[borrower_actions][borrower_receive_unshipped] No barcode in request")
         unless $barcode;
 
+    # Idempotency guard: if the request already has a virtual biblio/item, the
+    # record was already created (e.g. by a synced ITEM_SHIPPED action or a
+    # previous receive). Creating another one here would collide with the
+    # existing barcode and produce a duplicate '-N' biblio/item.
+    if ( $request->biblio_id ) {
+        $self->{plugin}->logger->info(
+            sprintf(
+                "[borrower_actions][borrower_receive_unshipped] ILL request %d (circId=%s) already has biblio_id=%s; skipping virtual record creation",
+                $request->id, $circId // q{}, $request->biblio_id
+            )
+        );
+        return $self;
+    }
+
     return try {
         Koha::Database->new->schema->txn_do(
             sub {

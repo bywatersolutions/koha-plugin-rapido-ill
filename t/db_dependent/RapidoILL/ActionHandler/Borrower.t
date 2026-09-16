@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 14;
+use Test::More tests => 15;
 use Test::NoWarnings;
 use Test::MockObject;
 use Test::MockModule;
@@ -262,6 +262,7 @@ subtest 'item_shipped() tests' => sub {
                 backend        => 'RapidoILL',
                 status         => 'B_ITEM_REQUESTED',
                 due_date       => undef,
+                biblio_id      => undef,                    # not shipped yet, no virtual record
             }
         }
     );
@@ -355,7 +356,8 @@ subtest 'item_shipped() tests' => sub {
                 branchcode     => $library->branchcode,
                 backend        => 'RapidoILL',
                 status         => 'B_ITEM_REQUESTED',
-                due_date       => undef                      # Explicitly set to undef
+                due_date       => undef,                     # Explicitly set to undef
+                biblio_id      => undef,                     # not shipped yet, no virtual record
             }
         }
     );
@@ -393,8 +395,33 @@ subtest 'item_shipped() tests' => sub {
         }
     );
 
+    # Fresh, not-yet-shipped request so item_shipped reaches the creation path
+    # (the idempotency guard returns early when biblio_id is already set).
+    my $ill_request3 = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                branchcode     => $library->branchcode,
+                backend        => 'RapidoILL',
+                status         => 'B_ITEM_REQUESTED',
+                biblio_id      => undef,
+            }
+        }
+    );
+    my $mock_action3 = Test::MockObject->new();
+    $mock_action3->set_always( 'itemBarcode',     'TEST_BARCODE_COLLISION' );
+    $mock_action3->set_always( 'ill_request',     $ill_request3 );
+    $mock_action3->set_always( 'pod',             'test_pod' );
+    $mock_action3->set_always( 'callNumber',      'TEST CALL NUMBER 3' );
+    $mock_action3->set_always( 'dueDateTime',     undef );
+    $mock_action3->set_always( 'centralItemType', 200 );
+    foreach my $attr (@action_attributes) {
+        $mock_action3->set_always( $attr, "test_$attr" );
+    }
+
     throws_ok {
-        $handler->item_shipped($mock_action)
+        $handler->item_shipped($mock_action3)
     }
     qr/Barcode collision test/, 'item_shipped handles barcode collision appropriately';
 
@@ -404,6 +431,104 @@ subtest 'item_shipped() tests' => sub {
         $handler->item_shipped($mock_action)
     }
     'RapidoILL::Exception', 'item_shipped throws exception for missing barcode';
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'item_shipped() idempotency (no duplicate virtual record on replay)' => sub {
+    plan tests => 4;
+
+    $schema->storage->txn_begin;
+
+    my $patron  = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $library = $builder->build_object( { class => 'Koha::Libraries' } );
+
+    # A request that has NOT been shipped yet: no virtual record.
+    my $ill_request = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => {
+                borrowernumber => $patron->borrowernumber,
+                branchcode     => $library->branchcode,
+                backend        => 'RapidoILL',
+                status         => 'B_ITEM_REQUESTED',
+                biblio_id      => undef,
+            }
+        }
+    );
+
+    my $create_calls = 0;
+    my $rapido_mock  = Test::MockModule->new('Koha::Plugin::Com::ByWaterSolutions::RapidoILL');
+    my $virtual_biblio = $builder->build_sample_biblio;
+    $rapido_mock->mock(
+        'add_virtual_record_and_item',
+        sub {
+            $create_calls++;
+            my $mock_item = Test::MockObject->new();
+            $mock_item->set_always( 'biblionumber', $virtual_biblio->biblionumber );
+            $mock_item->set_always( 'id',           9999 );
+            return $mock_item;
+        }
+    );
+    $rapido_mock->mock( 'add_hold',                 sub { return 555; } );
+    $rapido_mock->mock( 'add_or_update_attributes', sub { return; } );
+
+    my $mock_plugin = t::lib::Mocks::Rapido->new(
+        {
+            library  => $library,
+            category => $builder->build_object( { class => 'Koha::Patron::Categories' } ),
+            itemtype => $builder->build_object( { class => 'Koha::ItemTypes' } )
+        }
+    );
+
+    my $handler = RapidoILL::ActionHandler::Borrower->new(
+        {
+            pod    => 'test_pod',
+            plugin => $mock_plugin
+        }
+    );
+
+    # Two ITEM_SHIPPED actions for the same request, second with a newer
+    # lastUpdated (mimics the pod re-sending the action -> update path).
+    my @action_attributes = qw(
+        author borrowerCode circId circStatus dateCreated
+        itemAgencyCode itemId lastCircState lenderCode
+        needBefore patronAgencyCode patronId patronName pickupLocation
+        puaLocalServerCode title circ_action_id
+    );
+
+    my $make_action = sub {
+        my ($last_updated) = @_;
+        my $action = Test::MockObject->new();
+        $action->set_always( 'itemBarcode',     'DUP_TEST_BARCODE' );
+        $action->set_always( 'ill_request',     $ill_request );
+        $action->set_always( 'pod',             'test_pod' );
+        $action->set_always( 'callNumber',      'CALL' );
+        $action->set_always( 'centralItemType', 200 );
+        $action->set_always( 'dueDateTime',     undef );
+        $action->set_always( 'lastUpdated',     $last_updated );
+        foreach my $attr (@action_attributes) {
+            $action->set_always( $attr, "test_$attr" );
+        }
+        return $action;
+    };
+
+    $handler->item_shipped( $make_action->(1000) );
+    $ill_request->discard_changes;
+    is( $create_calls, 1, 'First ITEM_SHIPPED creates one virtual record' );
+    is(
+        $ill_request->biblio_id, $virtual_biblio->biblionumber,
+        'biblio_id set after first ITEM_SHIPPED'
+    );
+
+    # Replay with newer lastUpdated: must NOT create a second record.
+    $handler->item_shipped( $make_action->(2000) );
+    $ill_request->discard_changes;
+    is( $create_calls, 1, 'Replayed ITEM_SHIPPED does not create a second virtual record' );
+
+    my $collision =
+        $ill_request->extended_attributes->search( { type => 'barcode_collision' } )->count;
+    is( $collision, 0, 'No barcode_collision flag set on replay' );
 
     $schema->storage->txn_rollback;
 };
