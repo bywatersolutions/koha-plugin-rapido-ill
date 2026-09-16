@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- CI now builds and releases the `.kpz` artifact for tags on maintenance branches (`X.Y.x`), not only tags on `main`
+
 ## [1.10.5] - 2026-09-16
 
 ### Fixed

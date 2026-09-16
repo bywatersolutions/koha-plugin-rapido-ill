@@ -150,18 +150,20 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Check if tag is on main branch
+    - name: Check if tag is on a release branch (main or X.Y.x)
       id: check-branch
       run: |
         # Get the commit the tag points to
         TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }})
-        # Check if this commit is on main branch
-        if git branch -r --contains $TAG_COMMIT | grep -q 'origin/main'; then
-          echo "on_main=true" >> $GITHUB_OUTPUT
-          echo "Tag is on main branch, proceeding with release"
+        # Release from tags reachable from main OR from a maintenance branch
+        # (origin/<major>.<minor>.x, e.g. origin/1.10.x).
+        CONTAINING=$(git branch -r --contains $TAG_COMMIT)
+        if echo "$CONTAINING" | grep -qE 'origin/main$|origin/[0-9]+\.[0-9]+\.x$'; then
+          echo "on_release_branch=true" >> $GITHUB_OUTPUT
+          echo "Tag is on a release branch, proceeding with release"
         else
-          echo "on_main=false" >> $GITHUB_OUTPUT
-          echo "Tag is NOT on main branch, skipping release"
+          echo "on_release_branch=false" >> $GITHUB_OUTPUT
+          echo "Tag is NOT on a release branch, skipping release"
         fi
 
     - name: Parse out and store the GitHub repository name
@@ -194,7 +196,7 @@ jobs:
       run: echo "$GITHUB_CONTEXT"
 
     - name: Build Koha Plugin kpz artifact
-      if: steps.check-branch.outputs.on_main == 'true'
+      if: steps.check-branch.outputs.on_release_branch == 'true'
       id: kpz
       run: |
         docker run -v ${PWD}:/plugin registry.gitlab.com/thekesolutions/tools/koha-plugin-builder
@@ -202,14 +204,14 @@ jobs:
 
 
     - name: See if kpz was created
-      if: steps.check-branch.outputs.on_main == 'true'
+      if: steps.check-branch.outputs.on_release_branch == 'true'
       run: |
         echo "FILENAME: ${{ steps.kpz.outputs.filename }}"
         ls -alh
 
     - name: Release
       uses: softprops/action-gh-release@v3
-      if: startsWith(github.ref, 'refs/tags/') && steps.check-branch.outputs.on_main == 'true'
+      if: startsWith(github.ref, 'refs/tags/') && steps.check-branch.outputs.on_release_branch == 'true'
       with:
         files: |
           ${{ steps.kpz.outputs.filename }}
