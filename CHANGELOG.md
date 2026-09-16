@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.10.5] - 2026-09-16
 
 ### Fixed
 - [#223] Borrowing requests no longer create duplicate virtual bib/item records (one with the original barcode and one with a `-N` suffix) when a creation action is replayed. `item_shipped` and `borrower_receive_unshipped` now skip creation when the request already has a virtual record
