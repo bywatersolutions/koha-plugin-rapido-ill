@@ -173,6 +173,20 @@ sub item_shipped {
     RapidoILL::Exception->throw("[borrower_actions][item_shipped] No barcode in request. FIXME")
         unless $barcode;
 
+    # Idempotency guard: if the request already has a virtual biblio/item, this
+    # ITEM_SHIPPED action is a replay (e.g. the pod re-sent it with a newer
+    # lastUpdated). Creating a new record here would collide with the barcode of
+    # the record we already created and produce a duplicate '-N' biblio/item.
+    if ( $req->biblio_id ) {
+        $self->{plugin}->logger->info(
+            sprintf(
+                "[borrower_actions][item_shipped] ILL request %d (circId=%s) already has biblio_id=%s; skipping virtual record creation (replayed action)",
+                $req->id, $action->circId, $req->biblio_id
+            )
+        );
+        return;
+    }
+
     my $attributes = {
         author             => $action->author,
         borrowerCode       => $action->borrowerCode,

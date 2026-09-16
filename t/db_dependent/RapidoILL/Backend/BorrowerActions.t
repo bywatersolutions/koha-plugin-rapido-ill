@@ -72,7 +72,7 @@ subtest 'new() tests' => sub {
 
 subtest 'borrower_receive_unshipped() tests' => sub {
 
-    plan tests => 3;
+    plan tests => 4;
 
     subtest 'Successful calls with hold and attribute creation' => sub {
         plan tests => 8;
@@ -111,6 +111,7 @@ subtest 'borrower_receive_unshipped() tests' => sub {
                     branchcode     => $library->branchcode,
                     backend        => 'RapidoILL',
                     status         => 'B_ITEM_REQUESTED',
+                    biblio_id      => undef,                    # not received yet, no virtual record
                 }
             }
         );
@@ -193,6 +194,7 @@ subtest 'borrower_receive_unshipped() tests' => sub {
                     branchcode     => $library->branchcode,
                     backend        => 'RapidoILL',
                     status         => 'B_ITEM_REQUESTED',
+                    biblio_id      => undef,                    # not received yet, no virtual record
                 }
             }
         );
@@ -270,6 +272,73 @@ subtest 'borrower_receive_unshipped() tests' => sub {
 
         $illrequest->discard_changes();
         is( $illrequest->status, 'B_ITEM_REQUESTED', 'Status unchanged after error' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Idempotency: no duplicate record when biblio_id already set' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+        my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+        my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype,
+            }
+        );
+
+        my $patron = $builder->build_object(
+            {
+                class => 'Koha::Patrons',
+                value => { branchcode => $library->branchcode }
+            }
+        );
+
+        # Request already has a virtual record (biblio_id set): a subsequent
+        # receive must not create a second one.
+        my $existing_biblio = $builder->build_sample_biblio;
+        my $illrequest      = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    branchcode     => $library->branchcode,
+                    backend        => 'RapidoILL',
+                    status         => 'B_ITEM_RECEIVED',
+                    biblio_id      => $existing_biblio->biblionumber,
+                }
+            }
+        );
+
+        my $actions      = $plugin->get_borrower_actions($pod);
+        my $result;
+        lives_ok {
+            $result = $actions->borrower_receive_unshipped(
+                $illrequest,
+                {
+                    circId     => 'test_circ_idem',
+                    attributes => { callNumber => 'CALL' },
+                    barcode    => 'IDEM_BARCODE',
+                }
+            );
+        }
+        'borrower_receive_unshipped is a no-op when biblio_id already set';
+
+        $illrequest->discard_changes();
+        is(
+            $illrequest->biblio_id, $existing_biblio->biblionumber,
+            'biblio_id unchanged (no duplicate record created)'
+        );
+
+        my $collision =
+            $illrequest->extended_attributes->search( { type => 'barcode_collision' } )->count;
+        is( $collision, 0, 'No barcode_collision flag set' );
 
         $schema->storage->txn_rollback;
     };

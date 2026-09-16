@@ -667,6 +667,7 @@ subtest 'receive_unshipped() tests' => sub {
                     branchcode     => $library->branchcode,
                     backend        => 'RapidoILL',
                     status         => 'B_ITEM_REQUESTED',
+                    biblio_id      => undef,                    # not received yet, no virtual record
                 }
             }
         );
@@ -754,6 +755,7 @@ subtest 'receive_unshipped() tests' => sub {
                     branchcode     => $library->branchcode,
                     backend        => 'RapidoILL',
                     status         => 'B_ITEM_REQUESTED',
+                    biblio_id      => undef,                    # not received yet, no virtual record
                 }
             }
         );
@@ -837,6 +839,7 @@ subtest 'receive_unshipped() tests' => sub {
                     branchcode     => $library->branchcode,
                     backend        => 'RapidoILL',
                     status         => 'B_ITEM_REQUESTED',
+                    biblio_id      => undef,                    # not received yet, no virtual record
                 }
             }
         );
