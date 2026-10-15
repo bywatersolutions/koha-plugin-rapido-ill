@@ -1063,7 +1063,7 @@ subtest 'recall() tests' => sub {
 };
 
 subtest 'owner_cancel() tests' => sub {
-    plan tests => 3;
+    plan tests => 4;
 
     subtest 'basic functionality' => sub {
         plan tests => 3;
@@ -1277,6 +1277,69 @@ subtest 'owner_cancel() tests' => sub {
         # Verify the correct status change occurred
         $ill_request->discard_changes;
         is( $ill_request->status, 'B_CANCELLED_BY_OWNER', 'Dispatch resulted in correct status change' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'cancellation notice' => sub {
+        plan tests => 7;
+
+        $schema->storage->txn_begin;
+
+        my $patron      = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $plugin      = t::lib::Mocks::Rapido->new();
+        my $ill_request = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+        my $handler = RapidoILL::ActionHandler::Borrower->new( { plugin => $plugin, pod => $pod } );
+
+        my $make_action = sub {
+            return $builder->build_object(
+                {
+                    class => 'RapidoILL::CircActions',
+                    value => {
+                        illrequest_id => $ill_request->id,
+                        lastCircState => 'OWNING_SITE_CANCEL',
+                    }
+                }
+            );
+        };
+
+        my @sent;
+        my $die;
+        my $request_module = Test::MockModule->new('Koha::ILL::Request');
+        $request_module->mock(
+            'send_patron_notice',
+            sub {
+                my ( $self, $code ) = @_;
+                push @sent, [ $code, $self->status ];
+                die "Notice exploded\n" if $die;
+                return { result => { success => ['email'], fail => [] } };
+            }
+        );
+
+        $logger->clear();
+        $handler->handle_from_action( $make_action->() );
+        is( scalar @sent,  1,                      'One notice sent' );
+        is( $sent[0]->[0], 'ILL_REQUEST_UNAVAIL',  'ILL_REQUEST_UNAVAIL notice sent' );
+        is( $sent[0]->[1], 'B_CANCELLED_BY_OWNER', 'Notice sent after the status was updated' );
+        is( $logger->count('warn'), 0, 'No warnings when the notice is sent' );
+
+        # Notice failure must not undo the owner cancellation
+        $logger->clear();
+        $ill_request->status('B_ITEM_REQUESTED')->store;
+        $die = 1;
+        lives_ok { $handler->handle_from_action( $make_action->() ) }
+        'owner_cancel survives a notice failure';
+        $ill_request->discard_changes;
+        is( $ill_request->status, 'B_CANCELLED_BY_OWNER', 'Status still updated when the notice fails' );
+        $logger->warn_like( qr/^\[owner_cancel\] Cancellation notice failed .*Notice exploded/, 'Notice failure logged' );
 
         $schema->storage->txn_rollback;
     };

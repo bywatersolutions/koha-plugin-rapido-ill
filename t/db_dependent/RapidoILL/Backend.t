@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use Test::NoWarnings;
 use Test::MockModule;
 use Test::MockObject;
@@ -28,6 +28,7 @@ use JSON qw( encode_json );
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Logger;
 use t::lib::Mocks::Rapido;
 
 use Koha::Database;
@@ -1063,6 +1064,147 @@ subtest 'borrower_cancel() force cancel tests' => sub {
         is( $result->{stage},                'form', 'Returns form stage for other errors too' );
         is( $result->{value}->{allow_force}, 0,      'Does not return allow_force flag for other errors' );
         ok( $result->{value}->{error_message}, 'Returns error_message in value' );
+
+        $schema->storage->txn_rollback;
+    };
+};
+
+subtest 'borrower_cancel() cancellation notice tests' => sub {
+
+    plan tests => 3;
+
+    # Builds a plugin, a B_ITEM_REQUESTED request, and mocks send_patron_notice.
+    # $notice->{die} makes send_patron_notice throw; sent notice codes are
+    # collected in $notice->{sent}.
+    my $setup = sub {
+        my ($notice) = @_;
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $builder->build_object( { class => 'Koha::Libraries' } ),
+                category => $builder->build_object( { class => 'Koha::Patron::Categories' } ),
+                itemtype => $builder->build_object( { class => 'Koha::ItemTypes' } ),
+            }
+        );
+        my $patron     = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+
+        my $request_module = Test::MockModule->new('Koha::ILL::Request');
+        $request_module->mock(
+            'send_patron_notice',
+            sub {
+                my ( $self, $code ) = @_;
+                push @{ $notice->{sent} }, $code;
+                die "Notice exploded\n" if $notice->{die};
+                return { result => { success => ['email'], fail => [] } };
+            }
+        );
+
+        return ( $plugin, $illrequest, $request_module );
+    };
+
+    subtest 'Successful Rapido cancel' => sub {
+        plan tests => 8;
+
+        $schema->storage->txn_begin;
+
+        my $logger = t::lib::Mocks::Logger->new();
+        my $notice = { sent => [] };
+        my ( $plugin, $illrequest, $request_module ) = $setup->($notice);
+
+        my $mock_borrower_actions = Test::MockObject->new();
+        $mock_borrower_actions->mock( 'borrower_cancel', sub { return $_[0]; } );
+
+        my $plugin_module = Test::MockModule->new( ref($plugin) );
+        $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
+        $plugin_module->mock( 'get_req_pod',          sub { return 'test_pod'; } );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $result = $backend->borrower_cancel( { request => $illrequest } );
+        is( $result->{stage}, 'commit', 'Cancel committed' );
+        is_deeply( $notice->{sent}, ['ILL_REQUEST_UNAVAIL'], 'ILL_REQUEST_UNAVAIL notice sent once' );
+        is( $logger->count('warn'), 0, 'No warnings when the notice is sent' );
+
+        # Notice failure must not turn a successful Rapido cancel into an error
+        $logger->clear();
+        $notice = { sent => [], die => 1 };
+        ( $plugin, $illrequest, $request_module ) = $setup->($notice);
+        $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        lives_ok { $result = $backend->borrower_cancel( { request => $illrequest } ) }
+        'borrower_cancel survives a notice failure';
+        is( $result->{stage},  'commit',  'Cancel still committed when the notice fails' );
+        is( $result->{method}, 'illview', 'Still redirects to illview' );
+        is_deeply( $notice->{sent}, ['ILL_REQUEST_UNAVAIL'], 'Notice was attempted' );
+        $logger->warn_like( qr/^\[borrower_cancel\] Cancellation notice failed .*Notice exploded/, 'Notice failure logged' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Failed Rapido cancel sends no notice' => sub {
+        plan tests => 2;
+
+        $schema->storage->txn_begin;
+
+        my $notice = { sent => [] };
+        my ( $plugin, $illrequest, $request_module ) = $setup->($notice);
+
+        my $mock_borrower_actions = Test::MockObject->new();
+        $mock_borrower_actions->mock( 'borrower_cancel', sub { die "Rapido said no\n"; } );
+
+        my $plugin_module = Test::MockModule->new( ref($plugin) );
+        $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
+        $plugin_module->mock( 'get_req_pod',          sub { return 'test_pod'; } );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+        my $result  = $backend->borrower_cancel( { request => $illrequest } );
+
+        is( $result->{stage}, 'form', 'Cancel not committed' );
+        is_deeply( $notice->{sent}, [], 'No notice sent when the cancel fails' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Force cancel' => sub {
+        plan tests => 8;
+
+        $schema->storage->txn_begin;
+
+        my $logger = t::lib::Mocks::Logger->new();
+        my $notice = { sent => [] };
+        my ( $plugin, $illrequest, $request_module ) = $setup->($notice);
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        my $result = $backend->borrower_cancel( { request => $illrequest, other => { force_cancel => 1 } } );
+        is( $result->{stage}, 'commit', 'Force cancel committed' );
+        is_deeply( $notice->{sent}, ['ILL_REQUEST_UNAVAIL'], 'ILL_REQUEST_UNAVAIL notice sent once' );
+        $illrequest->discard_changes;
+        is( $illrequest->status, 'B_ITEM_CANCELLED_BY_US', 'Status updated to cancelled' );
+
+        # Notice failure must not lose the local cancel
+        $logger->clear();
+        $notice = { sent => [], die => 1 };
+        ( $plugin, $illrequest, $request_module ) = $setup->($notice);
+        $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        lives_ok {
+            $result = $backend->borrower_cancel( { request => $illrequest, other => { force_cancel => 1 } } )
+        }
+        'Force cancel survives a notice failure';
+        is( $result->{stage}, 'commit', 'Force cancel still committed when the notice fails' );
+        $illrequest->discard_changes;
+        is( $illrequest->status, 'B_ITEM_CANCELLED_BY_US', 'Status still updated when the notice fails' );
+        is_deeply( $notice->{sent}, ['ILL_REQUEST_UNAVAIL'], 'Notice was attempted' );
+        $logger->warn_like( qr/^\[borrower_cancel\] Cancellation notice failed .*Notice exploded/, 'Notice failure logged' );
 
         $schema->storage->txn_rollback;
     };

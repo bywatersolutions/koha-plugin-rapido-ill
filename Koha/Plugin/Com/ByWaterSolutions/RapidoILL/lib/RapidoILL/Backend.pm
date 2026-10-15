@@ -972,6 +972,7 @@ sub borrower_cancel {
         return try {
             $req->status('B_ITEM_CANCELLED_BY_US')->store;
             $self->{plugin}->logger->info( "[borrower_cancel] Force cancelled locally [ill_req=" . $req->id . "]" );
+            $self->{plugin}->send_cancel_notice( { request => $req, context => 'borrower_cancel' } );
             return {
                 status  => q{},
                 message => 'Request cancelled locally (Rapido not notified)',
@@ -992,6 +993,7 @@ sub borrower_cancel {
 
     return try {
         $self->{plugin}->get_borrower_actions( $self->{plugin}->get_req_pod($req) )->borrower_cancel($req);
+        $self->{plugin}->send_cancel_notice( { request => $req, context => 'borrower_cancel' } );
         return {
             status  => q{},
             message => q{},

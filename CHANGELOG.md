@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- [#221] Restore cancellation notices
+
 ### Added
 - [#202] Mock Rapido API scenarios for the unship flow: `borrowing_unship_reship` (lender unships, another copy available → `PATRON_HOLD`, then re-ships and completes) and `borrowing_unship_cancel` (unship with no copy → `OWNING_SITE_CANCEL`). The mock now assigns strictly increasing `lastUpdated` per scenario step so multi-step transitions for the same circId are processed as updates
 

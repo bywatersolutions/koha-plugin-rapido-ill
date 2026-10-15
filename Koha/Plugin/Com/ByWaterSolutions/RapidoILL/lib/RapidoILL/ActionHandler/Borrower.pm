@@ -456,7 +456,8 @@ sub recall {
     $handler->owner_cancel( $action );
 
 Handle incoming I<OWNING_SITE_CANCEL> action. The owning site has cancelled
-the request. Updates the ILL request status and cleans up any virtual records.
+the request. Updates the ILL request status, cleans up any virtual records
+and sends the I<ILL_REQUEST_UNAVAIL> notice to the patron.
 
 =cut
 
@@ -494,6 +495,9 @@ sub owner_cancel {
             );
         }
     );
+
+    # Only notify the patron once the cancellation has been committed
+    $self->{plugin}->send_cancel_notice( { request => $req, context => 'owner_cancel' } );
 
     return;
 }

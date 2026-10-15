@@ -3153,6 +3153,44 @@ sub add_or_update_attributes {
     return;
 }
 
+=head3 send_cancel_notice
+
+    $plugin->send_cancel_notice(
+        {
+            request => $request,
+            context => 'borrower_cancel',
+        }
+    );
+
+Sends the I<ILL_REQUEST_UNAVAIL> notice to the request's patron. Failures are
+logged but never propagated, so a notice problem cannot block a cancellation.
+The optional I<context> is used as the log message prefix.
+
+=cut
+
+sub send_cancel_notice {
+    my ( $self, $params ) = @_;
+
+    $self->validate_params( { required => [qw(request)], params => $params } );
+
+    my $request = $params->{request};
+    my $context = $params->{context} // 'send_cancel_notice';
+
+    try {
+        my $result = $request->send_patron_notice('ILL_REQUEST_UNAVAIL') // {};
+        my @failed = @{ $result->{result}->{fail} // [] };
+        if ( $result->{error} || @failed ) {
+            $self->logger->warn( "[$context] Cancellation notice not sent [ill_req="
+                    . $request->id . "] "
+                    . ( $result->{error} ? "[error=$result->{error}]" : "[failed=" . join( ',', @failed ) . "]" ) );
+        }
+    } catch {
+        $self->logger->warn( "[$context] Cancellation notice failed [ill_req=" . $request->id . "] $_" );
+    };
+
+    return;
+}
+
 =head3 pickup_location_to_library_id
 
     my $library_id = $plugin->pickup_location_to_library_id(

@@ -17,13 +17,15 @@
 
 use Modern::Perl;
 
-use Test::More tests => 11;
+use Test::More tests => 12;
 use Test::NoWarnings;
 use Test::Exception;
 use Test::Warn;
+use Test::MockModule;
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Logger;
 use t::lib::Mocks::Rapido;
 
 BEGIN {
@@ -736,6 +738,82 @@ EOF
     my @valid_type_errors =
         grep { $_->{code} eq 'undefined_central_item_type_mapping' && $_->{value} eq $itemtype->itemtype } @{$errors};
     is( scalar @valid_type_errors, 0, 'Valid mapping target is not reported as an error' );
+
+    $schema->storage->txn_rollback;
+};
+
+
+subtest 'send_cancel_notice() tests' => sub {
+
+    plan tests => 12;
+
+    $schema->storage->txn_begin;
+
+    my $logger = t::lib::Mocks::Logger->new();
+    my $plugin = t::lib::Mocks::Rapido->new();
+    my $req    = $builder->build_object( { class => 'Koha::ILL::Requests' } );
+
+    my $notice_code;
+    my $notice_result;
+    my $request_module = Test::MockModule->new('Koha::ILL::Request');
+    $request_module->mock(
+        'send_patron_notice',
+        sub {
+            my ( $self, $code ) = @_;
+            $notice_code = $code;
+            die $notice_result if !ref $notice_result && defined $notice_result;
+            return $notice_result;
+        }
+    );
+
+    throws_ok { $plugin->send_cancel_notice( {} ) }
+    'RapidoILL::Exception::MissingParameter',
+        'Exception thrown when request is missing';
+
+    # Notice sent
+    $logger->clear();
+    $notice_result = { result => { success => ['email'], fail => [] } };
+    lives_ok { $plugin->send_cancel_notice( { request => $req, context => 'test_ctx' } ) }
+    'Successful notice does not die';
+    is( $notice_code, 'ILL_REQUEST_UNAVAIL', 'ILL_REQUEST_UNAVAIL notice requested' );
+    is( $logger->count('warn'), 0, 'Nothing logged when the notice is sent' );
+
+    # Transport failure (e.g. patron has no email)
+    $logger->clear();
+    $notice_result = { result => { success => [], fail => [ 'email', 'sms' ] } };
+    lives_ok { $plugin->send_cancel_notice( { request => $req, context => 'test_ctx' } ) }
+    'Failed transports do not die';
+    $logger->warn_like(
+        qr/^\[test_ctx\] Cancellation notice not sent \[ill_req=${\ $req->id }\] \[failed=email,sms\]/,
+        'Failed transports are logged'
+    );
+
+    # Koha reports an error (e.g. no ILL_REQUEST_UNAVAIL letter defined)
+    $logger->clear();
+    $notice_result = { error => 'notice_no_type' };
+    lives_ok { $plugin->send_cancel_notice( { request => $req, context => 'test_ctx' } ) }
+    'Notice error does not die';
+    $logger->warn_like(
+        qr/^\[test_ctx\] Cancellation notice not sent \[ill_req=${\ $req->id }\] \[error=notice_no_type\]/,
+        'Notice error is logged'
+    );
+
+    # send_patron_notice dies
+    $logger->clear();
+    $notice_result = "Boom\n";
+    lives_ok { $plugin->send_cancel_notice( { request => $req, context => 'test_ctx' } ) }
+    'Exception from send_patron_notice is caught';
+    $logger->warn_like(
+        qr/^\[test_ctx\] Cancellation notice failed \[ill_req=${\ $req->id }\] Boom/,
+        'Exception is logged'
+    );
+
+    # Default context
+    $logger->clear();
+    $notice_result = { error => 'notice_no_type' };
+    $plugin->send_cancel_notice( { request => $req } );
+    is( $logger->count('warn'), 1, 'Exactly one warning logged' );
+    $logger->warn_like( qr/^\[send_cancel_notice\]/, 'Default context used when none passed' );
 
     $schema->storage->txn_rollback;
 };
