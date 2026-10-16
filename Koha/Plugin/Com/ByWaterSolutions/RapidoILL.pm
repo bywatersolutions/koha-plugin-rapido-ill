@@ -932,18 +932,32 @@ sub after_hold_action {
 
 Hook that adds data for using in notices.
 
+For I<HOLD*> notices, the hold is taken from the I<reserves> table passed to
+the notice, either as a hashref with a I<reserve_id> key or as a plain
+I<reserve_id>. Notices without a hold get no extra data.
+
+The caller's I<tables> are never modified: autovivifying I<reserves> there
+would make Koha look up a hold with an empty search, attaching an arbitrary
+hold to the notice.
+
 =cut
 
 sub notices_content {
     my ( $self, $params ) = @_;
     my $result = {};
 
-    if ( $params->{letter_code} =~ m/^HOLD/ ) {
+    if ( ( $params->{letter_code} // q{} ) =~ m/^HOLD/ ) {
+
+        my $tables     = $params->{tables} // {};
+        my $reserves   = $tables->{reserves};
+        my $reserve_id = ref $reserves eq 'HASH' ? $reserves->{reserve_id} : $reserves;
+
+        return $result unless $reserve_id && !ref $reserve_id;
 
         my $ill_request = $self->get_ill_request_from_attribute(
             {
                 type  => 'hold_id',
-                value => $params->{tables}->{reserves}->{reserve_id},
+                value => $reserve_id,
             }
         );
 

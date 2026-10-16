@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 12;
+use Test::More tests => 13;
 use Test::NoWarnings;
 use Test::Exception;
 use Test::Warn;
@@ -814,6 +814,67 @@ subtest 'send_cancel_notice() tests' => sub {
     $plugin->send_cancel_notice( { request => $req } );
     is( $logger->count('warn'), 1, 'Exactly one warning logged' );
     $logger->warn_like( qr/^\[send_cancel_notice\]/, 'Default context used when none passed' );
+
+    $schema->storage->txn_rollback;
+};
+
+
+subtest 'notices_content() tests' => sub {
+
+    plan tests => 9;
+
+    $schema->storage->txn_begin;
+
+    my $plugin = t::lib::Mocks::Rapido->new();
+    my $hold   = $builder->build_object( { class => 'Koha::Holds' } );
+    my $req    = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => { backend => $plugin->ill_backend },
+        }
+    );
+    $plugin->add_or_update_attributes(
+        {
+            request    => $req,
+            attributes => { hold_id => $hold->id, circId => 'NOTICE_CIRC' },
+        }
+    );
+
+    # HOLD notice without a hold (e.g. the plugin's print slip)
+    my $tables = { illrequests => $req->id };
+    is_deeply(
+        $plugin->notices_content( { letter_code => 'HOLD_SLIP', tables => $tables } ), {},
+        'No content when the notice has no hold'
+    );
+    ok( !exists $tables->{reserves}, 'reserves is not autovivified in the caller tables' );
+
+    # reserves passed as a hashref
+    my $content =
+        $plugin->notices_content( { letter_code => 'HOLD', tables => { reserves => { reserve_id => $hold->id } } } );
+    is( $content->{ill_request}->id, $req->id, 'ILL request found from reserves hashref' );
+    is( $content->{circId}, 'NOTICE_CIRC', 'Request attributes included' );
+
+    # reserves passed as a plain reserve_id
+    $content = $plugin->notices_content( { letter_code => 'HOLD', tables => { reserves => $hold->id } } );
+    is( $content->{ill_request}->id, $req->id, 'ILL request found from plain reserve_id' );
+
+    # Hold not linked to any Rapido request
+    my $other_hold = $builder->build_object( { class => 'Koha::Holds' } );
+    is_deeply(
+        $plugin->notices_content( { letter_code => 'HOLD', tables => { reserves => $other_hold->id } } ), {},
+        'No content for a hold not linked to a request'
+    );
+
+    # Non-HOLD notices are ignored
+    $tables = { reserves => { reserve_id => $hold->id } };
+    is_deeply(
+        $plugin->notices_content( { letter_code => 'CHECKOUT', tables => $tables } ), {},
+        'No content for non-HOLD notices'
+    );
+
+    # Missing letter_code / tables don't warn or die
+    is_deeply( $plugin->notices_content( {} ), {}, 'No content without letter_code' );
+    is_deeply( $plugin->notices_content( { letter_code => 'HOLD' } ), {}, 'No content without tables' );
 
     $schema->storage->txn_rollback;
 };
