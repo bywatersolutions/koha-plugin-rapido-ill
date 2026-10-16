@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-16
+
+### Fixed
+- [#221] Restore cancellation notices
+- [#224] `notices_content` no longer attaches an arbitrary hold to `HOLD*` notices sent without one (e.g. the plugin's print slip), and now also finds the ILL request when the hold is passed as a plain `reserve_id`
+
 ### Added
+- [#225] Mock Rapido API `POST /control/reset?unique_circ_ids=1` gives every circId a per-run suffix (e.g. `CIRC001-1760550000`) until the next reset, so a scenario can be re-run against the same Koha without clearing the previous run's requests
 - [#202] Mock Rapido API scenarios for the unship flow: `borrowing_unship_reship` (lender unships, another copy available → `PATRON_HOLD`, then re-ships and completes) and `borrowing_unship_cancel` (unship with no copy → `OWNING_SITE_CANCEL`). The mock now assigns strictly increasing `lastUpdated` per scenario step so multi-step transitions for the same circId are processed as updates
 
 ## [2.2.0] - 2026-09-16

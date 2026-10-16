@@ -79,7 +79,8 @@ The actual data returned for each step:
 
 - `GET /status` - API status and current scenario
 - `POST /control/scenario/:name` - Switch to different scenario
-- `POST /control/reset` - Reset API state
+- `POST /control/reset` - Reset API state (also clears the current scenario)
+- `POST /control/reset?unique_circ_ids=1` - Reset API state and give every circId a per-run suffix (see below)
 
 ## Predefined Scenarios
 
@@ -138,6 +139,22 @@ curl http://localhost:3000/circulation_requests
 curl -X POST http://localhost:3000/control/reset
 ```
 
+### Re-running a scenario against the same Koha
+
+The plugin identifies requests by `circId`, and the scenarios reuse the same
+ones (e.g. `CIRC001`). After a scenario has been synced into Koha, running it
+again updates the existing request instead of creating a new one. To get a
+fresh request on each run, reset with `unique_circ_ids`:
+
+```bash
+curl -X POST 'http://localhost:3000/control/reset?unique_circ_ids=1'
+curl -X POST http://localhost:3000/control/scenario/borrowing
+```
+
+Until the next reset, every circId returned by the circrequests endpoint gets
+a suffix (e.g. `CIRC001-1760550000`). The suffix is shown in the reset response
+and in `GET /status`. A reset without the parameter goes back to plain circIds.
+
 ## Custom Scenarios
 
 Create custom scenarios by editing `mock_config.json`:
@@ -170,7 +187,7 @@ Create custom scenarios by editing `mock_config.json`:
 
 1. **Monitor Logs**: The service logs all API calls and state changes
 2. **Use Status Endpoint**: Check current scenario and call counts
-3. **Reset Between Tests**: Use `/control/reset` to start fresh
+3. **Reset Between Tests**: Use `/control/reset` to start fresh (`?unique_circ_ids=1` to avoid reusing circIds already in Koha)
 4. **Test Edge Cases**: Create scenarios with empty responses, errors, etc.
 5. **Timing Tests**: Add delays or specific timestamps to test sync logic
 

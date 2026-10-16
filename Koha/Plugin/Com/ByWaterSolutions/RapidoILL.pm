@@ -77,7 +77,7 @@ BEGIN {
     Koha::Database->schema( { new => 1 } );
 }
 
-our $VERSION = "2.2.0";
+our $VERSION = "2.3.0";
 
 our $metadata = {
     name            => 'RapidoILL',
@@ -932,18 +932,32 @@ sub after_hold_action {
 
 Hook that adds data for using in notices.
 
+For I<HOLD*> notices, the hold is taken from the I<reserves> table passed to
+the notice, either as a hashref with a I<reserve_id> key or as a plain
+I<reserve_id>. Notices without a hold get no extra data.
+
+The caller's I<tables> are never modified: autovivifying I<reserves> there
+would make Koha look up a hold with an empty search, attaching an arbitrary
+hold to the notice.
+
 =cut
 
 sub notices_content {
     my ( $self, $params ) = @_;
     my $result = {};
 
-    if ( $params->{letter_code} =~ m/^HOLD/ ) {
+    if ( ( $params->{letter_code} // q{} ) =~ m/^HOLD/ ) {
+
+        my $tables     = $params->{tables} // {};
+        my $reserves   = $tables->{reserves};
+        my $reserve_id = ref $reserves eq 'HASH' ? $reserves->{reserve_id} : $reserves;
+
+        return $result unless $reserve_id && !ref $reserve_id;
 
         my $ill_request = $self->get_ill_request_from_attribute(
             {
                 type  => 'hold_id',
-                value => $params->{tables}->{reserves}->{reserve_id},
+                value => $reserve_id,
             }
         );
 
@@ -3149,6 +3163,44 @@ sub add_or_update_attributes {
             }
         }
     );
+
+    return;
+}
+
+=head3 send_cancel_notice
+
+    $plugin->send_cancel_notice(
+        {
+            request => $request,
+            context => 'borrower_cancel',
+        }
+    );
+
+Sends the I<ILL_REQUEST_UNAVAIL> notice to the request's patron. Failures are
+logged but never propagated, so a notice problem cannot block a cancellation.
+The optional I<context> is used as the log message prefix.
+
+=cut
+
+sub send_cancel_notice {
+    my ( $self, $params ) = @_;
+
+    $self->validate_params( { required => [qw(request)], params => $params } );
+
+    my $request = $params->{request};
+    my $context = $params->{context} // 'send_cancel_notice';
+
+    try {
+        my $result = $request->send_patron_notice('ILL_REQUEST_UNAVAIL') // {};
+        my @failed = @{ $result->{result}->{fail} // [] };
+        if ( $result->{error} || @failed ) {
+            $self->logger->warn( "[$context] Cancellation notice not sent [ill_req="
+                    . $request->id . "] "
+                    . ( $result->{error} ? "[error=$result->{error}]" : "[failed=" . join( ',', @failed ) . "]" ) );
+        }
+    } catch {
+        $self->logger->warn( "[$context] Cancellation notice failed [ill_req=" . $request->id . "] $_" );
+    };
 
     return;
 }
