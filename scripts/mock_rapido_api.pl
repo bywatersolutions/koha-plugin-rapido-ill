@@ -41,6 +41,21 @@ Status: GET /status
 Scenarios: GET /scenarios (list available test scenarios)
 Control: POST /control/scenario/{name}, POST /control/reset
 
+=head2 Unique circIds per run
+
+The plugin identifies requests by I<circId>, and every scenario reuses the
+same ones (e.g. CIRC001). Once a scenario has been synced into Koha, running
+it again updates the old request instead of creating a new one.
+
+    POST /control/reset?unique_circ_ids=1
+
+resets the API state and appends a per-run suffix to every circId returned
+by the circrequests endpoint (e.g. CIRC001-1760550000) until the next reset.
+Like a plain reset, it clears the current scenario, so select one afterwards:
+
+    curl -X POST 'http://localhost:3000/control/reset?unique_circ_ids=1'
+    curl -X POST http://localhost:3000/control/scenario/borrowing
+
 =cut
 
 # Command line options
@@ -72,6 +87,10 @@ my $api_state = {
     call_count => {},
     scenarios  => {},
 };
+
+# Last circId run suffix handed out. Kept outside $api_state so it survives
+# resets and suffixes stay unique even when resetting twice within a second.
+my $last_circ_id_run = 0;
 
 # List available scenarios
 sub list_scenarios {
@@ -248,7 +267,7 @@ get '/view/broker/circ/circrequests' => sub ($c) {
         my $rapido_item = {};
 
         # Always include these fields (both concise and verbose)
-        $rapido_item->{circId}             = $item->{circId};
+        $rapido_item->{circId}             = $item->{circId} . ( $api_state->{circ_id_suffix} // '' );
         $rapido_item->{borrowerCode}       = $item->{borrowerCode} || $item->{patronAgencyCode};
         $rapido_item->{lenderCode}         = $item->{lenderCode};
         $rapido_item->{puaLocalServerCode} = $item->{puaLocalServerCode} || $item->{patronAgencyCode};
@@ -489,6 +508,7 @@ get '/status' => sub ($c) {
             uptime              => time() - $^T,
             current_scenario    => $api_state->{current_scenario} || 'none',
             scenario_step       => $api_state->{scenario_step}    || 0,
+            circ_id_suffix      => $api_state->{circ_id_suffix} // '',
             call_counts         => $api_state->{call_count},
             available_scenarios => [ keys %{ $config->{scenarios} } ],
             endpoints           => [
@@ -602,10 +622,22 @@ post '/control/reset' => sub ($c) {
         scenarios  => {},
     };
 
+    if ( $c->param('unique_circ_ids') ) {
+
+        # Epoch-based so circIds don't repeat across mock restarts either
+        my $run = time();
+        $run = $last_circ_id_run + 1 if $run <= $last_circ_id_run;
+        $last_circ_id_run = $run;
+
+        $api_state->{circ_id_suffix} = "-$run";
+        app->log->info("circIds will be suffixed with '-$run' until the next reset");
+    }
+
     $c->render(
         json => {
-            success => 1,
-            message => "API state reset"
+            success        => 1,
+            message        => "API state reset",
+            circ_id_suffix => $api_state->{circ_id_suffix} // '',
         }
     );
 };
