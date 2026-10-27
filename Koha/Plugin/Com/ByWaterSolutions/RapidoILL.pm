@@ -35,6 +35,7 @@ use C4::Biblio      qw(AddBiblio DelBiblio);
 use C4::Circulation qw(AddIssue AddReturn);
 use C4::Reserves    qw(AddReserve CanItemBeReserved CalculatePriority);
 
+use Koha::BiblioFrameworks;
 use Koha::Biblios;
 use Koha::Database;
 use Koha::ILL::Requests;
@@ -151,7 +152,10 @@ sub configure {
     my ( $self, $args ) = @_;
     my $cgi = $self->{'cgi'};
 
-    my $template = $self->get_template( { file => 'templates/configure.tt' } );
+    # 'yaml' renders the raw YAML editor, anything else the form editor
+    my $view = ( $cgi->param('view') // '' ) eq 'yaml' ? 'yaml' : 'gui';
+    my $template =
+        $self->get_template( { file => $view eq 'yaml' ? 'templates/configure.tt' : 'templates/admin_gui.tt' } );
 
     if ( scalar $cgi->param('op') && scalar $cgi->param('op') eq 'cud-save' ) {
 
@@ -167,6 +171,7 @@ sub configure {
     $template->param(
         errors        => $errors,
         configuration => $self->retrieve_data('configuration'),
+        frameworks    => [ Koha::BiblioFrameworks->search( {}, { order_by => ['frameworktext'] } )->as_list ],
     );
 
     $self->output_html( $template->output() );

@@ -1,0 +1,666 @@
+[% USE raw %]
+[% USE Asset %]
+[% USE Branches %]
+[% USE Categories %]
+[% USE ItemTypes %]
+[% USE AuthorisedValues %]
+[% USE Koha %]
+
+[% PROCESS 'intra_html_helpers.inc' %]
+
+[%# The wrapper only takes a plain-text last crumb, so the section goes in the title %]
+[% WRAPPER 'wrapper-staff-tool-plugin.inc' method='config' plugin_title='Rapido ILL › Configuration' %]
+
+<style nonce="[% Koha.CSPNonce | $raw %]">
+    .rapido-pod .card-header { display: flex; align-items: center; gap: .5em; }
+    .rapido-pod .card-header .pod-name { max-width: 20em; }
+    .rapido-pod .card-header .remove-pod { margin-left: auto; }
+    .rapido-pod .nav-tabs { margin-top: .5em; }
+    .rapido-pod .mapping-table { width: auto; }
+    .rapido-pod .mapping-table td { vertical-align: middle; }
+    #pods .rapido-pod { margin-bottom: 1.5em; }
+    #parse_error, #form_errors, #no_pods { display: none; }
+</style>
+
+<h1>Rapido ILL configuration</h1>
+
+<div id="toolbar" class="btn-toolbar">
+    <a class="btn btn-default" href="/cgi-bin/koha/plugins/run.pl?class=[% CLASS | uri %]&method=admin"><i class="fa fa-arrow-left"></i> Rapido ILL</a>
+    <button type="button" class="btn btn-default" id="add_pod"><i class="fa fa-plus"></i> New pod</button>
+    <a class="btn btn-default" href="/cgi-bin/koha/plugins/run.pl?class=[% CLASS | uri %]&method=configure&view=yaml"><i class="fa fa-code"></i> Edit as YAML</a>
+</div>
+
+[% PROCESS rapido_config_errors %]
+
+<div id="parse_error" class="dialog error">
+    The stored configuration is not valid YAML, so it cannot be edited with the form.
+    Please fix it using the <a href="/cgi-bin/koha/plugins/run.pl?class=[% CLASS | uri %]&method=configure&view=yaml">YAML editor</a>.
+    <pre class="parse-error-detail"></pre>
+</div>
+
+<div id="form_errors" class="dialog alert"><ul></ul></div>
+
+<form id="rapido_form" method="post">
+    <input type="hidden" name="class"  value="[% CLASS | html %]"/>
+    <input type="hidden" name="method" value="configure"/>
+    <input type="hidden" name="step"   value="configure"/>
+    <input type="hidden" name="view"   value="gui"/>
+    <input type="hidden" name="save"   value="1"/>
+    <input type="hidden" name="op"     value="cud-save"/>
+    [% INCLUDE 'csrf-token.inc' %]
+    <textarea name="configuration" id="configuration" hidden>[%- configuration | html -%]</textarea>
+
+    <div id="no_pods" class="page-section">
+        <p>No pods are configured yet. Use <strong>New pod</strong> to add one.</p>
+    </div>
+
+    <div id="pods"></div>
+
+    <fieldset class="action">
+        <button type="submit" class="btn btn-primary" id="save_config">Save</button>
+    </fieldset>
+</form>
+
+[%# Option lists, cloned into the pod forms by JS %]
+<template id="library_options">
+    <option value="">Choose a library</option>
+    [% FOREACH library IN Branches.all( unfiltered => 1, do_not_select_my_library => 1 ) %]
+        <option value="[% library.branchcode | html %]">[% library.branchname | html %] ([% library.branchcode | html %])</option>
+    [% END %]
+</template>
+<template id="category_options">
+    <option value="">Choose a patron category</option>
+    [% FOREACH category IN Categories.all() %]
+        <option value="[% category.categorycode | html %]">[% category.description | html %] ([% category.categorycode | html %])</option>
+    [% END %]
+</template>
+<template id="itemtype_options">
+    <option value="">Choose an item type</option>
+    [% FOREACH itemtype IN ItemTypes.Get() %]
+        <option value="[% itemtype.itemtype | html %]">[% itemtype.translated_description | html %] ([% itemtype.itemtype | html %])</option>
+    [% END %]
+</template>
+<template id="framework_options">
+    [%# The plugin falls back to FA when unset, and the Default framework ('') can't be chosen %]
+    <option value="">Chose a framework</option>
+    [% FOREACH framework IN frameworks %]
+        <option value="[% framework.frameworkcode | html %]">[% framework.frameworktext | html %] ([% framework.frameworkcode | html %])</option>
+    [% END %]
+</template>
+[%# Authorised values come from the item field mappings in the default framework %]
+<template id="ccode_options">
+    <option value="">-- None --</option>
+    [% FOREACH av IN AuthorisedValues.GetDescriptionsByKohaField( { kohafield => 'items.ccode' } ) %]
+        <option value="[% av.authorised_value | html %]">[% av.lib | html %] ([% av.authorised_value | html %])</option>
+    [% END %]
+</template>
+<template id="location_options">
+    <option value="">-- None --</option>
+    [% FOREACH av IN AuthorisedValues.GetDescriptionsByKohaField( { kohafield => 'items.location' } ) %]
+        <option value="[% av.authorised_value | html %]">[% av.lib | html %] ([% av.authorised_value | html %])</option>
+    [% END %]
+</template>
+<template id="notforloan_options">
+    <option value="">-- Plugin default (-1) --</option>
+    <option value="0">Available for loan (0)</option>
+    [% FOREACH av IN AuthorisedValues.GetDescriptionsByKohaField( { kohafield => 'items.notforloan' } ) %]
+        [% NEXT IF av.authorised_value == '0' %]
+        <option value="[% av.authorised_value | html %]">[% av.lib | html %] ([% av.authorised_value | html %])</option>
+    [% END %]
+</template>
+
+[%#
+    Pod form. __P__ is replaced with a unique prefix per pod.
+    Fields carry data-key (dotted path into the pod hash), data-type and,
+    for booleans, data-default (the value the plugin assumes when unset).
+%]
+<template id="pod_template">
+    <div class="card rapido-pod">
+        <div class="card-header">
+            <label class="mb-0" for="__P___name"><strong>Pod:</strong></label>
+            <input type="text" class="form-control pod-name" id="__P___name" placeholder="e.g. dev03-na" required/>
+            <button type="button" class="btn btn-default btn-sm remove-pod"><i class="fa fa-trash"></i> Remove pod</button>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#__P___connection" type="button" role="tab">Central connection</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#__P___partner" type="button" role="tab">Partner information</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#__P___notes" type="button" role="tab">Notes</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#__P___workflow" type="button" role="tab">Workflows</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#__P___holds" type="button" role="tab">Holds and queue</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#__P___debug" type="button" role="tab">Debugging</button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+
+                <div class="tab-pane fade show active" id="__P___connection" role="tabpanel">
+                    <fieldset class="rows">
+                        <ol>
+                            <li>
+                                <label class="required">Base URL:</label>
+                                <input type="url" size="50" data-key="base_url" data-type="string" placeholder="https://dev03-na.alma.exlibrisgroup.com"/>
+                                <i data-bs-toggle="tooltip" title="Provided by Clarivate" data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                            <li>
+                                <label class="required">Client ID:</label>
+                                <input type="text" size="40" data-key="client_id" data-type="string" autocomplete="off"/>
+                                <i data-bs-toggle="tooltip" title="Provided by Clarivate" data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                            <li>
+                                <label class="required">Client secret:</label>
+                                <input type="password" size="40" data-key="client_secret" data-type="string" autocomplete="new-password"/>
+                                <button type="button" class="btn btn-link btn-sm toggle-secret"><i class="fa fa-eye"></i> Show</button>
+                                <i data-bs-toggle="tooltip" title="Provided by Clarivate" data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                            <li>
+                                <label class="required">Server code:</label>
+                                <input type="text" size="10" data-key="server_code" data-type="auto"/>
+                                <i data-bs-toggle="tooltip" title="Provided by Clarivate" data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                        </ol>
+                    </fieldset>
+                </div>
+
+                <div class="tab-pane fade" id="__P___partner" role="tabpanel">
+                    <fieldset class="rows">
+                        <legend>Partners</legend>
+                        <ol>
+                            <li>
+                                <label class="required">Partners library:</label>
+                                <select data-key="partners_library_id" data-type="string" data-options="library_options"></select>
+                                <i data-bs-toggle="tooltip" title="Library used for ILL partner patrons and, by default, as pickup location." data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                            <li>
+                                <label class="required">Partners category:</label>
+                                <select data-key="partners_category" data-type="string" data-options="category_options"></select>
+                                <i data-bs-toggle="tooltip" title="Patron category used for agency patrons." data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                            <li>
+                                <label>Default patron agency:</label>
+                                <input type="text" size="20" data-key="default_patron_agency" data-type="string"/>
+                                <i data-bs-toggle="tooltip" title="Rapido agency code (not a Koha library code)." data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                        </ol>
+                    </fieldset>
+                    <fieldset class="rows">
+                        <legend>Virtual items (borrowing)</legend>
+                        <ol>
+                            <li>
+                                <label class="required">Default item type:</label>
+                                <select data-key="default_item_type" data-type="string" data-options="itemtype_options"></select>
+                            </li>
+                            <li>
+                                <label>MARC framework:</label>
+                                <select data-key="default_marc_framework" data-type="string" data-options="framework_options"></select>
+                            </li>
+                            <li>
+                                <label>Collection code:</label>
+                                <select data-key="default_item_ccode" data-type="string" data-options="ccode_options"></select>
+                            </li>
+                            <li>
+                                <label>Location:</label>
+                                <select data-key="default_location" data-type="string" data-options="location_options"></select>
+                            </li>
+                            <li>
+                                <label>Not for loan:</label>
+                                <select data-key="default_notforloan" data-type="auto" data-options="notforloan_options"></select>
+                            </li>
+                            <li>
+                                <label>Barcode normalizers:</label>
+                                <input type="text" size="40" data-key="default_barcode_normalizers" data-type="list"/>
+                                <i data-bs-toggle="tooltip" title="Comma-separated list, applied in order." data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                        </ol>
+                    </fieldset>
+                    <fieldset class="rows">
+                        <legend>Central item type mapping</legend>
+                        <p class="hint">Maps Rapido <code>centralItemType</code> values to Koha item types. Unmapped values use the default item type.</p>
+                        <table class="mapping-table" data-mapping="central_item_type_mapping">
+                            <thead><tr><th>Central item type</th><th>Koha item type</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <button type="button" class="btn btn-default btn-sm add-mapping-row"><i class="fa fa-plus"></i> Add mapping</button>
+                    </fieldset>
+                    <fieldset class="rows">
+                        <legend>Library to location</legend>
+                        <p class="hint">Maps Koha libraries to Rapido location codes.</p>
+                        <table class="mapping-table" data-mapping="library_to_location">
+                            <thead><tr><th>Library</th><th>Location code</th><th>Description</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <button type="button" class="btn btn-default btn-sm add-mapping-row"><i class="fa fa-plus"></i> Add library</button>
+                    </fieldset>
+                </div>
+
+                <div class="tab-pane fade" id="__P___notes" role="tabpanel">
+                    <fieldset class="rows">
+                        <ol>
+                            <li>
+                                <label>Check-in note:</label>
+                                <input type="text" size="60" data-key="default_checkin_note" data-type="string"/>
+                            </li>
+                            <li>
+                                <label>Hold note:</label>
+                                <input type="text" size="60" data-key="default_hold_note" data-type="string"/>
+                            </li>
+                            <li>
+                                <label>Set materials specified:</label>
+                                <input type="checkbox" data-key="materials_specified" data-type="bool" data-default="false"/>
+                            </li>
+                            <li>
+                                <label>Materials specified text:</label>
+                                <input type="text" size="60" data-key="default_materials_specified" data-type="string" placeholder="Additional processing required (ILL)"/>
+                            </li>
+                            <li>
+                                <label>Renewal requested note:</label>
+                                <input type="text" size="60" data-key="renewal_request_note" data-type="string"/>
+                            </li>
+                            <li>
+                                <label>Renewal accepted note:</label>
+                                <input type="text" size="60" data-key="renewal_accepted_note" data-type="string"/>
+                            </li>
+                        </ol>
+                    </fieldset>
+                </div>
+
+                <div class="tab-pane fade" id="__P___workflow" role="tabpanel">
+                    <fieldset class="rows">
+                        <legend>Borrowing</legend>
+                        <ol>
+                            <li>
+                                <label>Automatic item in transit:</label>
+                                <input type="checkbox" data-key="borrowing.automatic_item_in_transit" data-type="bool" data-default="false"/>
+                            </li>
+                            <li>
+                                <label>Automatic item receive:</label>
+                                <input type="checkbox" data-key="borrowing.automatic_item_receive" data-type="bool" data-default="false"/>
+                            </li>
+                        </ol>
+                    </fieldset>
+                    <fieldset class="rows">
+                        <legend>Lending</legend>
+                        <ol>
+                            <li>
+                                <label>Automatic final check-in:</label>
+                                <input type="checkbox" data-key="lending.automatic_final_checkin" data-type="bool" data-default="false"/>
+                            </li>
+                            <li>
+                                <label>Automatic item shipped:</label>
+                                <input type="checkbox" data-key="lending.automatic_item_shipped" data-type="bool" data-default="false"/>
+                            </li>
+                            <li>
+                                <label>Pickup location strategy:</label>
+                                <select data-key="lending.pickup_location_strategy" data-type="string">
+                                    <option value="">Partners library (default)</option>
+                                    <option value="partners_library">Partners library</option>
+                                    <option value="homebranch">Item's home library</option>
+                                    <option value="holdingbranch">Item's holding library</option>
+                                </select>
+                            </li>
+                        </ol>
+                    </fieldset>
+                </div>
+
+                <div class="tab-pane fade" id="__P___holds" role="tabpanel">
+                    <fieldset class="rows">
+                        <legend>Patron validation</legend>
+                        <ol>
+                            <li>
+                                <label>Debt blocks holds:</label>
+                                <input type="checkbox" data-key="debt_blocks_holds" data-type="bool" data-default="true"/>
+                            </li>
+                            <li>
+                                <label>Maximum debt:</label>
+                                <input type="number" min="0" step="any" data-key="max_debt_blocks_holds" data-type="number" placeholder="100"/>
+                            </li>
+                            <li>
+                                <label>Expiration blocks holds:</label>
+                                <input type="checkbox" data-key="expiration_blocks_holds" data-type="bool" data-default="true"/>
+                            </li>
+                            <li>
+                                <label>Restriction blocks holds:</label>
+                                <input type="checkbox" data-key="restriction_blocks_holds" data-type="bool" data-default="true"/>
+                            </li>
+                        </ol>
+                    </fieldset>
+                    <fieldset class="rows">
+                        <legend>Task queue</legend>
+                        <ol>
+                            <li>
+                                <label>Delay after 5xx errors:</label>
+                                <input type="number" min="0" step="1" data-key="task_queue_5xx_delay_minutes" data-type="number" placeholder="20"/> minutes
+                                <i data-bs-toggle="tooltip" title="When Rapido returns a 5xx error, runnable tasks are delayed by this many minutes." data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                        </ol>
+                    </fieldset>
+                </div>
+
+                <div class="tab-pane fade" id="__P___debug" role="tabpanel">
+                    <fieldset class="rows">
+                        <ol>
+                            <li>
+                                <label>Development mode:</label>
+                                <input type="checkbox" data-key="dev_mode" data-type="bool" data-default="false"/>
+                                <i data-bs-toggle="tooltip" title="Only for testing against the mock API. Never enable in production." data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                            <li>
+                                <label>Debug circulation hook:</label>
+                                <input type="checkbox" data-key="debug_after_circ_action" data-type="bool" data-default="false"/>
+                                <i data-bs-toggle="tooltip" title="Detailed debug logging for the after_circ_action hook." data-bs-placement="right" class="fa fa-info-circle"></i>
+                            </li>
+                        </ol>
+                    </fieldset>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="central_item_type_mapping_row">
+    <tr>
+        <td><input type="number" min="0" step="1" class="map-key" size="6"/></td>
+        <td><select class="map-value" data-options="itemtype_options"></select></td>
+        <td><button type="button" class="btn btn-link btn-sm remove-mapping-row"><i class="fa fa-trash"></i> Remove</button></td>
+    </tr>
+</template>
+<template id="library_to_location_row">
+    <tr>
+        <td><select class="map-key" data-options="library_options"></select></td>
+        <td><input type="text" class="map-location" size="12"/></td>
+        <td><input type="text" class="map-description" size="30"/></td>
+        <td><button type="button" class="btn btn-link btn-sm remove-mapping-row"><i class="fa fa-trash"></i> Remove</button></td>
+    </tr>
+</template>
+
+[% Asset.js( "lib/linters/js-yaml.min.js" ) | $raw %]
+
+<script nonce="[% Koha.CSPNonce | $raw %]">
+    // The wrapper loads jQuery in the footer, so wait until the page has finished parsing
+    document.addEventListener('DOMContentLoaded', function () {
+        var pod_counter = 0;
+        // The pod hashes as loaded, so keys the form doesn't know about survive a save
+        var original_pods = {};
+
+        function get_path(obj, path) {
+            return path.split('.').reduce(function (o, k) {
+                return ( o && typeof o === 'object' ) ? o[k] : undefined;
+            }, obj);
+        }
+
+        function has_path(obj, path) {
+            var keys = path.split('.');
+            var last = keys.pop();
+            var parent = keys.length ? get_path(obj, keys.join('.')) : obj;
+            return !!parent && typeof parent === 'object' && Object.prototype.hasOwnProperty.call(parent, last);
+        }
+
+        function set_path(obj, path, value) {
+            var keys = path.split('.');
+            var last = keys.pop();
+            keys.forEach(function (k) {
+                if ( !obj[k] || typeof obj[k] !== 'object' ) obj[k] = {};
+                obj = obj[k];
+            });
+            obj[last] = value;
+        }
+
+        function delete_path(obj, path) {
+            var keys = path.split('.');
+            var last = keys.pop();
+            var parent = keys.length ? get_path(obj, keys.join('.')) : obj;
+            if ( parent && typeof parent === 'object' ) delete parent[last];
+        }
+
+        // Mirrors Perl truthiness, which is how the plugin reads these flags
+        function perl_truthy(v) {
+            return !( v === undefined || v === null || v === false || v === '' || v === 0 || v === '0' );
+        }
+
+        function fill_options(select) {
+            var source = $(select).data('options');
+            if ( source ) $(select).html( $('#' + source).html() );
+        }
+
+        // Keep values that point to codes not defined in Koha instead of silently dropping them
+        function set_select_value(select, value) {
+            value = ( value === undefined || value === null ) ? '' : String(value);
+            if ( value !== '' && $(select).find('option').filter(function () { return this.value === value; }).length === 0 ) {
+                $(select).append( $('<option>').val(value).text(value + ' (not defined in Koha)') );
+            }
+            $(select).val(value);
+        }
+
+        function add_mapping_row(table, key, value) {
+            var mapping = $(table).data('mapping');
+            var $row = $( $.trim( $('#' + mapping + '_row').html() ) );
+            $row.find('select[data-options]').each(function () { fill_options(this); });
+
+            if ( mapping === 'central_item_type_mapping' ) {
+                $row.find('.map-key').val(key === undefined ? '' : key);
+                set_select_value( $row.find('.map-value'), value );
+            } else {
+                set_select_value( $row.find('.map-key'), key );
+                $row.find('.map-location').val( value && value.location != null ? value.location : '' );
+                $row.find('.map-description').val( value && value.description != null ? value.description : '' );
+            }
+
+            $(table).find('tbody').append($row);
+        }
+
+        function add_pod(name, data) {
+            var prefix = 'pod' + (++pod_counter);
+            var html   = $('#pod_template').html().replace(/__P__/g, prefix);
+            var $pod   = $( $.trim(html) );
+
+            data = ( data && typeof data === 'object' ) ? data : {};
+            $pod.data('original', JSON.parse(JSON.stringify(data)));
+            $pod.find('.pod-name').val(name || '');
+
+            $pod.find('select[data-options]').each(function () { fill_options(this); });
+
+            $pod.find('[data-key]').each(function () {
+                var $field = $(this);
+                var key    = $field.data('key');
+                var type   = $field.data('type');
+                var value  = get_path(data, key);
+
+                // Tie each label to its field
+                var id = prefix + '_' + key.replace(/\./g, '_');
+                $field.attr('id', id);
+                $field.closest('li').children('label').attr('for', id);
+
+                if ( type === 'bool' ) {
+                    $field.prop('checked', value === undefined ? $field.data('default') === true : perl_truthy(value));
+                } else if ( $field.is('select') ) {
+                    set_select_value($field, value);
+                } else if ( type === 'list' ) {
+                    $field.val( Array.isArray(value) ? value.join(', ') : ( value == null ? '' : value ) );
+                } else {
+                    $field.val( value == null ? '' : value );
+                }
+            });
+
+            $pod.find('table[data-mapping]').each(function () {
+                var table   = this;
+                var mapping = get_path(data, $(table).data('mapping')) || {};
+                Object.keys(mapping).forEach(function (k) { add_mapping_row(table, k, mapping[k]); });
+            });
+
+            $('#pods').append($pod);
+            if ( window.bootstrap ) {
+                $pod.find('[data-bs-toggle="tooltip"]').each(function () { bootstrap.Tooltip.getOrCreateInstance(this); });
+            }
+            $('#no_pods').hide();
+            return $pod;
+        }
+
+        function read_pod($pod, errors) {
+            var name     = $.trim( $pod.find('.pod-name').val() );
+            var original = $pod.data('original') || {};
+            var data     = JSON.parse(JSON.stringify(original));
+
+            if ( name === '' ) errors.push("Every pod needs a name.");
+
+            $pod.find('[data-key]').each(function () {
+                var $field = $(this);
+                var key    = $field.data('key');
+                var type   = $field.data('type');
+
+                if ( type === 'bool' ) {
+                    var checked = $field.prop('checked');
+                    // Don't write out a flag the user left at the plugin's default
+                    if ( !has_path(original, key) && checked === ( $field.data('default') === true ) ) return;
+                    set_path(data, key, checked);
+                    return;
+                }
+
+                var raw = $.trim( $field.val() || '' );
+                if ( raw === '' ) {
+                    // Keep explicit empty entries (e.g. 'default_location:') as they were
+                    if ( has_path(original, key) && get_path(original, key) === null ) set_path(data, key, null);
+                    else delete_path(data, key);
+                    return;
+                }
+
+                var value = raw;
+                if ( type === 'number' ) {
+                    value = Number(raw);
+                    if ( isNaN(value) ) errors.push( name + ': ' + ( key + " must be a number." ) );
+                } else if ( type === 'auto' ) {
+                    // No leading zeros, so codes like '007' stay strings
+                    if ( /^-?(0|[1-9]\d*)$/.test(raw) ) value = Number(raw);
+                } else if ( type === 'list' ) {
+                    value = raw.split(',').map($.trim).filter(function (v) { return v !== ''; });
+                }
+                set_path(data, key, value);
+            });
+
+            $pod.find('table[data-mapping]').each(function () {
+                var mapping_key = $(this).data('mapping');
+                var original_map = get_path(original, mapping_key) || {};
+                var mapping = {};
+
+                $(this).find('tbody tr').each(function () {
+                    var $row = $(this);
+                    var key  = $.trim( $row.find('.map-key').val() || '' );
+
+                    if ( mapping_key === 'central_item_type_mapping' ) {
+                        var target = $row.find('.map-value').val();
+                        if ( key === '' && !target ) return;
+                        if ( key === '' || !target ) {
+                            errors.push( name + ': ' + "Central item type mappings need both a central item type and a Koha item type." );
+                            return;
+                        }
+                        if ( mapping.hasOwnProperty(key) ) errors.push( name + ': ' + ( "Central item type " + key + " is mapped more than once." ) );
+                        mapping[key] = target;
+                    } else {
+                        var location    = $.trim( $row.find('.map-location').val() );
+                        var description = $.trim( $row.find('.map-description').val() );
+                        if ( key === '' && location === '' && description === '' ) return;
+                        if ( key === '' ) {
+                            errors.push( name + ': ' + "Library to location rows need a library." );
+                            return;
+                        }
+                        if ( mapping.hasOwnProperty(key) ) errors.push( name + ': ' + ( "Library " + key + " is mapped more than once." ) );
+                        // Preserve any extra attributes the entry already had
+                        var entry = $.extend( {}, original_map[key] || {}, { location: location, description: description } );
+                        mapping[key] = entry;
+                    }
+                });
+
+                if ( Object.keys(mapping).length ) set_path(data, mapping_key, mapping);
+                else delete_path(data, mapping_key);
+            });
+
+            return { name: name, data: data };
+        }
+
+        function show_errors(errors) {
+            var $list = $('#form_errors ul').empty();
+            errors.forEach(function (e) { $list.append( $('<li>').text(e) ); });
+            $('#form_errors').toggle(errors.length > 0);
+            if ( errors.length ) $('html, body').scrollTop( $('#form_errors').offset().top - 100 );
+        }
+
+        // Initial load
+        var configuration;
+        try {
+            configuration = jsyaml.load( $('#configuration').val() );
+        } catch (e) {
+            $('#parse_error .parse-error-detail').text(e.message);
+            $('#parse_error').show();
+            $('#rapido_form, #add_pod').hide();
+            return;
+        }
+
+        if ( configuration && typeof configuration === 'object' && !Array.isArray(configuration) ) {
+            Object.keys(configuration).forEach(function (pod) { add_pod(pod, configuration[pod]); });
+        }
+        if ( !$('#pods .rapido-pod').length ) $('#no_pods').show();
+
+        // Events
+        $('#add_pod').on('click', function () {
+            var $pod = add_pod('', {});
+            $pod.find('.pod-name').focus();
+        });
+
+        $('#pods').on('click', '.remove-pod', function () {
+            var $pod = $(this).closest('.rapido-pod');
+            var name = $pod.find('.pod-name').val();
+            if ( confirm( ( "Remove pod '" + name + "' from the configuration? This takes effect when you save." ) ) ) {
+                $pod.remove();
+                if ( !$('#pods .rapido-pod').length ) $('#no_pods').show();
+            }
+        });
+
+        $('#pods').on('click', '.add-mapping-row', function () {
+            add_mapping_row( $(this).siblings('table[data-mapping]') );
+        });
+
+        $('#pods').on('click', '.remove-mapping-row', function () {
+            $(this).closest('tr').remove();
+        });
+
+        $('#pods').on('click', '.toggle-secret', function () {
+            var $input = $(this).siblings('input');
+            var show   = $input.attr('type') === 'password';
+            $input.attr('type', show ? 'text' : 'password');
+            $(this).html( show ? '<i class="fa fa-eye-slash"></i> ' + "Hide" : '<i class="fa fa-eye"></i> ' + "Show" );
+        });
+
+        $('#rapido_form').on('submit', function (e) {
+            var errors = [];
+            var result = {};
+
+            $('#pods .rapido-pod').each(function () {
+                var pod = read_pod( $(this), errors );
+                if ( pod.name === '' ) return;
+                if ( result.hasOwnProperty(pod.name) ) errors.push( ( "Pod '" + pod.name + "' is defined more than once." ) );
+                result[pod.name] = pod.data;
+            });
+
+            show_errors(errors);
+            if ( errors.length ) {
+                e.preventDefault();
+                return false;
+            }
+
+            $('#configuration').val( Object.keys(result).length ? jsyaml.dump( result, { lineWidth: -1, noRefs: true } ) : '' );
+        });
+    });
+</script>
+
+[% END %]
