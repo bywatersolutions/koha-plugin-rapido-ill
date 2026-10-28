@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-28
+
+### Fixed
+- Failing API tests when there are multiple plugins installed
+- [#150] Add a GUI for the config page
+
 ## [2.3.0] - 2026-10-16
 
 ### Fixed
