@@ -28,13 +28,15 @@ use t::lib::Mocks::Rapido;
 
 use Koha::Database;
 
+t::lib::Mocks::mock_preference( 'RESTBasicAuth', 1 );
+
+# Start the app first: loading other installed plugins can replace the DB
+# connection, and $schema and $builder must use the one in effect afterwards
+my $t = Test::Mojo->new('Koha::REST::V1');
+
 my $schema   = Koha::Database->new->schema;
 my $builder  = t::lib::TestBuilder->new();
 my $password = t::lib::Mocks::Rapido::PASSWORD;
-
-t::lib::Mocks::mock_preference( 'RESTBasicAuth', 1 );
-
-my $t = Test::Mojo->new('Koha::REST::V1');
 
 subtest 'GET /agencies (list)' => sub {
 
