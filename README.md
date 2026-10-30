@@ -30,7 +30,9 @@ The Rapido ILL plugin integrates Koha with the Rapido resource sharing network, 
 
 ### Plugin Configuration
 
-The plugin configuration is an HTML text area in which a *YAML* structure is pasted. The available options are maintained in this document.
+The plugin configuration has a basic gui as well as an HTML text area in which a *YAML* structure is pasted. The available options are maintained in this document.
+
+The gui looks at and updates the *YAML* file.
 
 ```yaml
 ---
