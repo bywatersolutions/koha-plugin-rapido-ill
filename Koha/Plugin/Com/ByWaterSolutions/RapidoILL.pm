@@ -30,10 +30,11 @@ use Try::Tiny;
 use YAML::XS;
 
 use C4::Context;
-use C4::Auth        qw(haspermission);
-use C4::Biblio      qw(AddBiblio DelBiblio);
-use C4::Circulation qw(AddIssue AddReturn);
-use C4::Reserves    qw(AddReserve CanItemBeReserved CalculatePriority);
+use C4::Auth            qw(haspermission);
+use C4::Biblio          qw(AddBiblio DelBiblio);
+use C4::Circulation     qw(AddIssue AddReturn);
+use C4::Reports::Guided qw(save_report);
+use C4::Reserves        qw(AddReserve CanItemBeReserved CalculatePriority);
 
 use Koha::BiblioFrameworks;
 use Koha::Biblios;
@@ -46,6 +47,7 @@ use Koha::Libraries;
 use Koha::Logger;
 use Koha::Patron::Categories;
 use Koha::Patrons;
+use Koha::Reports;
 use Koha::Schema;
 
 require RapidoILL::CircActions;
@@ -79,6 +81,14 @@ BEGIN {
 }
 
 our $VERSION = "2.4.0";
+
+# Reports bundled in data/<key>.sql, installed into saved_sql on install/upgrade
+our $saved_reports = {
+    PagedTooLong     => 'Rapido ILL: Paged too long',
+    ReceivedTooLong  => 'Rapido ILL: Received too long',
+    ReprintSlip      => 'Rapido ILL: Reprint slip',
+    RequestedTooLong => 'Rapido ILL: Requested too long',
+};
 
 our $metadata = {
     name            => 'RapidoILL',
@@ -366,6 +376,8 @@ sub install {
         );
     }
 
+    $self->_install_saved_reports();
+
     return 1;
 }
 
@@ -576,6 +588,9 @@ sub upgrade {
 
         $self->store_data( { '__INSTALLED_VERSION__' => $new_version } );
     }
+
+    # Not version-gated: recreate any bundled report that has gone missing
+    $self->_install_saved_reports();
 
     return 1;
 }
@@ -1012,6 +1027,46 @@ sub _table_exists {
     };
     return 1 unless $@;
     return 0;
+}
+
+=head3 _install_saved_reports (helper)
+
+    $self->_install_saved_reports();
+
+Creates the reports bundled in I<data/> as saved SQL reports, storing their ids
+in the plugin data as a JSON map (I<saved_reports>). Reports that still exist
+are left untouched, so local edits are preserved. Safe to call repeatedly.
+
+=cut
+
+sub _install_saved_reports {
+    my ($self) = @_;
+
+    my $report_ids = decode_json( $self->retrieve_data('saved_reports') || '{}' );
+
+    foreach my $key ( sort keys %{$saved_reports} ) {
+        my $name = $saved_reports->{$key};
+
+        next if $report_ids->{$key} && Koha::Reports->find( $report_ids->{$key} );
+
+        # Stored id is gone (or plugin data was lost), reuse a report with our name if any
+        if ( my $existing = Koha::Reports->search( { report_name => $name } )->next ) {
+            $report_ids->{$key} = $existing->id;
+            next;
+        }
+
+        $report_ids->{$key} = save_report(
+            {
+                sql   => Encode::decode_utf8( $self->mbf_read("data/$key.sql") ),
+                name  => $name,
+                notes => 'Installed by the RapidoILL plugin',
+            }
+        );
+    }
+
+    $self->store_data( { saved_reports => encode_json($report_ids) } );
+
+    return;
 }
 
 =head3 _column_exists (helper)
