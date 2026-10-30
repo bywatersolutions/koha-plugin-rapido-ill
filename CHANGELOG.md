@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The task queue daemon kept running outdated code after a Koha or plugin upgrade, failing tasks against the updated database (e.g. `Unknown column 'me.processfee'` on lender checkouts after upgrading to Koha 26.05). It now exits when it detects an upgrade so systemd restarts it with the new code, and pauses while a Koha database update is pending
+
+### Added
+- `koha-rapidoill-task-queue@.service` templated systemd unit, tied to the Koha instance and restarted by Koha package upgrades
+- `--version_check_interval` option for `task_queue_daemon.pl` (default: 60 seconds)
+
 ## [2.4.0] - 2026-10-28
 
 ### Fixed

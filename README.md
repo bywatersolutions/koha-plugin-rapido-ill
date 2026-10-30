@@ -104,17 +104,34 @@ The task queue daemon processes asynchronous tasks, typically circulation update
 
 **Setup:**
 ```shell
-$ cp /var/lib/koha/<instance>/plugins/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/rapido_task_queue.service \
-     /etc/systemd/system/rapido_task_queue.service
-# set KOHA_INSTANCE to match what you need (default: kohadev)
-$ vim /etc/systemd/system/rapido_task_queue.service
+$ cp /var/lib/koha/<instance>/plugins/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/koha-rapidoill-task-queue@.service \
+     /etc/systemd/system/
 # reload unit files, including the new one
 $ systemctl daemon-reload
-# enable service
-$ systemctl enable rapido_task_queue.service
-Created symlink /etc/systemd/system/multi-user.target.wants/rapido_task_queue.service → /etc/systemd/system/rapido_task_queue.service
+# enable and start the service for your instance
+$ systemctl enable --now koha-rapidoill-task-queue@<instance>.service
 # check the logs :-D
-$ journalctl -u rapido_task_queue.service -f
+$ journalctl -u koha-rapidoill-task-queue@<instance>.service -f
+```
+
+**Upgrades:** the daemon loads Koha and the plugin once, when it starts. After an
+upgrade, outdated code would fail against the updated database (e.g. Koha 26.05
+dropped `itemtypes.processfee`). To prevent this, the daemon checks every 60
+seconds (`--version_check_interval`) whether Koha or the plugin have been
+upgraded. If so it exits and systemd (`Restart=always`) starts it again with the
+new code. While the Koha files are newer than the database (the database update
+hasn't run yet) it pauses task processing.
+
+The Koha packages also restart `koha-*@*.service` units on upgrade, which picks up
+this unit right away.
+
+The previous `rapido_task_queue.service` unit still works, but needs `KOHA_INSTANCE`
+edited by hand. To switch over:
+
+```shell
+$ systemctl disable --now rapido_task_queue.service
+$ rm /etc/systemd/system/rapido_task_queue.service
+# then follow the setup steps above
 ```
 
 ### Cron Jobs

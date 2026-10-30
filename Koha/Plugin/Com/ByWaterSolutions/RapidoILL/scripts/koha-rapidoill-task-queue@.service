@@ -1,0 +1,16 @@
+[Unit]
+Description=Rapido ILL task queue daemon for Koha instance %i
+After=network.target mysql.service koha@%i.target
+# Restarted along with the Koha instance. Its name also matches the
+# 'koha-*@*.service' units the Koha packages restart on upgrade.
+PartOf=koha@%i.target
+
+[Service]
+ExecStart=/usr/sbin/koha-shell %i -c "PERL5LIB=$PERL5LIB:/var/lib/koha/%i/plugins:/var/lib/koha/%i/plugins/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib/ perl /var/lib/koha/%i/plugins/Koha/Plugin/Com/ByWaterSolutions/RapidoILL/scripts/task_queue_daemon.pl"
+# The daemon exits when it detects a Koha or plugin upgrade, so it must
+# always be restarted to pick up the new code.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target koha@%i.target

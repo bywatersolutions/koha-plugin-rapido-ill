@@ -31,6 +31,7 @@ use Koha::Script;
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 use RapidoILL::Exceptions;
 use RapidoILL::ServerStatusLog;
+use RapidoILL::VersionWatcher;
 
 # Initialize logger with custom category for daemon
 my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
@@ -40,12 +41,14 @@ my $daemon_sleep = 1;
 my $verbose_logging;
 my $help;
 my $batch_size;
+my $version_check_interval = 60;
 
 my $result = GetOptions(
-    'batch_size=i' => \$batch_size,
-    'help|?'       => \$help,
-    'v'            => \$verbose_logging,
-    'sleep=s'      => \$daemon_sleep,
+    'batch_size=i'             => \$batch_size,
+    'help|?'                   => \$help,
+    'v'                        => \$verbose_logging,
+    'sleep=s'                  => \$daemon_sleep,
+    'version_check_interval=i' => \$version_check_interval,
 );
 
 if ( not $result or $help ) {
@@ -56,7 +59,42 @@ $batch_size //= 100;
 
 $logger->info("RapidoILL task queue daemon starting (batch_size: $batch_size, sleep: ${daemon_sleep}s)");
 
+my $version_watcher =
+    RapidoILL::VersionWatcher->new( { plugin => $plugin, check_interval => $version_check_interval } );
+my $waiting_for_upgrade = 0;
+
 while (1) {
+
+    # Running outdated code against an upgraded database makes tasks fail
+    # (e.g. Koha 26.05 dropped itemtypes.processfee). Exit so the service
+    # manager restarts us with the new code.
+    my $version_status = try { $version_watcher->check } catch {
+        $logger->error("Version check failed: $_");
+        return { status => 'ok' };
+    };
+
+    if ( $version_status->{status} eq 'reload' ) {
+        $logger->warn("$version_status->{message}. Exiting to reload the code");
+        print STDOUT "$version_status->{message}. Exiting to reload the code\n" if $verbose_logging;
+        exit 0;
+    }
+
+    if ( $version_status->{status} eq 'wait' ) {
+        unless ($waiting_for_upgrade) {
+            $logger->warn("$version_status->{message}. Pausing task processing");
+            print STDOUT "$version_status->{message}. Pausing task processing\n" if $verbose_logging;
+        }
+        $waiting_for_upgrade = 1;
+        sleep $daemon_sleep;
+        next;
+    }
+
+    if ($waiting_for_upgrade) {
+        $logger->info("Koha database is up to date. Resuming task processing");
+        print STDOUT "Koha database is up to date. Resuming task processing\n" if $verbose_logging;
+        $waiting_for_upgrade = 0;
+    }
+
     try {
 
         run_tasks_batch();
@@ -383,6 +421,8 @@ task_queue_daemon.pl -s 5
    -v               Be verbose
    --sleep N        Polling frequency
    --batch_size N   Process tasks in batches of N
+   --version_check_interval N
+                    Seconds between Koha/plugin version checks (default: 60)
 
 =head1 OPTIONS
 
@@ -403,6 +443,14 @@ Use I<N> as the database polling frequency.
 =item B<--batch_size N>
 
 Process tasks in batches of I<N>.
+
+=item B<--version_check_interval N>
+
+Check every I<N> seconds (default: 60) whether Koha or the plugin have been
+upgraded since the daemon started. On an upgrade the daemon exits so the service
+manager (systemd's I<Restart=always>) starts it again with the new code. While
+the Koha files are newer than the database (the database update hasn't run yet)
+task processing is paused.
 
 =back
 

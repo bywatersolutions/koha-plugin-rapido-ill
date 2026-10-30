@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 29;
+use Test::More tests => 30;
 use Test::NoWarnings;
 use File::Spec;
 use File::Find;
