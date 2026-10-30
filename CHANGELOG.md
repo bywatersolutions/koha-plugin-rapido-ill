@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.0.0] - 2026-10-30
 
 ### Fixed
 - [#228] The task queue daemon kept running outdated code after a Koha or plugin upgrade, failing tasks against the updated database (e.g. `Unknown column 'me.processfee'` on lender checkouts after upgrading to Koha 26.05). It now exits when it detects an upgrade so systemd restarts it with the new code, and pauses while a Koha database update is pending
