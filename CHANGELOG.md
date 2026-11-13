@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.1.0] - 2026-11-13
 
 ### Fixed
 - [#230] Force cancel was never offered when Rapido rejected a borrower cancellation with HTTP 400 "No circulation request processable", showing a raw exception and "Try again?" instead. Since [#182] wrapped 4xx/5xx errors in `ExternalRequestRejected`/`ExternalRequestFailed`, `Backend::borrower_cancel` no longer recognised the 400; it now unwraps `original_exception` before checking
