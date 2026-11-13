@@ -668,7 +668,7 @@ subtest 'receive_unshipped() tests' => sub {
                     branchcode     => $library->branchcode,
                     backend        => 'RapidoILL',
                     status         => 'B_ITEM_REQUESTED',
-                    biblio_id      => undef,                    # not received yet, no virtual record
+                    biblio_id      => undef,                     # not received yet, no virtual record
                 }
             }
         );
@@ -756,7 +756,7 @@ subtest 'receive_unshipped() tests' => sub {
                     branchcode     => $library->branchcode,
                     backend        => 'RapidoILL',
                     status         => 'B_ITEM_REQUESTED',
-                    biblio_id      => undef,                    # not received yet, no virtual record
+                    biblio_id      => undef,                     # not received yet, no virtual record
                 }
             }
         );
@@ -840,7 +840,7 @@ subtest 'receive_unshipped() tests' => sub {
                     branchcode     => $library->branchcode,
                     backend        => 'RapidoILL',
                     status         => 'B_ITEM_REQUESTED',
-                    biblio_id      => undef,                    # not received yet, no virtual record
+                    biblio_id      => undef,                     # not received yet, no virtual record
                 }
             }
         );
@@ -898,7 +898,7 @@ subtest 'receive_unshipped() tests' => sub {
 
 subtest 'borrower_cancel() force cancel tests' => sub {
 
-    plan tests => 3;
+    plan tests => 4;
 
     subtest 'Force cancel parameter' => sub {
         plan tests => 3;
@@ -1002,6 +1002,68 @@ subtest 'borrower_cancel() force cancel tests' => sub {
 
         is( $result->{stage},                'form', 'Returns form stage' );
         is( $result->{value}->{allow_force}, 1,      'Returns allow_force flag in value' );
+        like( $result->{message}, qr/may have already been cancelled/, 'Message indicates possible cancellation' );
+
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'Returns allow_force on 400 error wrapped in ExternalRequestRejected' => sub {
+        plan tests => 3;
+
+        $schema->storage->txn_begin;
+
+        my $patron     = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $illrequest = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => {
+                    borrowernumber => $patron->borrowernumber,
+                    status         => 'B_ITEM_REQUESTED',
+                }
+            }
+        );
+
+        my $library  = $builder->build_object( { class => "Koha::Libraries" } );
+        my $category = $builder->build_object( { class => "Koha::Patron::Categories" } );
+        my $itemtype = $builder->build_object( { class => "Koha::ItemTypes" } );
+
+        my $plugin = t::lib::Mocks::Rapido->new(
+            {
+                library  => $library,
+                category => $category,
+                itemtype => $itemtype
+            }
+        );
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => { circId => 'test_circ_123', pod => 'test_pod' }
+            }
+        );
+
+        # BorrowerActions wraps 4xx RequestFailed exceptions in ExternalRequestRejected
+        my $mock_borrower_actions = Test::MockObject->new();
+        $mock_borrower_actions->mock(
+            'borrower_cancel',
+            sub {
+                my $original = RapidoILL::Exception::RequestFailed->new(
+                    method         => 'borrower_cancel',
+                    status_code    => 400,
+                    status_message => 'Bad Request',
+                    response_body  => encode_json( { error => "No circulation request processable request was found" } )
+                );
+                RapidoILL::Exception::ExternalRequestRejected->throw( original_exception => $original );
+            }
+        );
+
+        my $plugin_module = Test::MockModule->new( ref($plugin) );
+        $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+        my $result  = $backend->borrower_cancel( { request => $illrequest } );
+
+        is( $result->{stage},                'form', 'Returns form stage' );
+        is( $result->{value}->{allow_force}, 1,      'Returns allow_force flag for wrapped exception' );
         like( $result->{message}, qr/may have already been cancelled/, 'Message indicates possible cancellation' );
 
         $schema->storage->txn_rollback;
@@ -1145,7 +1207,10 @@ subtest 'borrower_cancel() cancellation notice tests' => sub {
         is( $result->{stage},  'commit',  'Cancel still committed when the notice fails' );
         is( $result->{method}, 'illview', 'Still redirects to illview' );
         is_deeply( $notice->{sent}, ['ILL_REQUEST_UNAVAIL'], 'Notice was attempted' );
-        $logger->warn_like( qr/^\[borrower_cancel\] Cancellation notice failed .*Notice exploded/, 'Notice failure logged' );
+        $logger->warn_like(
+            qr/^\[borrower_cancel\] Cancellation notice failed .*Notice exploded/,
+            'Notice failure logged'
+        );
 
         $schema->storage->txn_rollback;
     };
@@ -1204,7 +1269,10 @@ subtest 'borrower_cancel() cancellation notice tests' => sub {
         $illrequest->discard_changes;
         is( $illrequest->status, 'B_ITEM_CANCELLED_BY_US', 'Status still updated when the notice fails' );
         is_deeply( $notice->{sent}, ['ILL_REQUEST_UNAVAIL'], 'Notice was attempted' );
-        $logger->warn_like( qr/^\[borrower_cancel\] Cancellation notice failed .*Notice exploded/, 'Notice failure logged' );
+        $logger->warn_like(
+            qr/^\[borrower_cancel\] Cancellation notice failed .*Notice exploded/,
+            'Notice failure logged'
+        );
 
         $schema->storage->txn_rollback;
     };

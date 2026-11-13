@@ -38,6 +38,8 @@ use Koha::Patrons;
 
 use RapidoILL::Exceptions;
 
+use Scalar::Util qw(blessed);
+
 =head1 NAME
 
 RapidoILL::Backend - Koha ILL Backend for Rapido ILL
@@ -1008,6 +1010,18 @@ sub borrower_cancel {
         my $message     = "Borrower cancellation failed";
         my $allow_force = 0;
         my $exception   = $_;
+
+        # BorrowerActions wraps RequestFailed in ExternalRequestRejected (4xx)
+        # or ExternalRequestFailed (5xx); unwrap so the checks below see it
+        if (
+            blessed($exception)
+            && (   $exception->isa('RapidoILL::Exception::ExternalRequestRejected')
+                || $exception->isa('RapidoILL::Exception::ExternalRequestFailed') )
+            && $exception->original_exception
+            )
+        {
+            $exception = $exception->original_exception;
+        }
 
         # Unwrap if it's a wrapped exception
         if ( ref($exception) eq 'RapidoILL::Exception' && $exception =~ /RequestFailed/ ) {
