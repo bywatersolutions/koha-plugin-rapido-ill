@@ -19,7 +19,7 @@
     .rapido-pod .mapping-table { width: auto; }
     .rapido-pod .mapping-table td { vertical-align: middle; }
     #pods .rapido-pod { margin-bottom: 1.5em; }
-    #parse_error, #form_errors, #no_pods { display: none; }
+    #parse_error, #form_errors, #no_pods, #has_comments { display: none; }
 </style>
 
 <h1>Rapido ILL configuration</h1>
@@ -36,6 +36,11 @@
     The stored configuration is not valid YAML, so it cannot be edited with the form.
     Please fix it using the <a href="/cgi-bin/koha/plugins/run.pl?class=[% CLASS | uri %]&method=configure&view=yaml">YAML editor</a>.
     <pre class="parse-error-detail"></pre>
+</div>
+
+<div id="has_comments" class="dialog message">
+    The stored configuration contains comments. Saving from this form will remove them.
+    To keep them, use the <a href="/cgi-bin/koha/plugins/run.pl?class=[% CLASS | uri %]&method=configure&view=yaml">YAML editor</a>.
 </div>
 
 <div id="form_errors" class="dialog alert"><ul></ul></div>
@@ -216,6 +221,7 @@
                             <li>
                                 <label>Not for loan:</label>
                                 <select data-key="default_notforloan" data-type="auto" data-options="notforloan_options"></select>
+                                <i data-bs-toggle="tooltip" title="Unless a not for loan status is selected here, staff can place holds on the virtual item and it will show on the holds list. If you select one, the UpdateNotForLoanStatusOnCheckin system preference must include a rule that removes that status when the item is received, so the hold can be filled." data-bs-placement="right" class="fa fa-info-circle"></i>
                             </li>
                             <li>
                                 <label>Barcode normalizers:</label>
@@ -235,12 +241,21 @@
                     </fieldset>
                     <fieldset class="rows">
                         <legend>Library to location</legend>
-                        <p class="hint">Maps Koha libraries to Rapido location codes.</p>
+                        <p class="hint">Maps Koha libraries to Rapido location codes. The plugin builds the location to library mapping from this one.</p>
                         <table class="mapping-table" data-mapping="library_to_location">
                             <thead><tr><th>Library</th><th>Location code</th><th>Description</th><th></th></tr></thead>
                             <tbody></tbody>
                         </table>
                         <button type="button" class="btn btn-default btn-sm add-mapping-row"><i class="fa fa-plus"></i> Add library</button>
+                    </fieldset>
+                    <fieldset class="rows">
+                        <legend>Location to library</legend>
+                        <p class="hint">Maps Rapido pickup location codes to Koha libraries.</p>
+                        <table class="mapping-table" data-mapping="location_to_library">
+                            <thead><tr><th>Location code</th><th>Koha library</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                        <button type="button" class="btn btn-default btn-sm add-mapping-row"><i class="fa fa-plus"></i> Add location</button>
                     </fieldset>
                 </div>
 
@@ -376,6 +391,13 @@
         <td><button type="button" class="btn btn-link btn-sm remove-mapping-row"><i class="fa fa-trash"></i> Remove</button></td>
     </tr>
 </template>
+<template id="location_to_library_row">
+    <tr>
+        <td><input type="text" class="map-key" size="12"/></td>
+        <td><select class="map-value" data-options="library_options"></select></td>
+        <td><button type="button" class="btn btn-link btn-sm remove-mapping-row"><i class="fa fa-trash"></i> Remove</button></td>
+    </tr>
+</template>
 <template id="library_to_location_row">
     <tr>
         <td><select class="map-key" data-options="library_options"></select></td>
@@ -448,7 +470,7 @@
             var $row = $( $.trim( $('#' + mapping + '_row').html() ) );
             $row.find('select[data-options]').each(function () { fill_options(this); });
 
-            if ( mapping === 'central_item_type_mapping' ) {
+            if ( mapping !== 'library_to_location' ) {
                 $row.find('.map-key').val(key === undefined ? '' : key);
                 set_select_value( $row.find('.map-value'), value );
             } else {
@@ -498,6 +520,13 @@
                 var mapping = get_path(data, $(table).data('mapping')) || {};
                 Object.keys(mapping).forEach(function (k) { add_mapping_row(table, k, mapping[k]); });
             });
+
+            // Only one location mapping is shown: library_to_location for pods that already
+            // use it (the plugin derives location_to_library from it), location_to_library
+            // otherwise. The hidden table still holds and saves its existing entries.
+            var uses_library_to_location = Object.keys( get_path(data, 'library_to_location') || {} ).length > 0;
+            $pod.find('table[data-mapping="' + ( uses_library_to_location ? 'location_to_library' : 'library_to_location' ) + '"]')
+                .closest('fieldset').hide();
 
             $('#pods').append($pod);
             if ( window.bootstrap ) {
@@ -566,6 +595,15 @@
                         }
                         if ( mapping.hasOwnProperty(key) ) errors.push( name + ': ' + ( "Central item type " + key + " is mapped more than once." ) );
                         mapping[key] = target;
+                    } else if ( mapping_key === 'location_to_library' ) {
+                        var library = $row.find('.map-value').val();
+                        if ( key === '' && !library ) return;
+                        if ( key === '' || !library ) {
+                            errors.push( name + ': ' + "Location to library mappings need both a location code and a Koha library." );
+                            return;
+                        }
+                        if ( mapping.hasOwnProperty(key) ) errors.push( name + ': ' + ( "Location " + key + " is mapped more than once." ) );
+                        mapping[key] = library;
                     } else {
                         var location    = $.trim( $row.find('.map-location').val() );
                         var description = $.trim( $row.find('.map-description').val() );
@@ -588,6 +626,70 @@
             return { name: name, data: data };
         }
 
+        // YAML writer. jsyaml.dump (3.x) writes 'null' for blanks, quotes every string
+        // with a ':' (URLs) or that YAML 1.1 reads as a boolean ('NO') and quotes the
+        // numeric keys JS turns into strings, so the saved file looks nothing like
+        // the hand-written one. Write plain scalars whenever they read back unchanged.
+        function reads_back_as(source, check) {
+            try { return check( jsyaml.load(source) ); } catch (e) { return false; }
+        }
+
+        function yaml_key(key) {
+            key = String(key);
+            var plain = key !== '' && !/[\r\n\t]/.test(key) && reads_back_as( key + ': x', function (r) {
+                return r && typeof r === 'object' && Object.keys(r).length === 1 && r.hasOwnProperty(key);
+            });
+            return plain ? key : JSON.stringify(key);
+        }
+
+        function yaml_scalar(value) {
+            if ( value === null || value === undefined ) return '';
+            if ( typeof value === 'boolean' || typeof value === 'number' ) return String(value);
+            var s = String(value);
+            var plain = s !== '' && !/[\r\n\t]/.test(s) && reads_back_as( 'x: ' + s, function (r) {
+                return r && r.x === s;
+            });
+            // JSON strings are valid YAML double-quoted scalars
+            return plain ? s : JSON.stringify(s);
+        }
+
+        function is_map(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+
+        function yaml_lines(obj, level, out) {
+            var pad = new Array(level + 1).join('  ');
+            Object.keys(obj).forEach(function (k) {
+                var v   = obj[k];
+                var key = pad + yaml_key(k) + ':';
+                if ( Array.isArray(v) ) {
+                    if ( !v.length ) return out.push(key + ' []');
+                    out.push(key);
+                    v.forEach(function (item) {
+                        if ( is_map(item) && Object.keys(item).length ) {
+                            var sub = [];
+                            yaml_lines(item, level + 2, sub);
+                            sub[0] = pad + '  - ' + sub[0].replace(/^\s+/, '');
+                            Array.prototype.push.apply(out, sub);
+                        } else {
+                            // Nested lists and empty maps go in flow style (JSON is valid YAML)
+                            out.push( pad + '  - ' + ( item !== null && typeof item === 'object' ? JSON.stringify(item) : yaml_scalar(item) ) );
+                        }
+                    });
+                } else if ( is_map(v) ) {
+                    if ( !Object.keys(v).length ) return out.push(key + ' {}');
+                    out.push(key);
+                    yaml_lines(v, level + 1, out);
+                } else {
+                    var s = yaml_scalar(v);
+                    out.push( s === '' ? key : key + ' ' + s );
+                }
+            });
+            return out;
+        }
+
+        function to_yaml(obj) {
+            return [ '---' ].concat( yaml_lines(obj, 0, []) ).join('\n') + '\n';
+        }
+
         function show_errors(errors) {
             var $list = $('#form_errors ul').empty();
             errors.forEach(function (e) { $list.append( $('<li>').text(e) ); });
@@ -605,6 +707,9 @@
             $('#rapido_form, #add_pod').hide();
             return;
         }
+
+        // Comments don't survive parsing, so warn before they get dropped
+        if ( /(^|\s)#/m.test( $('#configuration').val() ) ) $('#has_comments').show();
 
         if ( configuration && typeof configuration === 'object' && !Array.isArray(configuration) ) {
             Object.keys(configuration).forEach(function (pod) { add_pod(pod, configuration[pod]); });
@@ -658,7 +763,7 @@
                 return false;
             }
 
-            $('#configuration').val( Object.keys(result).length ? jsyaml.dump( result, { lineWidth: -1, noRefs: true } ) : '' );
+            $('#configuration').val( Object.keys(result).length ? to_yaml(result) : '' );
         });
     });
 </script>
