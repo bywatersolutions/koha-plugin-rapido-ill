@@ -80,7 +80,7 @@ BEGIN {
     Koha::Database->schema( { new => 1 } );
 }
 
-our $VERSION = "3.1.1";
+our $VERSION = "3.1.2";
 
 # Reports bundled in data/<key>.sql, installed into saved_sql on install/upgrade
 our $saved_reports = {

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.1.2] - 2026-11-17
 
 ### Fixed
 - The configuration GUI read numeric pod names wrong and saved them back changed: long ones were rounded (`559409814110000041` became `559409814110000060`) and ones with leading zeros were read as octal. It now reads the YAML the way the plugin does, keeping them as written, and no longer quotes them when saving. Pods also keep their order: numeric pod names used to be moved first
