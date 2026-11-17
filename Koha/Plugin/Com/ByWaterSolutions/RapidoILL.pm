@@ -956,59 +956,118 @@ For I<HOLD*> notices, the hold is taken from the I<reserves> table passed to
 the notice, either as a hashref with a I<reserve_id> key or as a plain
 I<reserve_id>. Notices without a hold get no extra data.
 
-The caller's I<tables> are never modified: autovivifying I<reserves> there
-would make Koha look up a hold with an empty search, attaching an arbitrary
-hold to the notice.
+For I<CHECKIN*> notices, the checkouts are taken from I<old_issues>, either in
+I<tables> (a single I<issue_id>, as the I<CHECKIN> notice gets it) or in
+I<loops> (a list of I<issue_id>s, as the I<CHECKINSLIP> notice gets it). The ILL
+request is found through its I<checkout_id> attribute. The data for each
+checkout linked to a Rapido request is returned under I<checkins>, keyed by
+I<issue_id>. For the I<CHECKIN> notice, which is about a single checkout, its
+data is also returned at the top level, like for I<HOLD*> notices.
+
+The caller's I<tables> and I<loops> are never modified: autovivifying
+I<reserves> there would make Koha look up a hold with an empty search,
+attaching an arbitrary hold to the notice.
 
 =cut
 
 sub notices_content {
     my ( $self, $params ) = @_;
-    my $result = {};
 
-    if ( ( $params->{letter_code} // q{} ) =~ m/^HOLD/ ) {
+    my $letter_code = $params->{letter_code} // q{};
+    my $tables      = $params->{tables}      // {};
 
-        my $tables     = $params->{tables} // {};
+    if ( $letter_code =~ m/^HOLD/ ) {
+
         my $reserves   = $tables->{reserves};
         my $reserve_id = ref $reserves eq 'HASH' ? $reserves->{reserve_id} : $reserves;
 
-        return $result unless $reserve_id && !ref $reserve_id;
+        return {} unless $reserve_id && !ref $reserve_id;
 
-        my $ill_request = $self->get_ill_request_from_attribute(
-            {
-                type  => 'hold_id',
-                value => $reserve_id,
-            }
-        );
-
-        if ($ill_request) {
-            $result->{ill_request} = $ill_request;
-            my $extended_attributes = $ill_request->extended_attributes->search(
+        return $self->_notice_content_for_request(
+            $self->get_ill_request_from_attribute(
                 {
-                    type => [
-                        qw{
-                            author borrowerCode callNumber circ_action_id
-                            circId circStatus dateCreated dueDateTime
-                            itemAgencyCode itemBarcode itemId lastCircState
-                            lastUpdated lenderCode needBefore patronAgencyCode
-                            patronId patronName pickupLocation pod
-                            puaLocalServerCode title
-                        }
-                    ]
+                    type  => 'hold_id',
+                    value => $reserve_id,
                 }
-            );
+            )
+        );
+    }
 
-            while ( my $attr = $extended_attributes->next ) {
-                $result->{ $attr->type } = $attr->value
-                    if $attr;
-            }
+    if ( $letter_code =~ m/^CHECKIN/ ) {
+
+        my $loops       = $params->{loops} // {};
+        my $loop_issues = ref $loops->{old_issues} eq 'ARRAY' ? $loops->{old_issues} : [];
+
+        my %seen;
+        my @issue_ids =
+            grep { !$seen{$_}++ }
+            grep { defined $_ && !ref $_ && $_ ne q{} }
+            map  { ref $_ eq 'HASH' ? $_->{issue_id} : $_ }
+            grep { defined $_ } ( $tables->{old_issues}, @{$loop_issues} );
+
+        my $result = {};
+        foreach my $issue_id (@issue_ids) {
+            my $content = $self->_notice_content_for_request(
+                $self->get_ill_request_from_attribute(
+                    {
+                        type  => 'checkout_id',
+                        value => $issue_id,
+                    }
+                )
+            );
+            $result->{checkins}->{$issue_id} = $content
+                if %{$content};
         }
+
+        if ( $letter_code eq 'CHECKIN' && @issue_ids == 1 && $result->{checkins} ) {
+            $result = { %{ $result->{checkins}->{ $issue_ids[0] } }, checkins => $result->{checkins} };
+        }
+
+        return $result;
+    }
+
+    return {};
+}
+
+=head2 Internal methods
+
+=head3 _notice_content_for_request (helper)
+
+    my $content = $self->_notice_content_for_request($ill_request);
+
+Returns the notice data for an ILL request: the request itself as I<ill_request>,
+plus its relevant attributes. Returns an empty hashref if no request is passed.
+
+=cut
+
+sub _notice_content_for_request {
+    my ( $self, $ill_request ) = @_;
+
+    return {} unless $ill_request;
+
+    my $result = { ill_request => $ill_request };
+
+    my $extended_attributes = $ill_request->extended_attributes->search(
+        {
+            type => [
+                qw{
+                    author borrowerCode callNumber circ_action_id
+                    circId circStatus dateCreated dueDateTime
+                    itemAgencyCode itemBarcode itemId lastCircState
+                    lastUpdated lenderCode needBefore patronAgencyCode
+                    patronId patronName pickupLocation pod
+                    puaLocalServerCode title
+                }
+            ]
+        }
+    );
+
+    while ( my $attr = $extended_attributes->next ) {
+        $result->{ $attr->type } = $attr->value;
     }
 
     return $result;
 }
-
-=head2 Internal methods
 
 =head3 _table_exists (helper)
 

@@ -295,9 +295,9 @@ A sample cron configuration file (`cron.sample`) is available in the plugin sour
 
 The plugin implements the `notices_content` hook to make ILL-related information available to notices.
 
-### `HOLD_SLIP`
+### `HOLD*` and `CHECKIN` notices
 
-On this letter, the plugin makes these attributes available:
+On `HOLD*` notices (e.g. `HOLD_SLIP`, `HOLD`) the request is found through the hold, and on the `CHECKIN` notice through the checked in checkout. On these letters, the plugin makes these attributes available:
 
 ```
 plugin_content.rapidoill.ill_request # The ILL request object, if available
@@ -325,7 +325,7 @@ plugin_content.rapidoill.puaLocalServerCode
 plugin_content.rapidoill.title
 ```
 
-The `ill_request` attribute will only be available if the plugin finds the hold is linked to a valid Rapido ILL request. It should be used to detect the ILL context for displaying ILL specific messages.
+The `ill_request` attribute will only be available if the plugin finds the hold (or, for `CHECKIN`, the checkout) is linked to a valid Rapido ILL request. It should be used to detect the ILL context for displaying ILL specific messages.
 
 **Example:**
 ```
@@ -337,6 +337,26 @@ The `ill_request` attribute will only be available if the plugin finds the hold 
     <li>Patron name: [% plugin_content.rapidoill.patronName | html %]</li>
     <li>Call number: [% plugin_content.rapidoill.callNumber | html %]</li>
 <ul>
+[% END %]
+```
+
+### `CHECKINSLIP` (and `CHECKIN`)
+
+The check-in slip lists several checkouts, so the data for each one linked to a Rapido ILL request is made available under `plugin_content.rapidoill.checkins`, keyed by the checkout's `issue_id`. Each entry has the same attributes listed above. Checkouts not linked to a Rapido ILL request have no entry. The `CHECKIN` notice gets the same `checkins` structure, in addition to the top level attributes. `CHECKINSLIP` only gets `checkins`, even when there is a single check-in, so templates behave the same whatever the number of check-ins.
+
+**Example:**
+```
+[% FOREACH checkin IN old_checkouts %]
+[% SET item = checkin.item %]
+[% SET rapido = plugin_content.rapidoill.checkins.item( checkin.issue_id ) %]
+<p>
+    [% item.biblio.title | html %] <br>
+    Barcode: [% item.barcode | html %] <br>
+    [% IF rapido.ill_request %]
+    ILL request ID: [% rapido.ill_request.id | html %] <br>
+    Lender: [% rapido.lenderCode | html %] <br>
+    [% END %]
+</p>
 [% END %]
 ```
 

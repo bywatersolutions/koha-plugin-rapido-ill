@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `notices_content` now provides ILL request data to `CHECKIN*` notices: `CHECKIN` gets it at the top level (like `HOLD*` notices) and, together with `CHECKINSLIP`, under `checkins`, keyed by `issue_id`
+
 ## [3.1.1] - 2026-11-17
 
 ### Fixed 

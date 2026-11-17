@@ -17,7 +17,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 13;
+use Test::More tests => 14;
 use Test::NoWarnings;
 use Test::Exception;
 use Test::Warn;
@@ -875,6 +875,127 @@ subtest 'notices_content() tests' => sub {
     # Missing letter_code / tables don't warn or die
     is_deeply( $plugin->notices_content( {} ), {}, 'No content without letter_code' );
     is_deeply( $plugin->notices_content( { letter_code => 'HOLD' } ), {}, 'No content without tables' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest 'notices_content() CHECKIN* tests' => sub {
+
+    plan tests => 18;
+
+    $schema->storage->txn_begin;
+
+    my $plugin = t::lib::Mocks::Rapido->new();
+
+    my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+    my @old_checkouts =
+        map {
+        $builder->build_object(
+            {
+                class => 'Koha::Old::Checkouts',
+                value => { borrowernumber => $patron->id }
+            }
+        )
+        } 1 .. 3;
+
+    my @reqs = map {
+        my $req = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => { backend => $plugin->ill_backend },
+            }
+        );
+        $plugin->add_or_update_attributes(
+            {
+                request    => $req,
+                attributes => { checkout_id => $old_checkouts[$_]->id, circId => "CHECKIN_CIRC_$_" },
+            }
+        );
+        $req;
+    } 0 .. 1;
+
+    # CHECKIN: single issue_id in tables
+    my $tables  = { old_issues => $old_checkouts[0]->id, items => $old_checkouts[0]->itemnumber };
+    my $content = $plugin->notices_content( { letter_code => 'CHECKIN', tables => $tables } );
+    is( $content->{ill_request}->id, $reqs[0]->id,     'CHECKIN: ILL request found from old_issues issue_id' );
+    is( $content->{circId},          'CHECKIN_CIRC_0', 'CHECKIN: request attributes included at the top level' );
+    is(
+        $content->{checkins}->{ $old_checkouts[0]->id }->{ill_request}->id, $reqs[0]->id,
+        'CHECKIN: data also available under checkins'
+    );
+
+    # CHECKIN: old_issues as a hashref
+    $content = $plugin->notices_content(
+        { letter_code => 'CHECKIN', tables => { old_issues => { issue_id => $old_checkouts[1]->id } } } );
+    is( $content->{ill_request}->id, $reqs[1]->id, 'CHECKIN: ILL request found from old_issues hashref' );
+
+    # CHECKIN: checkout not linked to a request
+    is_deeply(
+        $plugin->notices_content( { letter_code => 'CHECKIN', tables => { old_issues => $old_checkouts[2]->id } } ),
+        {}, 'CHECKIN: no content for a checkout not linked to a request'
+    );
+
+    # CHECKINSLIP: list of issue_ids in loops
+    my $loops = { old_issues => [ map { $_->id } @old_checkouts ] };
+    $content = $plugin->notices_content(
+        {
+            letter_code => 'CHECKINSLIP',
+            tables      => { borrowers => $patron->id },
+            loops       => $loops,
+        }
+    );
+    ok( !exists $content->{ill_request}, 'CHECKINSLIP: no top level request with several checkins' );
+    is( scalar keys %{ $content->{checkins} }, 2, 'CHECKINSLIP: only linked checkouts included' );
+    is(
+        $content->{checkins}->{ $old_checkouts[0]->id }->{ill_request}->id, $reqs[0]->id,
+        'CHECKINSLIP: first request found'
+    );
+    is(
+        $content->{checkins}->{ $old_checkouts[1]->id }->{circId}, 'CHECKIN_CIRC_1',
+        'CHECKINSLIP: second request attributes included'
+    );
+    ok( !exists $content->{checkins}->{ $old_checkouts[2]->id }, 'CHECKINSLIP: unlinked checkout not included' );
+    is_deeply(
+        $loops, { old_issues => [ map { $_->id } @old_checkouts ] },
+        'CHECKINSLIP: caller loops are not modified'
+    );
+
+    # CHECKINSLIP with a single linked checkin: only under checkins
+    $content = $plugin->notices_content(
+        { letter_code => 'CHECKINSLIP', loops => { old_issues => [ $old_checkouts[0]->id ] } } );
+    ok( !exists $content->{ill_request}, 'CHECKINSLIP: no top level request with a single checkin' );
+    is(
+        $content->{checkins}->{ $old_checkouts[0]->id }->{ill_request}->id, $reqs[0]->id,
+        'CHECKINSLIP: single checkin available under checkins'
+    );
+
+    # The same issue_id passed twice is only looked up once
+    $content = $plugin->notices_content(
+        {
+            letter_code => 'CHECKIN',
+            tables      => { old_issues => $old_checkouts[0]->id },
+            loops       => { old_issues => [ $old_checkouts[0]->id ] },
+        }
+    );
+    is( $content->{ill_request}->id, $reqs[0]->id, 'CHECKIN: duplicated issue_id still counts as a single checkin' );
+    is( scalar keys %{ $content->{checkins} }, 1,  'CHECKIN: duplicated issue_id listed once' );
+
+    # CHECKINSLIP: no checkins today
+    is_deeply(
+        $plugin->notices_content(
+            { letter_code => 'CHECKINSLIP', tables => { borrowers => $patron->id }, loops => { old_issues => [] } }
+        ),
+        {},
+        'CHECKINSLIP: no content without checkins'
+    );
+
+    # Missing data doesn't warn, die or modify the caller structures
+    $tables = { borrowers => $patron->id };
+    is_deeply(
+        $plugin->notices_content( { letter_code => 'CHECKIN', tables => $tables } ), {},
+        'No content without old_issues'
+    );
+    is_deeply( $tables, { borrowers => $patron->id }, 'Caller tables are not modified' );
 
     $schema->storage->txn_rollback;
 };
