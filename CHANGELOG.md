@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `notices_content` no longer adds an empty `old_issues` key to the caller's `tables` for `CHECKIN*` notices when none was passed
+
 ## [3.1.2] - 2026-11-17
 
 ### Fixed
