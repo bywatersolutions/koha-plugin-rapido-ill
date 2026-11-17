@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The configuration GUI read numeric pod names wrong and saved them back changed: long ones were rounded (`559409814110000041` became `559409814110000060`) and ones with leading zeros were read as octal. It now reads the YAML the way the plugin does, keeping them as written, and no longer quotes them when saving. Pods also keep their order: numeric pod names used to be moved first
+
 ### Added
 - `notices_content` now provides ILL request data to `CHECKIN*` notices: `CHECKIN` gets it at the top level (like `HOLD*` notices) and, together with `CHECKINSLIP`, under `checkins`, keyed by `issue_id`
 

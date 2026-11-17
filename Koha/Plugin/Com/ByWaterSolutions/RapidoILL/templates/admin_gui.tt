@@ -171,7 +171,7 @@
                             </li>
                             <li>
                                 <label class="required">Server code:</label>
-                                <input type="text" size="10" data-key="server_code" data-type="auto"/>
+                                <input type="text" size="10" data-key="server_code" data-type="string"/>
                                 <i data-bs-toggle="tooltip" title="Provided by Clarivate" data-bs-placement="right" class="fa fa-info-circle"></i>
                             </li>
                         </ol>
@@ -220,7 +220,7 @@
                             </li>
                             <li>
                                 <label>Not for loan:</label>
-                                <select data-key="default_notforloan" data-type="auto" data-options="notforloan_options"></select>
+                                <select data-key="default_notforloan" data-type="string" data-options="notforloan_options"></select>
                                 <i data-bs-toggle="tooltip" title="Unless a not for loan status is selected here, staff can place holds on the virtual item and it will show on the holds list. If you select one, the UpdateNotForLoanStatusOnCheckin system preference must include a rule that removes that status when the item is received, so the hold can be filled." data-bs-placement="right" class="fa fa-info-circle"></i>
                             </li>
                             <li>
@@ -413,6 +413,123 @@
     // The wrapper loads jQuery in the footer, so wait until the page has finished parsing
     document.addEventListener('DOMContentLoaded', function () {
         var pod_counter = 0;
+
+        // BEGIN yaml helpers (pure functions, also run by t/05-admin-gui-yaml.t)
+
+        // Read YAML the way the plugin does (YAML::XS): plain scalars are strings,
+        // only '~', 'null' and empty values are null, and only 'true'/'false' are
+        // booleans. js-yaml's default schema reads numbers as JS numbers instead,
+        // which rounds big ones (pod 559409814110000041 became 559409814110000060)
+        // and reads leading zeros as octal (01234 became 668). Explicit !!int and
+        // !!float tags are accepted and kept as written too.
+        function as_written(s) { return s; }
+        var PERL_SCHEMA = new jsyaml.Schema({
+            include: [ jsyaml.FAILSAFE_SCHEMA ],
+            implicit: [
+                new jsyaml.Type('tag:yaml.org,2002:null', {
+                    kind: 'scalar',
+                    resolve: function (s) { return s === '' || s === '~' || s === 'null'; },
+                    construct: function () { return null; },
+                }),
+                new jsyaml.Type('tag:yaml.org,2002:bool', {
+                    kind: 'scalar',
+                    resolve: function (s) { return s === 'true' || s === 'false'; },
+                    construct: function (s) { return s === 'true'; },
+                }),
+            ],
+            explicit: [
+                new jsyaml.Type('tag:yaml.org,2002:int',   { kind: 'scalar', construct: as_written }),
+                new jsyaml.Type('tag:yaml.org,2002:float', { kind: 'scalar', construct: as_written }),
+            ],
+        });
+
+        function load_yaml(source) {
+            return jsyaml.load( source, { schema: PERL_SCHEMA } );
+        }
+
+        // JS objects list whole-number keys first, in numeric order, so take the
+        // order of the top level keys (the pods) from the source instead
+        function top_level_keys(source, obj) {
+            var keys = [];
+            function add(k) { if ( obj.hasOwnProperty(k) && keys.indexOf(k) === -1 ) keys.push(k); }
+            String(source || '').split(/\r?\n/).forEach(function (line) {
+                if ( /^(---|\.\.\.)/.test(line) ) return;
+                var m = /^([^\s#][^#]*?):(?:\s|$)/.exec(line);
+                if ( !m ) return;
+                try { Object.keys( load_yaml( m[1] + ': x' ) || {} ).forEach(add); } catch (e) {}
+            });
+            Object.keys(obj).forEach(add);
+            return keys;
+        }
+
+        // YAML writer. jsyaml.dump (3.x) writes 'null' for blanks, quotes every string
+        // with a ':' (URLs) or that YAML 1.1 reads as a boolean ('NO') and quotes the
+        // numeric keys JS turns into strings, so the saved file looks nothing like
+        // the hand-written one. Write plain scalars whenever the plugin reads them
+        // back unchanged (checked with the same schema the plugin's YAML::XS follows).
+        function reads_back_as(source, check) {
+            try { return check( load_yaml(source) ); } catch (e) { return false; }
+        }
+
+        function yaml_key(key) {
+            key = String(key);
+            var plain = key !== '' && !/[\r\n\t]/.test(key) && reads_back_as( key + ': x', function (r) {
+                return r && typeof r === 'object' && Object.keys(r).length === 1 && r.hasOwnProperty(key);
+            });
+            return plain ? key : JSON.stringify(key);
+        }
+
+        function yaml_scalar(value) {
+            if ( value === null || value === undefined ) return '';
+            if ( typeof value === 'boolean' || typeof value === 'number' ) return String(value);
+            var s = String(value);
+            var plain = s !== '' && !/[\r\n\t]/.test(s) && reads_back_as( 'x: ' + s, function (r) {
+                return r && r.x === s;
+            });
+            // JSON strings are valid YAML double-quoted scalars
+            return plain ? s : JSON.stringify(s);
+        }
+
+        function is_map(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+
+        function yaml_lines(obj, level, out, keys) {
+            var pad = new Array(level + 1).join('  ');
+            ( keys || Object.keys(obj) ).forEach(function (k) {
+                var v   = obj[k];
+                var key = pad + yaml_key(k) + ':';
+                if ( Array.isArray(v) ) {
+                    if ( !v.length ) return out.push(key + ' []');
+                    out.push(key);
+                    v.forEach(function (item) {
+                        if ( is_map(item) && Object.keys(item).length ) {
+                            var sub = [];
+                            yaml_lines(item, level + 2, sub);
+                            sub[0] = pad + '  - ' + sub[0].replace(/^\s+/, '');
+                            Array.prototype.push.apply(out, sub);
+                        } else {
+                            // Nested lists and empty maps go in flow style (JSON is valid YAML)
+                            out.push( pad + '  - ' + ( item !== null && typeof item === 'object' ? JSON.stringify(item) : yaml_scalar(item) ) );
+                        }
+                    });
+                } else if ( is_map(v) ) {
+                    if ( !Object.keys(v).length ) return out.push(key + ' {}');
+                    out.push(key);
+                    yaml_lines(v, level + 1, out);
+                } else {
+                    var s = yaml_scalar(v);
+                    out.push( s === '' ? key : key + ' ' + s );
+                }
+            });
+            return out;
+        }
+
+        // keys: the order of the top level keys, Object.keys(obj) if not passed
+        function to_yaml(obj, keys) {
+            return [ '---' ].concat( yaml_lines(obj, 0, [], keys) ).join('\n') + '\n';
+        }
+
+        // END yaml helpers
+
         // The pod hashes as loaded, so keys the form doesn't know about survive a save
         var original_pods = {};
 
@@ -564,13 +681,11 @@
                     return;
                 }
 
+                // Numbers are kept as typed: they are written unquoted, which the plugin
+                // reads the same, and converting them to JS numbers would round big ones
                 var value = raw;
                 if ( type === 'number' ) {
-                    value = Number(raw);
-                    if ( isNaN(value) ) errors.push( name + ': ' + ( key + " must be a number." ) );
-                } else if ( type === 'auto' ) {
-                    // No leading zeros, so codes like '007' stay strings
-                    if ( /^-?(0|[1-9]\d*)$/.test(raw) ) value = Number(raw);
+                    if ( isNaN( Number(raw) ) ) errors.push( name + ': ' + ( key + " must be a number." ) );
                 } else if ( type === 'list' ) {
                     value = raw.split(',').map($.trim).filter(function (v) { return v !== ''; });
                 }
@@ -626,70 +741,6 @@
             return { name: name, data: data };
         }
 
-        // YAML writer. jsyaml.dump (3.x) writes 'null' for blanks, quotes every string
-        // with a ':' (URLs) or that YAML 1.1 reads as a boolean ('NO') and quotes the
-        // numeric keys JS turns into strings, so the saved file looks nothing like
-        // the hand-written one. Write plain scalars whenever they read back unchanged.
-        function reads_back_as(source, check) {
-            try { return check( jsyaml.load(source) ); } catch (e) { return false; }
-        }
-
-        function yaml_key(key) {
-            key = String(key);
-            var plain = key !== '' && !/[\r\n\t]/.test(key) && reads_back_as( key + ': x', function (r) {
-                return r && typeof r === 'object' && Object.keys(r).length === 1 && r.hasOwnProperty(key);
-            });
-            return plain ? key : JSON.stringify(key);
-        }
-
-        function yaml_scalar(value) {
-            if ( value === null || value === undefined ) return '';
-            if ( typeof value === 'boolean' || typeof value === 'number' ) return String(value);
-            var s = String(value);
-            var plain = s !== '' && !/[\r\n\t]/.test(s) && reads_back_as( 'x: ' + s, function (r) {
-                return r && r.x === s;
-            });
-            // JSON strings are valid YAML double-quoted scalars
-            return plain ? s : JSON.stringify(s);
-        }
-
-        function is_map(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
-
-        function yaml_lines(obj, level, out) {
-            var pad = new Array(level + 1).join('  ');
-            Object.keys(obj).forEach(function (k) {
-                var v   = obj[k];
-                var key = pad + yaml_key(k) + ':';
-                if ( Array.isArray(v) ) {
-                    if ( !v.length ) return out.push(key + ' []');
-                    out.push(key);
-                    v.forEach(function (item) {
-                        if ( is_map(item) && Object.keys(item).length ) {
-                            var sub = [];
-                            yaml_lines(item, level + 2, sub);
-                            sub[0] = pad + '  - ' + sub[0].replace(/^\s+/, '');
-                            Array.prototype.push.apply(out, sub);
-                        } else {
-                            // Nested lists and empty maps go in flow style (JSON is valid YAML)
-                            out.push( pad + '  - ' + ( item !== null && typeof item === 'object' ? JSON.stringify(item) : yaml_scalar(item) ) );
-                        }
-                    });
-                } else if ( is_map(v) ) {
-                    if ( !Object.keys(v).length ) return out.push(key + ' {}');
-                    out.push(key);
-                    yaml_lines(v, level + 1, out);
-                } else {
-                    var s = yaml_scalar(v);
-                    out.push( s === '' ? key : key + ' ' + s );
-                }
-            });
-            return out;
-        }
-
-        function to_yaml(obj) {
-            return [ '---' ].concat( yaml_lines(obj, 0, []) ).join('\n') + '\n';
-        }
-
         function show_errors(errors) {
             var $list = $('#form_errors ul').empty();
             errors.forEach(function (e) { $list.append( $('<li>').text(e) ); });
@@ -700,7 +751,7 @@
         // Initial load
         var configuration;
         try {
-            configuration = jsyaml.load( $('#configuration').val() );
+            configuration = load_yaml( $('#configuration').val() );
         } catch (e) {
             $('#parse_error .parse-error-detail').text(e.message);
             $('#parse_error').show();
@@ -712,7 +763,7 @@
         if ( /(^|\s)#/m.test( $('#configuration').val() ) ) $('#has_comments').show();
 
         if ( configuration && typeof configuration === 'object' && !Array.isArray(configuration) ) {
-            Object.keys(configuration).forEach(function (pod) { add_pod(pod, configuration[pod]); });
+            top_level_keys( $('#configuration').val(), configuration ).forEach(function (pod) { add_pod(pod, configuration[pod]); });
         }
         if ( !$('#pods .rapido-pod').length ) $('#no_pods').show();
 
@@ -749,11 +800,13 @@
         $('#rapido_form').on('submit', function (e) {
             var errors = [];
             var result = {};
+            var order  = [];
 
             $('#pods .rapido-pod').each(function () {
                 var pod = read_pod( $(this), errors );
                 if ( pod.name === '' ) return;
                 if ( result.hasOwnProperty(pod.name) ) errors.push( ( "Pod '" + pod.name + "' is defined more than once." ) );
+                else order.push(pod.name);
                 result[pod.name] = pod.data;
             });
 
@@ -763,7 +816,7 @@
                 return false;
             }
 
-            $('#configuration').val( Object.keys(result).length ? to_yaml(result) : '' );
+            $('#configuration').val( order.length ? to_yaml(result, order) : '' );
         });
     });
 </script>
