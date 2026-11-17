@@ -998,12 +998,16 @@ sub notices_content {
         my $loops       = $params->{loops} // {};
         my $loop_issues = ref $loops->{old_issues} eq 'ARRAY' ? $loops->{old_issues} : [];
 
+        # Copy to a lexical: passing the hash element straight into grep/map
+        # aliases it, which autovivifies the key in the caller's tables
+        my $table_issue = exists $tables->{old_issues} ? $tables->{old_issues} : undef;
+
         my %seen;
         my @issue_ids =
             grep { !$seen{$_}++ }
             grep { defined $_ && !ref $_ && $_ ne q{} }
             map  { ref $_ eq 'HASH' ? $_->{issue_id} : $_ }
-            grep { defined $_ } ( $tables->{old_issues}, @{$loop_issues} );
+            grep { defined $_ } ( $table_issue, @{$loop_issues} );
 
         my $result = {};
         foreach my $issue_id (@issue_ids) {
