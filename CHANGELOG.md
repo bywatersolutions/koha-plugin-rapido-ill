@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.2.0] - 2026-11-20
 
 ### Added
 - [#214] New per-pod `force_complete_patrons` setting limiting the *Force complete (local only)* and *Force Cancel* actions to the listed patrons and superlibrarians. Patrons are picked with a patron search in the configuration GUI (*Workflows* tab). Other staff don't see the buttons and are blocked if they submit the action directly. Once any pod has a list, requests whose pod is missing or no longer configured are limited to superlibrarians. Unset everywhere keeps the current behaviour (everyone)
