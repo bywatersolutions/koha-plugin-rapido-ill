@@ -1,14 +1,15 @@
 [%# Template for borrower_cancel action %]
-[% IF whole.value.error_message && !whole.value.allow_force %]
-<div class="alert alert-danger">
-    <p><strong>Error:</strong> [% whole.value.error_message | html %]</p>
-</div>
-<p>Try again?</p>
-[% ELSIF whole.value.allow_force %]
+[% IF whole.value.error_message && whole.value.allow_force %]
 <div class="alert alert-warning">
-    <p><strong>Warning:</strong> Rapido reports this request cannot be cancelled through their system.</p>
-    <p>[% whole.message | html %]</p>
-    <p>This typically means the request was already cancelled on Rapido's side but the update wasn't synchronized.</p>
+    [% IF whole.value.already_cancelled %]
+        <p><strong>Warning:</strong> Rapido reports this request cannot be cancelled through their system.</p>
+        <p>[% whole.message | html %]</p>
+        <p>This typically means the request was already cancelled on Rapido's side but the update wasn't synchronized.</p>
+    [% ELSE %]
+        <p><strong>Warning:</strong> Rapido could not cancel this request.</p>
+        <p>[% whole.message | html %]</p>
+        <p>If this looks like a temporary problem, try cancelling again later. Only force cancel if the request can't be cancelled through Rapido.</p>
+    [% END %]
     <p>You can force cancel this request locally, which will update the status in Koha without notifying Rapido.</p>
 </div>
 
@@ -26,6 +27,14 @@
         <a class="cancel" href="/cgi-bin/koha/ill/ill-requests.pl?method=illview&amp;illrequest_id=[% request.illrequest_id | uri %]">Return</a>
     </fieldset>
 </form>
+[% ELSIF whole.value.error_message %]
+<div class="alert alert-danger">
+    <p><strong>Error:</strong> [% whole.value.error_message | html %]</p>
+    [% IF whole.value.already_cancelled %]
+        <p>The request may have already been cancelled on Rapido's side. A staff member allowed to force cancel can cancel it locally.</p>
+    [% END %]
+</div>
+<p>Try again?</p>
 [% ELSE %]
 <p>Cancel this ILL request?</p>
 [% END %]

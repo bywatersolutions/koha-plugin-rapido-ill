@@ -17,11 +17,13 @@
 
 use Modern::Perl;
 
-use Test::More tests => 14;
+use Test::More tests => 16;
 use Test::NoWarnings;
 use Test::Exception;
 use Test::Warn;
 use Test::MockModule;
+
+use Mojo::JSON;
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
@@ -742,6 +744,90 @@ EOF
     $schema->storage->txn_rollback;
 };
 
+subtest 'check_configuration() validates force_complete_patrons' => sub {
+    plan tests => 3;
+
+    $schema->storage->txn_begin;
+
+    my $itemtype = $builder->build_object( { class => 'Koha::ItemTypes' } );
+    my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
+    my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
+    my $patron   = $builder->build_object( { class => 'Koha::Patrons' } );
+
+    my $deleted_patron = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $bogus          = $deleted_patron->borrowernumber;
+    $deleted_patron->delete;
+
+    my $config_yaml = <<"EOF";
+---
+test-pod:
+  server_code: 12345
+  partners_library_id: @{[ $library->branchcode ]}
+  partners_category: @{[ $category->categorycode ]}
+  default_item_type: @{[ $itemtype->itemtype ]}
+  force_complete_patrons:
+    - @{[ $patron->borrowernumber ]}
+    - $bogus
+EOF
+
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+    $plugin->store_data( { configuration => $config_yaml } );
+
+    t::lib::Mocks::mock_preference( 'ILLModule',    1 );
+    t::lib::Mocks::mock_preference( 'CirculateILL', 0 );
+
+    my @errors = grep { $_->{code} eq 'undefined_force_complete_patron' } @{ $plugin->check_configuration };
+
+    is( scalar @errors,      1,          'Only the missing borrowernumber is reported' );
+    is( $errors[0]->{value}, $bogus,     'Error carries the offending borrowernumber' );
+    is( $errors[0]->{pod},   'test-pod', 'Error carries the pod name' );
+
+    $schema->storage->txn_rollback;
+};
+
+subtest '_force_complete_patrons_info() tests' => sub {
+    plan tests => 3;
+
+    $schema->storage->txn_begin;
+
+    my $patron = $builder->build_object( { class => 'Koha::Patrons' } );
+
+    my $deleted_patron = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $bogus          = $deleted_patron->borrowernumber;
+    $deleted_patron->delete;
+
+    my $plugin = Koha::Plugin::Com::ByWaterSolutions::RapidoILL->new();
+
+    $plugin->store_data( { configuration => "---\ntest-pod:\n  server_code: 1\n" } );
+    is( $plugin->_force_complete_patrons_info, '{}', 'Empty object when no patrons are listed' );
+
+    $plugin->store_data(
+        {
+                  configuration => "---\ntest-pod:\n  force_complete_patrons:\n    - "
+                . $patron->borrowernumber
+                . "\n    - $bogus\n"
+        }
+    );
+
+    my $info = Mojo::JSON::from_json( $plugin->_force_complete_patrons_info );
+    is_deeply(
+        $info,
+        {
+            $patron->borrowernumber => {
+                patron_id  => $patron->borrowernumber,
+                firstname  => $patron->firstname,
+                surname    => $patron->surname,
+                cardnumber => $patron->cardnumber,
+            }
+        },
+        'Details for the existing patron only'
+    );
+
+    $plugin->store_data( { configuration => "---\n: : not yaml\n  - [" } );
+    is( $plugin->_force_complete_patrons_info, '{}', 'Empty object when the YAML is invalid' );
+
+    $schema->storage->txn_rollback;
+};
 
 subtest 'send_cancel_notice() tests' => sub {
 
@@ -775,8 +861,8 @@ subtest 'send_cancel_notice() tests' => sub {
     $notice_result = { result => { success => ['email'], fail => [] } };
     lives_ok { $plugin->send_cancel_notice( { request => $req, context => 'test_ctx' } ) }
     'Successful notice does not die';
-    is( $notice_code, 'ILL_REQUEST_UNAVAIL', 'ILL_REQUEST_UNAVAIL notice requested' );
-    is( $logger->count('warn'), 0, 'Nothing logged when the notice is sent' );
+    is( $notice_code,           'ILL_REQUEST_UNAVAIL', 'ILL_REQUEST_UNAVAIL notice requested' );
+    is( $logger->count('warn'), 0,                     'Nothing logged when the notice is sent' );
 
     # Transport failure (e.g. patron has no email)
     $logger->clear();
@@ -818,7 +904,6 @@ subtest 'send_cancel_notice() tests' => sub {
     $schema->storage->txn_rollback;
 };
 
-
 subtest 'notices_content() tests' => sub {
 
     plan tests => 9;
@@ -851,8 +936,8 @@ subtest 'notices_content() tests' => sub {
     # reserves passed as a hashref
     my $content =
         $plugin->notices_content( { letter_code => 'HOLD', tables => { reserves => { reserve_id => $hold->id } } } );
-    is( $content->{ill_request}->id, $req->id, 'ILL request found from reserves hashref' );
-    is( $content->{circId}, 'NOTICE_CIRC', 'Request attributes included' );
+    is( $content->{ill_request}->id, $req->id,      'ILL request found from reserves hashref' );
+    is( $content->{circId},          'NOTICE_CIRC', 'Request attributes included' );
 
     # reserves passed as a plain reserve_id
     $content = $plugin->notices_content( { letter_code => 'HOLD', tables => { reserves => $hold->id } } );
@@ -873,7 +958,7 @@ subtest 'notices_content() tests' => sub {
     );
 
     # Missing letter_code / tables don't warn or die
-    is_deeply( $plugin->notices_content( {} ), {}, 'No content without letter_code' );
+    is_deeply( $plugin->notices_content( {} ),                        {}, 'No content without letter_code' );
     is_deeply( $plugin->notices_content( { letter_code => 'HOLD' } ), {}, 'No content without tables' );
 
     $schema->storage->txn_rollback;

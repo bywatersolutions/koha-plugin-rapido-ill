@@ -179,19 +179,50 @@ sub configure {
     my $errors = $self->check_configuration;
 
     $template->param(
-        errors        => $errors,
-        configuration => $self->retrieve_data('configuration'),
-        frameworks    => [ Koha::BiblioFrameworks->search( {}, { order_by => ['frameworktext'] } )->as_list ],
+        errors                 => $errors,
+        configuration          => $self->retrieve_data('configuration'),
+        frameworks             => [ Koha::BiblioFrameworks->search( {}, { order_by => ['frameworktext'] } )->as_list ],
+        force_complete_patrons => $self->_force_complete_patrons_info,
     );
 
     $self->output_html( $template->output() );
 }
 
-=head3 configuration
+=head3 _force_complete_patrons_info
 
-Accessor for the de-serialized plugin configuration
+Returns a JSON object mapping the borrowernumbers listed in any pod's
+I<force_complete_patrons> to the patron details the configuration GUI
+displays. Unknown borrowernumbers are left out.
 
 =cut
+
+sub _force_complete_patrons_info {
+    my ($self) = @_;
+
+    my $configuration = eval { $self->configuration( { recreate => 1 } ) };
+    my %borrowernumbers;
+
+    foreach my $pod ( keys %{ $configuration // {} } ) {
+        my $patrons = $configuration->{$pod}->{force_complete_patrons} // next;
+        $patrons = [$patrons] unless ref $patrons eq 'ARRAY';
+        $borrowernumbers{$_} = 1 for grep { defined $_ && /^\d+$/ } @{$patrons};
+    }
+
+    my %info;
+    if (%borrowernumbers) {
+        my $patrons = Koha::Patrons->search( { borrowernumber => [ keys %borrowernumbers ] } );
+        while ( my $patron = $patrons->next ) {
+            $info{ $patron->borrowernumber } = {
+                patron_id  => $patron->borrowernumber,
+                firstname  => $patron->firstname,
+                surname    => $patron->surname,
+                cardnumber => $patron->cardnumber,
+            };
+        }
+    }
+
+    return Mojo::JSON::to_json( \%info );
+}
 
 =head3 configuration
 
@@ -2428,6 +2459,21 @@ sub check_configuration {
                 pod   => $pod,
                 }
                 unless Koha::Patron::Categories->find( $configuration->{$pod}->{partners_category} );
+        }
+
+        # force_complete_patrons: each entry must be an existing borrowernumber
+        if ( defined $configuration->{$pod}->{force_complete_patrons} ) {
+            my $patrons = $configuration->{$pod}->{force_complete_patrons};
+            $patrons = [$patrons] unless ref $patrons eq 'ARRAY';
+            foreach my $borrowernumber ( grep { defined $_ && $_ ne q{} } @{$patrons} ) {
+                push @errors,
+                    {
+                    code  => 'undefined_force_complete_patron',
+                    value => $borrowernumber,
+                    pod   => $pod,
+                    }
+                    unless $borrowernumber =~ /^\d+$/ && Koha::Patrons->find($borrowernumber);
+            }
         }
     }
 

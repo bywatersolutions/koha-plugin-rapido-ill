@@ -67,6 +67,10 @@ dev03-na:
     automatic_final_checkin: false
     automatic_item_shipped: false
     pickup_location_strategy: partners_library
+  # Staff allowed to force complete (borrowernumbers, empty = everyone; superlibrarians always)
+  force_complete_patrons:
+    - 51
+    - 1234
   # Patron validation restrictions
   debt_blocks_holds: true
   max_debt_blocks_holds: 100
@@ -94,6 +98,14 @@ dev03-na:
 central_item_type_mapping:
   200: BK
   208: BK_SHORT
+```
+
+**force_complete_patrons**: Optional list of borrowernumbers of the staff patrons allowed to use the local-only overrides on this pod's requests: *Force complete (local only)* (borrowing and lending, including unshipped lending requests) and *Force Cancel* (offered when cancelling an unshipped borrowing request through Rapido fails). In the configuration GUI (*Workflows* tab) patrons are added with a patron search. When set, only the listed patrons and superlibrarians are offered these actions, and they are blocked for anyone else (submitting them directly gives an error page). Once any pod has a list, requests that have no pod, or whose pod is no longer configured, are limited to superlibrarians, so renaming or removing a pod doesn't lift the restriction. When unset or empty, anyone with access to ILL requests can use it. The configuration page reports any entry that is not an existing borrowernumber. Example:
+
+```yaml
+force_complete_patrons:
+  - 51
+  - 1234
 ```
 
 **debug_after_circ_action**: Enable detailed debug logging for the `after_circ_action` hook, including action types, request lookups, status checks, and task enqueueing. Useful for troubleshooting circulation-triggered ILL workflows. Default: false.

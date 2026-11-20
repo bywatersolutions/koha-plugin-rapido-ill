@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- [#214] New per-pod `force_complete_patrons` setting limiting the *Force complete (local only)* and *Force Cancel* actions to the listed patrons and superlibrarians. Patrons are picked with a patron search in the configuration GUI (*Workflows* tab). Other staff don't see the buttons and are blocked if they submit the action directly. Once any pod has a list, requests whose pod is missing or no longer configured are limited to superlibrarians. Unset everywhere keeps the current behaviour (everyone)
+- [#214] *Force complete (local only)* is now offered on unshipped lending requests (`O_ITEM_REQUESTED`), so they can be closed when cancelling through Rapido fails
+
+### Changed
+- [#214] *Force Cancel* is now offered whenever cancelling an unshipped borrowing request through Rapido fails, not only when Rapido reports it has no request to cancel. The warning says which case it is
+
 ## [3.1.3] - 2026-11-17
 
 ### Fixed

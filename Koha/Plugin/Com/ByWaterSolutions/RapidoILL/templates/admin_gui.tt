@@ -19,6 +19,8 @@
     .rapido-pod .mapping-table { width: auto; }
     .rapido-pod .mapping-table td { vertical-align: middle; }
     #pods .rapido-pod { margin-bottom: 1.5em; }
+    .rapido-pod .force-complete-patron-list { margin-left: 11em; }
+    .rapido-pod .force-complete-patron-list div { margin-top: .25em; }
     #parse_error, #form_errors, #no_pods, #has_comments { display: none; }
 </style>
 
@@ -54,6 +56,8 @@
     <input type="hidden" name="op"     value="cud-save"/>
     [% INCLUDE 'csrf-token.inc' %]
     <textarea name="configuration" id="configuration" hidden>[%- configuration | html -%]</textarea>
+    [%# Details of the patrons already listed in force_complete_patrons, keyed by borrowernumber %]
+    <textarea id="force_complete_patrons_info" hidden disabled>[%- force_complete_patrons | html -%]</textarea>
 
     <div id="no_pods" class="page-section">
         <p>No pods are configured yet. Use <strong>New pod</strong> to add one.</p>
@@ -301,6 +305,19 @@
                             <li>
                                 <label>Automatic item receive:</label>
                                 <input type="checkbox" data-key="borrowing.automatic_item_receive" data-type="bool" data-default="false"/>
+                            </li>
+                        </ol>
+                    </fieldset>
+                    <fieldset class="rows">
+                        <legend>Force complete</legend>
+                        <ol>
+                            <li>
+                                <label>Allowed patrons:</label>
+                                [%# The borrowernumbers live in the hidden field, the search and list below edit it %]
+                                <input type="hidden" class="force-complete-patrons" data-key="force_complete_patrons" data-type="list"/>
+                                <input type="text" size="40" class="force-complete-patron-search" placeholder="Search for a patron"/>
+                                <i data-bs-toggle="tooltip" title="Staff patrons allowed to use 'Force complete (local only)' and 'Force cancel' on this pod's requests. Superlibrarians are always allowed. Leave empty to allow anyone with access to ILL requests." data-bs-placement="right" class="fa fa-info-circle"></i>
+                                <div class="hint force-complete-patron-list"></div>
                             </li>
                         </ol>
                     </fieldset>
@@ -599,6 +616,76 @@
             $(table).find('tbody').append($row);
         }
 
+        // Patron details for the force_complete_patrons lists, keyed by borrowernumber
+        var known_patrons = {};
+        try { known_patrons = JSON.parse( $('#force_complete_patrons_info').val() || '{}' ) || {}; } catch (e) {}
+
+        function get_patron_ids($pod) {
+            return ( $pod.find('.force-complete-patrons').val() || '' ).split(',')
+                .map($.trim).filter(function (v) { return v !== ''; });
+        }
+
+        function set_patron_ids($pod, ids) {
+            $pod.find('.force-complete-patrons').val( ids.join(', ') );
+            render_patron_list($pod);
+        }
+
+        function patron_label(id) {
+            var p = known_patrons[id];
+            if ( !p ) return "Borrowernumber " + id + " (not found)";
+            var name = [ p.surname, p.firstname ].filter(function (v) { return v; }).join(', ');
+            return ( name || "Borrowernumber " + id ) + ( p.cardnumber ? ' (' + p.cardnumber + ')' : '' );
+        }
+
+        function render_patron_list($pod) {
+            var $list = $pod.find('.force-complete-patron-list').empty();
+            var ids   = get_patron_ids($pod);
+            if ( !ids.length ) {
+                $list.text("No patrons listed: anyone with access to ILL requests can force complete.");
+                return;
+            }
+            ids.forEach(function (id) {
+                var $name = known_patrons[id]
+                    ? $('<a target="_blank">').attr( 'href', '/cgi-bin/koha/members/moremember.pl?borrowernumber=' + encodeURIComponent(id) ).text( patron_label(id) )
+                    : $('<span>').text( patron_label(id) );
+                $list.append(
+                    $('<div>').append(
+                        $name, ' ',
+                        $('<button type="button" class="btn btn-link btn-sm remove-force-complete-patron">')
+                            .attr('data-patron-id', id)
+                            .html('<i class="fa fa-trash"></i> ' + "Remove")
+                    )
+                );
+            });
+        }
+
+        function setup_patron_search($pod, prefix) {
+            var $search = $pod.find('.force-complete-patron-search');
+            $search.attr('id', prefix + '_force_complete_patron_search');
+            $search.closest('li').children('label').attr('for', $search.attr('id'));
+
+            // patron_autocomplete comes from staff-global.js. Without it, fall back to typing borrowernumbers.
+            if ( typeof patron_autocomplete !== 'function' ) {
+                $search.remove();
+                $pod.find('.force-complete-patrons').attr({ type: 'text', size: 40, placeholder: "Borrowernumbers, e.g. 51, 1234" });
+                $pod.find('.force-complete-patron-list').remove();
+                return;
+            }
+
+            patron_autocomplete( $search, {
+                'on-select-callback': function (event, ui) {
+                    var id = String(ui.item.patron_id);
+                    known_patrons[id] = ui.item;
+                    var ids = get_patron_ids($pod);
+                    if ( ids.indexOf(id) === -1 ) ids.push(id);
+                    set_patron_ids($pod, ids);
+                    $search.val('').focus();
+                    return false;
+                },
+            });
+            render_patron_list($pod);
+        }
+
         function add_pod(name, data) {
             var prefix = 'pod' + (++pod_counter);
             var html   = $('#pod_template').html().replace(/__P__/g, prefix);
@@ -646,6 +733,7 @@
                 .closest('fieldset').hide();
 
             $('#pods').append($pod);
+            setup_patron_search($pod, prefix);
             if ( window.bootstrap ) {
                 $pod.find('[data-bs-toggle="tooltip"]').each(function () { bootstrap.Tooltip.getOrCreateInstance(this); });
             }
@@ -788,6 +876,17 @@
 
         $('#pods').on('click', '.remove-mapping-row', function () {
             $(this).closest('tr').remove();
+        });
+
+        $('#pods').on('click', '.remove-force-complete-patron', function () {
+            var $pod = $(this).closest('.rapido-pod');
+            var id   = String( $(this).data('patron-id') );
+            set_patron_ids( $pod, get_patron_ids($pod).filter(function (v) { return v !== id; }) );
+        });
+
+        // Don't submit the configuration form when Enter is pressed in a patron search
+        $('#pods').on('keydown', '.force-complete-patron-search', function (e) {
+            if ( e.key === 'Enter' ) e.preventDefault();
         });
 
         $('#pods').on('click', '.toggle-secret', function () {

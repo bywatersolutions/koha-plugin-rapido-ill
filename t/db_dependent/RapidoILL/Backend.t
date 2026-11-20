@@ -19,7 +19,7 @@
 
 use Modern::Perl;
 
-use Test::More tests => 11;
+use Test::More tests => 12;
 use Test::NoWarnings;
 use Test::MockModule;
 use Test::MockObject;
@@ -34,6 +34,7 @@ use t::lib::Mocks::Rapido;
 use Koha::Database;
 
 use C4::Circulation qw( AddIssue );
+use C4::Context;
 
 use Koha::Plugin::Com::ByWaterSolutions::RapidoILL;
 
@@ -898,7 +899,7 @@ subtest 'receive_unshipped() tests' => sub {
 
 subtest 'borrower_cancel() force cancel tests' => sub {
 
-    plan tests => 4;
+    plan tests => 5;
 
     subtest 'Force cancel parameter' => sub {
         plan tests => 3;
@@ -947,7 +948,7 @@ subtest 'borrower_cancel() force cancel tests' => sub {
     };
 
     subtest 'Returns allow_force on 400 error' => sub {
-        plan tests => 3;
+        plan tests => 4;
 
         $schema->storage->txn_begin;
 
@@ -1000,15 +1001,16 @@ subtest 'borrower_cancel() force cancel tests' => sub {
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
         my $result  = $backend->borrower_cancel( { request => $illrequest } );
 
-        is( $result->{stage},                'form', 'Returns form stage' );
-        is( $result->{value}->{allow_force}, 1,      'Returns allow_force flag in value' );
+        is( $result->{stage},                      'form', 'Returns form stage' );
+        is( $result->{value}->{allow_force},       1,      'Returns allow_force flag in value' );
+        is( $result->{value}->{already_cancelled}, 1,      'Flags the request as possibly cancelled on Rapido' );
         like( $result->{message}, qr/may have already been cancelled/, 'Message indicates possible cancellation' );
 
         $schema->storage->txn_rollback;
     };
 
     subtest 'Returns allow_force on 400 error wrapped in ExternalRequestRejected' => sub {
-        plan tests => 3;
+        plan tests => 4;
 
         $schema->storage->txn_begin;
 
@@ -1062,15 +1064,16 @@ subtest 'borrower_cancel() force cancel tests' => sub {
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
         my $result  = $backend->borrower_cancel( { request => $illrequest } );
 
-        is( $result->{stage},                'form', 'Returns form stage' );
-        is( $result->{value}->{allow_force}, 1,      'Returns allow_force flag for wrapped exception' );
+        is( $result->{stage},                      'form', 'Returns form stage' );
+        is( $result->{value}->{allow_force},       1,      'Returns allow_force flag for wrapped exception' );
+        is( $result->{value}->{already_cancelled}, 1,      'Flags the request as possibly cancelled on Rapido' );
         like( $result->{message}, qr/may have already been cancelled/, 'Message indicates possible cancellation' );
 
         $schema->storage->txn_rollback;
     };
 
-    subtest 'No allow_force on other errors' => sub {
-        plan tests => 3;
+    subtest 'allow_force on other errors too' => sub {
+        plan tests => 4;
 
         $schema->storage->txn_begin;
 
@@ -1123,10 +1126,74 @@ subtest 'borrower_cancel() force cancel tests' => sub {
         my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
         my $result  = $backend->borrower_cancel( { request => $illrequest } );
 
-        is( $result->{stage},                'form', 'Returns form stage for other errors too' );
-        is( $result->{value}->{allow_force}, 0,      'Does not return allow_force flag for other errors' );
+        is( $result->{stage},                      'form', 'Returns form stage for other errors too' );
+        is( $result->{value}->{allow_force},       1,      'Force cancel offered for other errors too' );
+        is( $result->{value}->{already_cancelled}, 0,      'Not flagged as possibly cancelled on Rapido' );
         ok( $result->{value}->{error_message}, 'Returns error_message in value' );
 
+        $schema->storage->txn_rollback;
+    };
+
+    subtest 'force_complete_patrons restriction' => sub {
+        plan tests => 7;
+
+        $schema->storage->txn_begin;
+
+        my $plugin      = t::lib::Mocks::Rapido->new();
+        my $allowed     = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $not_allowed = $builder->build_object( { class => 'Koha::Patrons' } );
+        my $illrequest  = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => { status => 'B_ITEM_REQUESTED', backend => 'RapidoILL' }
+            }
+        );
+        $plugin->add_or_update_attributes(
+            {
+                request    => $illrequest,
+                attributes => { circId => 'test_circ_123', pod => 'test-pod' }
+            }
+        );
+        $plugin->configuration->{'test-pod'}->{force_complete_patrons} = [ $allowed->borrowernumber ];
+
+        my $mock_borrower_actions = Test::MockObject->new();
+        $mock_borrower_actions->mock(
+            'borrower_cancel',
+            sub {
+                RapidoILL::Exception::RequestFailed->throw(
+                    method         => 'borrower_cancel',
+                    status_code    => 400,
+                    status_message => 'Bad Request',
+                    response_body  => encode_json( { error => "No circulation request processable request was found" } )
+                );
+            }
+        );
+        my $plugin_module = Test::MockModule->new( ref($plugin) );
+        $plugin_module->mock( 'get_borrower_actions', sub { return $mock_borrower_actions; } );
+
+        my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+        t::lib::Mocks::mock_userenv( { patron => $not_allowed } );
+
+        my $result = $backend->borrower_cancel( { request => $illrequest } );
+        is( $result->{value}->{allow_force},       0, 'Force cancel not offered to unlisted patron' );
+        is( $result->{value}->{already_cancelled}, 1, 'Still flagged as possibly cancelled on Rapido' );
+
+        $result = $backend->borrower_cancel( { request => $illrequest, other => { force_cancel => 1 } } );
+        is( $result->{stage}, 'form', 'Force cancel refused for unlisted patron' );
+        like( $result->{value}->{error_message}, qr/not allowed/, 'Refusal explained' );
+        $illrequest->discard_changes;
+        is( $illrequest->status, 'B_ITEM_REQUESTED', 'Request not cancelled' );
+
+        t::lib::Mocks::mock_userenv( { patron => $allowed } );
+
+        $result = $backend->borrower_cancel( { request => $illrequest } );
+        is( $result->{value}->{allow_force}, 1, 'Force cancel offered to listed patron' );
+
+        $result = $backend->borrower_cancel( { request => $illrequest, other => { force_cancel => 1 } } );
+        is( $result->{stage}, 'commit', 'Listed patron can force cancel' );
+
+        C4::Context->unset_userenv;
         $schema->storage->txn_rollback;
     };
 };
@@ -1554,4 +1621,147 @@ subtest 'force_complete_lender() tests' => sub {
 
         $schema->storage->txn_rollback;
     };
+};
+
+subtest 'can_force_complete() and status_graph() tests' => sub {
+
+    plan tests => 22;
+
+    $schema->storage->txn_begin;
+
+    my $plugin = t::lib::Mocks::Rapido->new();
+
+    my $allowed     = $builder->build_object( { class => 'Koha::Patrons' } );
+    my $not_allowed = $builder->build_object( { class => 'Koha::Patrons' } );
+
+    my $build_request = sub {
+        my ($status) = @_;
+        my $req = $builder->build_object(
+            {
+                class => 'Koha::ILL::Requests',
+                value => { status => $status, backend => 'RapidoILL', biblio_id => undef }
+            }
+        );
+        $builder->build_object(
+            {
+                class => 'Koha::ILL::Request::Attributes',
+                value => { illrequest_id => $req->id, type => 'pod', value => 'test-pod' }
+            }
+        );
+        return $req;
+    };
+
+    my $borrowing_req = $build_request->('B_ITEM_SHIPPED');
+    my $lending_req   = $build_request->('O_ITEM_SHIPPED');
+
+    # No restriction configured
+    my $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+    t::lib::Mocks::mock_userenv( { patron => $not_allowed } );
+
+    ok( $backend->can_force_complete( { request => $borrowing_req } ), 'Anyone allowed when unset' );
+    ok(
+        exists $backend->status_graph( { request => $borrowing_req } )->{B_FORCE_COMPLETE},
+        'B_FORCE_COMPLETE present when unset'
+    );
+    ok(
+        (
+            grep { $_ eq 'O_FORCE_COMPLETE' }
+                @{ $backend->status_graph( { request => $lending_req } )->{O_ITEM_REQUESTED}->{next_actions} }
+        ),
+        'O_FORCE_COMPLETE offered on unshipped lending requests'
+    );
+
+    # Restrict to $allowed
+    $plugin->configuration->{'test-pod'}->{force_complete_patrons} = [ $allowed->borrowernumber ];
+    $backend = RapidoILL::Backend->new( { plugin => $plugin } );
+
+    ok( !$backend->can_force_complete( { request => $borrowing_req } ), 'Unlisted patron not allowed' );
+
+    my $graph = $backend->status_graph( { request => $borrowing_req } );
+    ok( !exists $graph->{B_FORCE_COMPLETE}, 'B_FORCE_COMPLETE removed for unlisted patron' );
+    ok( !exists $graph->{O_FORCE_COMPLETE}, 'O_FORCE_COMPLETE removed for unlisted patron' );
+    ok(
+        !( grep { $_ eq 'B_FORCE_COMPLETE' } @{ $graph->{B_ITEM_SHIPPED}->{next_actions} } ),
+        'B_FORCE_COMPLETE removed from next_actions'
+    );
+    ok(
+        !( grep { $_ eq 'O_FORCE_COMPLETE' } @{ $graph->{O_ITEM_RECALLED}->{next_actions} } ),
+        'O_FORCE_COMPLETE removed from next_actions'
+    );
+    ok(
+        !( grep { $_ eq 'O_FORCE_COMPLETE' } @{ $graph->{O_ITEM_REQUESTED}->{next_actions} } ),
+        'O_FORCE_COMPLETE removed from unshipped lending next_actions'
+    );
+
+    my $result = $backend->force_complete( { request => $borrowing_req, other => { confirmed => 1 } } );
+    is( $result->{error}, 1, 'force_complete refused for unlisted patron' );
+    $borrowing_req->discard_changes;
+    is( $borrowing_req->status, 'B_ITEM_SHIPPED', 'Borrowing request untouched' );
+
+    $result = $backend->force_complete_lender( { request => $lending_req, other => { confirmed => 1 } } );
+    is( $result->{error}, 1, 'force_complete_lender refused for unlisted patron' );
+
+    my $superlibrarian = $builder->build_object( { class => 'Koha::Patrons', value => { flags => 1 } } );
+    t::lib::Mocks::mock_userenv( { patron => $superlibrarian } );
+
+    ok( $backend->can_force_complete( { request => $borrowing_req } ), 'Unlisted superlibrarian allowed' );
+    ok(
+        exists $backend->status_graph( { request => $borrowing_req } )->{B_FORCE_COMPLETE},
+        'B_FORCE_COMPLETE present for unlisted superlibrarian'
+    );
+
+    t::lib::Mocks::mock_userenv( { patron => $allowed } );
+
+    ok( $backend->can_force_complete( { request => $lending_req } ), 'Listed patron allowed' );
+    ok(
+        exists $backend->status_graph( { request => $lending_req } )->{O_FORCE_COMPLETE},
+        'O_FORCE_COMPLETE present for listed patron'
+    );
+
+    # Requests whose pod is missing or not configured: superlibrarians only
+    my $unknown_pod_req = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => { status => 'B_ITEM_SHIPPED', backend => 'RapidoILL', biblio_id => undef }
+        }
+    );
+    $builder->build_object(
+        {
+            class => 'Koha::ILL::Request::Attributes',
+            value => { illrequest_id => $unknown_pod_req->id, type => 'pod', value => 'removed-pod' }
+        }
+    );
+    my $no_pod_req = $builder->build_object(
+        {
+            class => 'Koha::ILL::Requests',
+            value => { status => 'B_ITEM_SHIPPED', backend => 'RapidoILL', biblio_id => undef }
+        }
+    );
+
+    ok( !$backend->can_force_complete( { request => $unknown_pod_req } ), 'Listed patron denied on unconfigured pod' );
+    ok( !$backend->can_force_complete( { request => $no_pod_req } ), 'Listed patron denied on request without pod' );
+
+    t::lib::Mocks::mock_userenv( { patron => $superlibrarian } );
+    ok( $backend->can_force_complete( { request => $unknown_pod_req } ), 'Superlibrarian allowed on unconfigured pod' );
+    ok( $backend->can_force_complete( { request => $no_pod_req } ), 'Superlibrarian allowed on request without pod' );
+
+    # A configured pod without a list doesn't restrict
+    $plugin->configuration->{'other-pod'} = {};
+    $builder->build_object(
+        {
+            class => 'Koha::ILL::Request::Attributes',
+            value => { illrequest_id => $no_pod_req->id, type => 'pod', value => 'other-pod' }
+        }
+    );
+    t::lib::Mocks::mock_userenv( { patron => $not_allowed } );
+    ok(
+        $backend->can_force_complete( { request => $no_pod_req } ),
+        'Anyone allowed on a configured pod without a list'
+    );
+
+    # Class method call (no request) returns the full graph
+    ok( exists RapidoILL::Backend->status_graph()->{B_FORCE_COMPLETE}, 'Full graph without request' );
+
+    C4::Context->unset_userenv;
+    $schema->storage->txn_rollback;
 };
