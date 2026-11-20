@@ -25,6 +25,7 @@ use Try::Tiny qw(catch try);
 use Koha::Database;
 
 use C4::Biblio   qw(DelBiblio);
+use C4::Context;
 use C4::Reserves qw(AddReserve);
 
 use Koha::Biblios;
@@ -151,11 +152,107 @@ sub metadata {
 
 =head3 status_graph
 
-This backend provides no additional actions on top of the core_status_graph.
+    my $graph = $backend->status_graph( { request => $request } );
+
+Returns the backend's status graph. When called on an instance for a
+I<request>, the force complete actions are removed if the logged-in user
+is not allowed to use them (see L</can_force_complete>).
 
 =cut
 
 sub status_graph {
+    my ( $self, $params ) = @_;
+
+    my $graph = _full_status_graph();
+
+    my $request = ( ref $params eq 'HASH' ) ? $params->{request} : undef;
+
+    if ( blessed($self) && $request && !$self->can_force_complete( { request => $request } ) ) {
+        my %force_complete = map { $_ => 1 } qw(B_FORCE_COMPLETE O_FORCE_COMPLETE);
+        delete @{$graph}{ keys %force_complete };
+        foreach my $status ( values %{$graph} ) {
+            $status->{next_actions} = [ grep { !$force_complete{$_} } @{ $status->{next_actions} } ];
+        }
+    }
+
+    return $graph;
+}
+
+=head3 can_force_complete
+
+    if ( $backend->can_force_complete( { request => $request } ) ) { ... }
+
+Returns true if the logged-in user is allowed to use the local-only
+overrides (force complete, force cancel) on I<request>.
+
+=over 4
+
+=item * If no pod defines a non-empty I<force_complete_patrons> list, everyone
+with access to the ILL module is allowed.
+
+=item * Otherwise, if the request's pod is configured but has no list,
+everyone is allowed.
+
+=item * If the request's pod has a list, only the listed borrowernumbers and
+superlibrarians are allowed.
+
+=item * If the request has no pod, or its pod is not configured, only
+superlibrarians are allowed, so a renamed or removed pod doesn't lift the
+restriction.
+
+=back
+
+=cut
+
+sub can_force_complete {
+    my ( $self, $params ) = @_;
+
+    my $configuration = $self->{configuration} // {};
+
+    # Nothing is restricted: skip looking up the request's pod
+    return 1
+        unless grep { ref $_ eq 'HASH' && _force_complete_patrons_list( $_->{force_complete_patrons} ) }
+        values %{$configuration};
+
+    my $request    = $params->{request};
+    my $pod        = $request     ? $self->{plugin}->get_req_pod($request)                                : undef;
+    my $pod_config = defined $pod ? $configuration->{$pod}                                                : undef;
+    my @allowed    = $pod_config  ? _force_complete_patrons_list( $pod_config->{force_complete_patrons} ) : ();
+
+    # This pod doesn't restrict them
+    return 1 if $pod_config && !@allowed;
+
+    my $userenv        = C4::Context->userenv;
+    my $borrowernumber = $userenv ? $userenv->{number} : undef;
+
+    return 0 unless $borrowernumber;
+
+    # Superlibrarians are always allowed. C4::Context->IsSuperLibrarian is not
+    # used as it returns true when there's no userenv.
+    return 1 if ( $userenv->{flags} // 0 ) % 2;
+
+    return ( grep { $_ eq $borrowernumber } @allowed ) ? 1 : 0;
+}
+
+=head3 _force_complete_patrons_list
+
+    my @borrowernumbers = _force_complete_patrons_list( $value );
+
+Returns the non-empty entries of a I<force_complete_patrons> configuration
+value, which may be a list or a single value.
+
+=cut
+
+sub _force_complete_patrons_list {
+    my ($value) = @_;
+
+    return ()         unless defined $value;
+    $value = [$value] unless ref $value eq 'ARRAY';
+
+    return grep { defined $_ && $_ ne q{} } @{$value};
+}
+
+sub _full_status_graph {
     return {
 
         # status graph for owning site
@@ -165,7 +262,7 @@ sub status_graph {
             name           => 'Item Requested',
             ui_method_name => 'Item Requested',
             method         => q{},
-            next_actions   => [ 'O_ITEM_SHIPPED', 'O_ITEM_CANCELLED_BY_US' ],
+            next_actions   => [ 'O_ITEM_SHIPPED', 'O_ITEM_CANCELLED_BY_US', 'O_FORCE_COMPLETE' ],
             ui_method_icon => q{},
         },
         O_LOCAL_HOLD => {
@@ -397,7 +494,7 @@ sub status_graph {
             ui_method_icon => 'fa-exclamation-triangle',
         },
         O_FORCE_COMPLETE => {
-            prev_actions   => [ 'O_ITEM_SHIPPED', 'O_ITEM_RECALLED' ],
+            prev_actions   => [ 'O_ITEM_REQUESTED', 'O_ITEM_SHIPPED', 'O_ITEM_RECALLED' ],
             id             => 'O_FORCE_COMPLETE',
             name           => 'Force complete (local only)',
             ui_method_name => 'Force complete (local only)',
@@ -822,6 +919,17 @@ sub force_complete {
     my $request = $params->{request};
     my $other   = $params->{other};
 
+    unless ( $self->can_force_complete( { request => $request } ) ) {
+        return {
+            error   => 1,
+            status  => 'error',
+            message => 'You are not allowed to force complete this request.',
+            method  => 'force_complete',
+            stage   => 'commit',
+            value   => q{},
+        };
+    }
+
     # Require confirmation
     if ( !$other->{confirmed} ) {
         return {
@@ -892,6 +1000,17 @@ sub force_complete_lender {
 
     my $request = $params->{request};
     my $other   = $params->{other};
+
+    unless ( $self->can_force_complete( { request => $request } ) ) {
+        return {
+            error   => 1,
+            status  => 'error',
+            message => 'You are not allowed to force complete this request.',
+            method  => 'force_complete_lender',
+            stage   => 'commit',
+            value   => q{},
+        };
+    }
 
     # Require confirmation
     if ( !$other->{confirmed} ) {
@@ -971,6 +1090,18 @@ sub borrower_cancel {
 
     # Handle force cancel (local only, skip Rapido API)
     if ( $params->{other}->{force_cancel} ) {
+        unless ( $self->can_force_complete( { request => $req } ) ) {
+            my $message = 'You are not allowed to force cancel this request.';
+            return {
+                status   => '',
+                stage    => 'form',
+                method   => 'borrower_cancel',
+                template => 'borrower_cancel',
+                message  => $message,
+                value    => { error_message => $message },
+            };
+        }
+
         return try {
             $req->status('B_ITEM_CANCELLED_BY_US')->store;
             $self->{plugin}->logger->info( "[borrower_cancel] Force cancelled locally [ill_req=" . $req->id . "]" );
@@ -1007,9 +1138,9 @@ sub borrower_cancel {
         # HTTP client already logged detailed HTTP info with [context: borrower_cancel]
         $self->{plugin}->logger->warn("[borrower_cancel] Operation failed");
 
-        my $message     = "Borrower cancellation failed";
-        my $allow_force = 0;
-        my $exception   = $_;
+        my $message           = "Borrower cancellation failed";
+        my $already_cancelled = 0;
+        my $exception         = $_;
 
         # BorrowerActions wraps RequestFailed in ExternalRequestRejected (4xx)
         # or ExternalRequestFailed (5xx); unwrap so the checks below see it
@@ -1032,7 +1163,7 @@ sub borrower_cancel {
                 if ( $exception =~ /response_body => (.+?), status/ ) {
                     my $response_body = $1;
                     if ( $status_code == 400 && $response_body =~ /No circulation request processable/i ) {
-                        $allow_force = 1;
+                        $already_cancelled = 1;
                         $message =
                             "Borrower cancellation failed: HTTP $status_code. The request may have already been cancelled on Rapido's side.";
                     } else {
@@ -1048,14 +1179,15 @@ sub borrower_cancel {
 
             if ( $exception->status_code == 400 && $exception->response_body =~ /No circulation request processable/i )
             {
-                $allow_force = 1;
+                $already_cancelled = 1;
                 $message .= ". The request may have already been cancelled on Rapido's side.";
             }
         } else {
             $message = "Borrower cancellation failed: $exception";
         }
 
-        # Return form stage for all errors (no error => 1)
+        # Return form stage for all errors (no error => 1). Force cancelling
+        # is offered for any failure, to the staff allowed to use it.
         return {
             status   => '',
             stage    => 'form',
@@ -1063,8 +1195,9 @@ sub borrower_cancel {
             template => 'borrower_cancel',
             message  => $message,
             value    => {
-                allow_force   => $allow_force,
-                error_message => $message,
+                allow_force       => $self->can_force_complete( { request => $req } ),
+                already_cancelled => $already_cancelled,
+                error_message     => $message,
             },
         };
     };
