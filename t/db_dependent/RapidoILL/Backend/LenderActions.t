@@ -52,6 +52,8 @@ subtest 'new() tests' => sub {
 
     plan tests => 3;
 
+    $schema->storage->txn_begin;
+
     # Test successful construction
     my $library  = $builder->build_object( { class => 'Koha::Libraries' } );
     my $category = $builder->build_object( { class => 'Koha::Patron::Categories' } );
@@ -70,6 +72,8 @@ subtest 'new() tests' => sub {
     isa_ok( $actions, 'RapidoILL::Backend::LenderActions' );
     is( $actions->{pod},    $pod,    'Pod stored correctly' );
     is( $actions->{plugin}, $plugin, 'Plugin stored correctly' );
+
+    $schema->storage->txn_rollback;
 };
 
 subtest 'cancel_request() tests' => sub {
